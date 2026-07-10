@@ -69,7 +69,7 @@
 
 | # | 状態 | 章 | 成果物 |
 | --- | --- | --- | --- |
-| 23 | ⬜ | sampling | temperature、top-k、top-p、seed |
+| 23 | ✅ | sampling | temperature、top-k、top-p、seed |
 | 24 | ⬜ | KV cache | cache あり/なしの同値性と速度比較 |
 | 25 | ⬜ | model format | safetensors 風の安全な形式と loader |
 | 26 | ⬜ | 量子化 | symmetric int8 と誤差測定 |
