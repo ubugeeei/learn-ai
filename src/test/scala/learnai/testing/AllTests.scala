@@ -14,6 +14,8 @@ import learnai.optim.OptimizersSuite
 import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
 import learnai.data.CausalDatasetSuite
+import learnai.diagnostics.BenchmarkSuite
+import learnai.diagnostics.GradientCheckSuite
 import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
@@ -32,6 +34,8 @@ object AllTests:
   private val suites: Vector[TestSuite] = Vector(
     DocumentationLanguageSuite,
     DocumentationStructureSuite,
+    BenchmarkSuite,
+    GradientCheckSuite,
     ScalaTourSuite,
     NumericsSuite,
     VectorDSuite,
