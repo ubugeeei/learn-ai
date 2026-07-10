@@ -166,6 +166,132 @@ final class Tensor private (
         inputRow += 1
     output
 
+  /** Selects rows from a rank-2 table: `[rows, columns] -> [N, columns]`.
+    *
+    * Repeated indices are allowed. During backward their gradient
+    * contributions are accumulated into the same source row. This operation
+    * is the basis of embedding lookup.
+    */
+  def gatherRows(rowIndices: Vector[Int]): Tensor =
+    require(rank == 2, s"gatherRows requires rank 2, got shape $shape")
+    val sourceRows = shape(0)
+    val columns = shape(1)
+    rowIndices.zipWithIndex.foreach { case (row, outputRow) =>
+      require(
+        row >= 0 && row < sourceRows,
+        s"row index $row at output row $outputRow outside [0, $sourceRows)"
+      )
+    }
+    val outputData = new Array[Double](Math.multiplyExact(rowIndices.size, columns))
+    var outputRow = 0
+    while outputRow < rowIndices.size do
+      val sourceOffset = rowIndices(outputRow) * columns
+      val outputOffset = outputRow * columns
+      System.arraycopy(currentData, sourceOffset, outputData, outputOffset, columns)
+      outputRow += 1
+
+    val output = Tensor.operation(
+      Shape(rowIndices.size, columns),
+      outputData,
+      "gatherRows",
+      Vector(this)
+    )
+    output.backwardRule = () =>
+      var selectedRow = 0
+      while selectedRow < rowIndices.size do
+        val sourceOffset = rowIndices(selectedRow) * columns
+        val outputOffset = selectedRow * columns
+        var column = 0
+        while column < columns do
+          accumulateGradient(
+            sourceOffset + column,
+            output.currentGradient(outputOffset + column)
+          )
+          column += 1
+        selectedRow += 1
+    output
+
+  /** Mean cross entropy over rank-2 logits `[examples, classes]`.
+    *
+    * The forward pass uses log-sum-exp stabilization. The backward pass uses
+    * the exact derivative `(softmax - oneHot) / examples`, avoiding a separate
+    * one-hot Tensor and softmax graph.
+    */
+  def crossEntropy(targetIndices: Vector[Int]): Tensor =
+    require(rank == 2, s"crossEntropy requires rank 2 logits, got shape $shape")
+    val examples = shape(0)
+    val classes = shape(1)
+    require(examples > 0, "crossEntropy requires at least one example")
+    require(classes > 0, "crossEntropy requires at least one class")
+    require(
+      targetIndices.size == examples,
+      s"target count ${targetIndices.size} does not match example count $examples"
+    )
+    targetIndices.zipWithIndex.foreach { case (target, example) =>
+      require(
+        target >= 0 && target < classes,
+        s"target $target for example $example outside [0, $classes)"
+      )
+    }
+
+    val probabilities = new Array[Double](size)
+    var totalLoss = 0.0
+    var example = 0
+    while example < examples do
+      val rowOffset = example * classes
+      var maximum = currentData(rowOffset)
+      var column = 1
+      while column < classes do
+        maximum = math.max(maximum, currentData(rowOffset + column))
+        column += 1
+
+      var exponentialSum = 0.0
+      column = 0
+      while column < classes do
+        val exponential = math.exp(currentData(rowOffset + column) - maximum)
+        probabilities(rowOffset + column) = exponential
+        exponentialSum += exponential
+        column += 1
+
+      column = 0
+      while column < classes do
+        probabilities(rowOffset + column) /= exponentialSum
+        column += 1
+      val target = targetIndices(example)
+      totalLoss += maximum + math.log(exponentialSum) - currentData(rowOffset + target)
+      example += 1
+
+    val output = Tensor.operation(
+      Shape.scalar,
+      Array(totalLoss / examples.toDouble),
+      "crossEntropy",
+      Vector(this)
+    )
+    output.backwardRule = () =>
+      val upstreamScale = output.currentGradient(0) / examples.toDouble
+      var exampleIndex = 0
+      while exampleIndex < examples do
+        val rowOffset = exampleIndex * classes
+        var classIndex = 0
+        while classIndex < classes do
+          val targetAdjustment =
+            if classIndex == targetIndices(exampleIndex) then 1.0 else 0.0
+          accumulateGradient(
+            rowOffset + classIndex,
+            (probabilities(rowOffset + classIndex) - targetAdjustment) * upstreamScale
+          )
+          classIndex += 1
+        exampleIndex += 1
+    output
+
+  /** Returns a defensive copy of one row from a rank-2 Tensor. */
+  def rowValues(row: Int): Vector[Double] =
+    require(rank == 2, s"rowValues requires rank 2, got shape $shape")
+    val rows = shape(0)
+    val columns = shape(1)
+    require(row >= 0 && row < rows, s"row $row outside [0, $rows)")
+    currentData.slice(row * columns, (row + 1) * columns).toVector
+
   /** Rank-2 matrix multiplication: [m,k] x [k,n] -> [m,n]. */
   def matmul(other: Tensor): Tensor =
     require(rank == 2 && other.rank == 2, s"matmul requires rank 2: $shape x ${other.shape}")

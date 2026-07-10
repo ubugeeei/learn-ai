@@ -14,6 +14,7 @@ import learnai.optim.OptimizersSuite
 import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
 import learnai.data.CausalDatasetSuite
+import learnai.lm.BigramLanguageModelSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -30,7 +31,8 @@ object AllTests:
     OptimizersSuite,
     Utf8Suite,
     BpeTokenizerSuite,
-    CausalDatasetSuite
+    CausalDatasetSuite,
+    BigramLanguageModelSuite
   )
 
   def main(arguments: Array[String]): Unit =

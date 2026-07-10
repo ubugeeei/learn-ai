@@ -59,6 +59,43 @@ object TensorSuite extends TestSuite:
       }
       Assert.isTrue(error.getMessage.contains("requires equal shapes"))
     },
+    test("gatherRows backward accumulates repeated row selections") {
+      val table = Tensor.parameter(
+        Shape(3, 2),
+        Vector(1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
+        "table"
+      )
+      val selected = table.gatherRows(Vector(2, 0, 2))
+      Assert.equal(selected.values, Vector(5.0, 6.0, 1.0, 2.0, 5.0, 6.0))
+      selected.sum.backward()
+      Assert.equal(table.gradients, Vector(1.0, 1.0, 0.0, 0.0, 2.0, 2.0))
+    },
+    test("cross entropy is stable and each row gradient sums to zero") {
+      val logits = Tensor.parameter(
+        Shape(2, 3),
+        Vector(10000.0, 10001.0, 9999.0, -4.0, 2.0, 1.0),
+        "logits"
+      )
+      val loss = logits.crossEntropy(Vector(1, 2))
+      Assert.isTrue(loss.valueAtFlat(0).isFinite)
+      loss.backward()
+      Assert.close(logits.gradients.take(3).sum, 0.0)
+      Assert.close(logits.gradients.drop(3).sum, 0.0)
+    },
+    test("cross entropy gradient agrees with a finite difference") {
+      val raw = Vector(0.2, -0.3, 1.1)
+      val logits = Tensor.parameter(Shape(1, 3), raw, "logits")
+      val loss = logits.crossEntropy(Vector(2))
+      loss.backward()
+
+      val step = 1e-5
+      def rawLoss(first: Double): Double =
+        val values = Vector(first, raw(1), raw(2))
+        val maximum = values.max
+        maximum + math.log(values.map(value => math.exp(value - maximum)).sum) - raw(2)
+      val numeric = (rawLoss(raw.head + step) - rawLoss(raw.head - step)) / (2.0 * step)
+      Assert.close(logits.gradientAt(0, 0), numeric, tolerance = 1e-8)
+    },
     test("backward requires a scalar output") {
       val tensor = Tensor.fill(Shape(2), 1.0)
       val error = Assert.throws[IllegalArgumentException](tensor.backward())
