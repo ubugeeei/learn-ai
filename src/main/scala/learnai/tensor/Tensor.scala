@@ -292,6 +292,102 @@ final class Tensor private (
     require(row >= 0 && row < rows, s"row $row outside [0, $rows)")
     currentData.slice(row * columns, (row + 1) * columns).toVector
 
+  /** Adds a rank-1 vector to every row of a rank-2 Tensor.
+    *
+    * Forward shape: `[rows, columns] + [columns] -> [rows, columns]`.
+    * The row-vector gradient is reduced by summing over all rows.
+    */
+  def addRowVector(rowVector: Tensor): Tensor =
+    require(rank == 2, s"addRowVector requires rank-2 input, got $shape")
+    require(rowVector.rank == 1, s"addRowVector requires rank-1 vector, got ${rowVector.shape}")
+    val rows = shape(0)
+    val columns = shape(1)
+    require(
+      rowVector.shape(0) == columns,
+      s"row vector shape ${rowVector.shape} does not match columns $columns"
+    )
+    val outputData = Array.tabulate(size) { index =>
+      currentData(index) + rowVector.currentData(index % columns)
+    }
+    val output = Tensor.operation(shape, outputData, "addRowVector", Vector(this, rowVector))
+    output.backwardRule = () =>
+      var row = 0
+      while row < rows do
+        var column = 0
+        while column < columns do
+          val index = row * columns + column
+          val upstream = output.currentGradient(index)
+          accumulateGradient(index, upstream)
+          rowVector.accumulateGradient(column, upstream)
+          column += 1
+        row += 1
+    output
+
+  /** Applies RMS normalization independently to every row and a learned scale.
+    *
+    * Forward shapes: input `[rows, channels]`, scale `[channels]`, output
+    * `[rows, channels]`. No mean subtraction is performed.
+    */
+  def rmsNormRows(scale: Tensor, epsilon: Double): Tensor =
+    require(rank == 2, s"rmsNormRows requires rank-2 input, got $shape")
+    require(scale.rank == 1, s"RMS scale must have rank 1, got ${scale.shape}")
+    require(epsilon > 0.0 && epsilon.isFinite, s"epsilon must be finite and positive: $epsilon")
+    val rows = shape(0)
+    val channels = shape(1)
+    require(
+      scale.shape(0) == channels,
+      s"RMS scale shape ${scale.shape} does not match $channels channels"
+    )
+
+    val inverseRms = new Array[Double](rows)
+    val outputData = new Array[Double](size)
+    var row = 0
+    while row < rows do
+      val rowOffset = row * channels
+      var sumSquares = 0.0
+      var channel = 0
+      while channel < channels do
+        val value = currentData(rowOffset + channel)
+        sumSquares += value * value
+        channel += 1
+      inverseRms(row) = 1.0 / math.sqrt(sumSquares / channels.toDouble + epsilon)
+      channel = 0
+      while channel < channels do
+        outputData(rowOffset + channel) =
+          currentData(rowOffset + channel) * inverseRms(row) * scale.currentData(channel)
+        channel += 1
+      row += 1
+
+    val output = Tensor.operation(shape, outputData, "rmsNormRows", Vector(this, scale))
+    output.backwardRule = () =>
+      var rowIndex = 0
+      while rowIndex < rows do
+        val rowOffset = rowIndex * channels
+        val inverse = inverseRms(rowIndex)
+        var inputGradientDotInput = 0.0
+        var channelIndex = 0
+        while channelIndex < channels do
+          val index = rowOffset + channelIndex
+          val gradientBeforeNorm =
+            output.currentGradient(index) * scale.currentData(channelIndex)
+          inputGradientDotInput += gradientBeforeNorm * currentData(index)
+          channelIndex += 1
+
+        channelIndex = 0
+        while channelIndex < channels do
+          val index = rowOffset + channelIndex
+          val upstream = output.currentGradient(index)
+          val input = currentData(index)
+          val gradientBeforeNorm = upstream * scale.currentData(channelIndex)
+          val inputGradient =
+            gradientBeforeNorm * inverse -
+              input * inputGradientDotInput * math.pow(inverse, 3.0) / channels.toDouble
+          accumulateGradient(index, inputGradient)
+          scale.accumulateGradient(channelIndex, upstream * input * inverse)
+          channelIndex += 1
+        rowIndex += 1
+    output
+
   /** Rank-2 matrix multiplication: [m,k] x [k,n] -> [m,n]. */
   def matmul(other: Tensor): Tensor =
     require(rank == 2 && other.rank == 2, s"matmul requires rank 2: $shape x ${other.shape}")

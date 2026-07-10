@@ -57,7 +57,7 @@
 
 | # | 状態 | 章 | 成果物 |
 | --- | --- | --- | --- |
-| 18 | ⬜ | embedding と位置 | token/position embedding |
+| 18 | ✅ | embedding と位置 | token/position embedding |
 | 19 | ⬜ | Attention | causal self-attention |
 | 20 | ⬜ | Transformer block | RMSNorm、residual、MLP |
 | 21 | ⬜ | MiniGPT | 学習、checkpoint、生成 CLI |

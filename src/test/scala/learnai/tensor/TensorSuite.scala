@@ -96,6 +96,15 @@ object TensorSuite extends TestSuite:
       val numeric = (rawLoss(raw.head + step) - rawLoss(raw.head - step)) / (2.0 * step)
       Assert.close(logits.gradientAt(0, 0), numeric, tolerance = 1e-8)
     },
+    test("addRowVector reduces row gradients back into the vector") {
+      val input = Tensor.parameter(Shape(2, 3), Vector.fill(6)(0.0), "input")
+      val row = Tensor.parameter(Shape(3), Vector(1.0, 2.0, 3.0), "row")
+      val output = input.addRowVector(row)
+      Assert.equal(output.values, Vector(1.0, 2.0, 3.0, 1.0, 2.0, 3.0))
+      output.sum.backward()
+      Assert.equal(input.gradients, Vector.fill(6)(1.0))
+      Assert.equal(row.gradients, Vector(2.0, 2.0, 2.0))
+    },
     test("backward requires a scalar output") {
       val tensor = Tensor.fill(Shape(2), 1.0)
       val error = Assert.throws[IllegalArgumentException](tensor.backward())

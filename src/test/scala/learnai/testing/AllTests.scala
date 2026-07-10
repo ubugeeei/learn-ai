@@ -15,6 +15,7 @@ import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
 import learnai.data.CausalDatasetSuite
 import learnai.lm.BigramLanguageModelSuite
+import learnai.transformer.LayersSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -32,7 +33,8 @@ object AllTests:
     Utf8Suite,
     BpeTokenizerSuite,
     CausalDatasetSuite,
-    BigramLanguageModelSuite
+    BigramLanguageModelSuite,
+    LayersSuite
   )
 
   def main(arguments: Array[String]): Unit =
