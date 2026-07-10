@@ -5,6 +5,7 @@ import learnai.math.NumericsSuite
 import learnai.math.VectorDSuite
 import learnai.math.MatrixDSuite
 import learnai.math.ProbabilitySuite
+import learnai.math.CalculusSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -12,7 +13,8 @@ object AllTests:
     NumericsSuite,
     VectorDSuite,
     MatrixDSuite,
-    ProbabilitySuite
+    ProbabilitySuite,
+    CalculusSuite
   )
 
   def main(arguments: Array[String]): Unit =
