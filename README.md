@@ -32,11 +32,12 @@ After completing the curriculum, you should be able to:
 ## Start here
 
 1. Read [How to learn](docs/00-guide/00-how-to-learn.md).
-2. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
-3. Run the verification command in every completed chapter.
-4. Solve exercises before reading or implementing an answer.
-5. Explain each part's deliverable in your own words.
-6. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
+2. Read the [complete chapter anatomy](docs/00-guide/04-chapter-anatomy.md).
+3. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
+4. Run the verification command in every completed chapter.
+5. Solve exercises before reading or implementing an answer.
+6. Explain each part's deliverable in your own words.
+7. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
    after each implementation milestone.
 
 The code is cumulative rather than disposable. Each chapter adds a tested

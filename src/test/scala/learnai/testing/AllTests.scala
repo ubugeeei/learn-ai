@@ -31,6 +31,7 @@ import learnai.retrieval.RetrievalSuite
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
     DocumentationLanguageSuite,
+    DocumentationStructureSuite,
     ScalaTourSuite,
     NumericsSuite,
     VectorDSuite,

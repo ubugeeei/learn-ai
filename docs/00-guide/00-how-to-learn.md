@@ -76,3 +76,21 @@ substantially. Progress is defined by being able to answer:
 
 Small inputs reveal broken invariants more reliably than guessing from a large
 model run.
+
+## How to read the expanded implementation chapters
+
+The detailed chapter contract is defined in
+[Anatomy of a complete implementation chapter](04-chapter-anatomy.md). Do not
+begin by reading the finished source top to bottom. Use this order:
+
+1. work through the concrete numbers without code;
+2. annotate every symbol with its Scala name and shape;
+3. predict public preconditions and failure behavior;
+4. trace the implementation in execution order;
+5. predict each test's failure before running it;
+6. run the focused suite and intentionally break one invariant;
+7. restore the implementation and explain the observed failure.
+
+This turns code reading into an experiment. It also makes it obvious when a
+chapter is still too thin: if the prose cannot guide the trace and predict the
+tests, the documentation is incomplete.

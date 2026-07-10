@@ -31,6 +31,28 @@ relevant items:
 Implementation comments should explain why a numerical, security, or indexing
 choice exists. Avoid comments that merely translate a line of code into prose.
 
+## Hands-on chapter depth
+
+Implemented chapters follow
+`docs/00-guide/04-chapter-anatomy.md`. A conceptual overview alone is not
+complete documentation. Keep the following with the code change:
+
+- a hand-computable worked example;
+- an equation/type/shape map;
+- a source-file and execution-path walkthrough;
+- explicit invariants, ownership, mutation, and error behavior;
+- test-oracle explanations and a debugging checklist;
+- a runnable command with interpretation of its output;
+- limitations, production differences, and the next dependency.
+
+Prefer precise explanation of the actual Scala code over broad background
+prose. A learner should be able to reconstruct the implementation from the
+chapter without reverse-engineering unexplained loops.
+
+`DocumentationStructureSuite` enforces the common walkthrough, reading, and
+debugging sections for implemented chapter directories. It is a regression
+floor, not a substitute for reviewing the technical explanation.
+
 ## Tests
 
 No external test library is used in the main learning path. Register every new
