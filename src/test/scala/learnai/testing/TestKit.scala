@@ -1,5 +1,7 @@
 package learnai.testing
 
+import scala.reflect.ClassTag
+
 final case class TestCase(name: String, run: () => Unit)
 
 trait TestSuite:
@@ -38,6 +40,20 @@ object Assert:
     result match
       case Right(value) => value
       case Left(value)  => fail(s"expected Right but got Left($value)")
+
+  def throws[E <: Throwable: ClassTag](body: => Any): E =
+    val expectedClass = summon[ClassTag[E]].runtimeClass
+    try
+      body
+      fail(s"expected ${expectedClass.getSimpleName} to be thrown")
+    catch
+      case error: Throwable if expectedClass.isInstance(error) =>
+        error.asInstanceOf[E]
+      case error: Throwable =>
+        fail(
+          s"expected ${expectedClass.getSimpleName} but got " +
+            s"${error.getClass.getSimpleName}: ${error.getMessage}"
+        )
 
   private def fail(message: String): Nothing =
     throw new AssertionError(message)

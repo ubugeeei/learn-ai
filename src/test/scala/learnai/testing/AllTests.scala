@@ -2,11 +2,13 @@ package learnai.testing
 
 import learnai.foundations.ScalaTourSuite
 import learnai.math.NumericsSuite
+import learnai.math.VectorDSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
     ScalaTourSuite,
-    NumericsSuite
+    NumericsSuite,
+    VectorDSuite
   )
 
   def main(arguments: Array[String]): Unit =
