@@ -24,6 +24,7 @@ import learnai.io.MiniGptCheckpointSuite
 import learnai.quantization.Int8QuantizationSuite
 import learnai.json.JsonSuite
 import learnai.agent.AgentRuntimeSuite
+import learnai.agent.PlanningSuite
 import learnai.retrieval.RetrievalSuite
 
 object AllTests:
@@ -53,6 +54,7 @@ object AllTests:
     Int8QuantizationSuite,
     JsonSuite,
     AgentRuntimeSuite,
+    PlanningSuite,
     RetrievalSuite
   )
 

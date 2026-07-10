@@ -11,7 +11,8 @@ Nix / Scala 3 / dependency-free tests
   -> embeddings / RMSNorm / causal attention / Transformer
   -> MiniGPT training and generation
   -> sampling / KV-cached decoding / checkpoint / int8 quantization
-  -> strict JSON / typed tools / approval and retry policy / bounded agent / cited retrieval
+  -> strict JSON / typed tools / approval and retry policy / bounded agent
+  -> cited retrieval / task-graph planning and checkpoint recovery
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
@@ -32,7 +33,7 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 4. data deduplication, mixture, and contamination checks;
 5. small-scale SFT, reward modeling, and DPO;
 6. model/safety evaluation harness and model card;
-7. agent task graph, durable state, and recovery;
+7. durable plan and tool-call state;
 8. trajectory/cost/safety eval and capstone.
 
 A chapter is not marked complete for prose alone. It requires a reference

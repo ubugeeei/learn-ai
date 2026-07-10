@@ -57,7 +57,8 @@ The runnable path currently reaches:
 ```text
 math -> autodiff -> neural networks -> tokenization -> language modeling
   -> causal Transformer -> MiniGPT -> KV-cached decoding -> inference artifacts
-  -> typed tools -> approval and retry policy -> bounded agent runtime -> cited retrieval
+  -> typed tools -> approval and retry policy -> bounded agent runtime
+  -> cited retrieval -> task-graph planning and recovery
 ```
 
 Useful entrypoints:

@@ -100,7 +100,7 @@ about quality, compute, data, and operational tradeoffs.
 | 34 | ✅ | Tool calling | Schema, validation, execution, observation |
 | 35 | ✅ | Agent loop | Reproducible loop with hard stop conditions |
 | 36 | ✅ | Memory and retrieval | Chunks, embeddings, vector search, citations |
-| 37 | ⬜ | Planning | State machine, task graph, recovery |
+| 37 | ✅ | Planning | State machine, task graph, recovery |
 | 38 | ✅ | Reliability | Timeout, retry, idempotency, permissions |
 | 39 | ⬜ | Evaluation | Trajectory, fake model, quality/cost metrics |
 
