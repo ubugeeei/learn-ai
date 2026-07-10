@@ -8,8 +8,8 @@ object BpeTokenizerSuite extends TestSuite:
   override val name: String = "BpeTokenizer"
 
   override val tests: Vector[TestCase] = Vector(
-    test("trained BPE round-trips multilingual text") {
-      val corpus = Vector("banana bandana", "言語モデルと言語", "Scala 🚀 Scala 🚀")
+    test("trained BPE round-trips Unicode text") {
+      val corpus = Vector("banana bandana", "café résumé", "Scala 🚀 Scala 🚀")
       val tokenizer = BpeTrainer.train(corpus, targetVocabularySize = 280)
       corpus.foreach { text =>
         Assert.equal(tokenizer.decode(tokenizer.encode(text)), Right(text))

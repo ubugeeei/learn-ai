@@ -8,15 +8,15 @@ object Utf8Suite extends TestSuite:
   override val name: String = "Utf8Tokenizer"
 
   override val tests: Vector[TestCase] = Vector(
-    test("UTF-8 tokenizer round-trips ASCII Japanese and emoji") {
-      val examples = Vector("hello", "大規模言語モデル", "Scala 3 🚀")
+    test("UTF-8 tokenizer round-trips ASCII accented Latin and emoji") {
+      val examples = Vector("hello", "café résumé", "Scala 3 🚀")
       examples.foreach { text =>
         Assert.equal(ByteTokenizer.decode(ByteTokenizer.encode(text)), Right(text))
       }
     },
     test("token count follows encoded bytes rather than visible characters") {
       Assert.equal(ByteTokenizer.encode("A").size, 1)
-      Assert.equal(ByteTokenizer.encode("あ").size, 3)
+      Assert.equal(ByteTokenizer.encode("€").size, 3)
       Assert.equal(ByteTokenizer.encode("🚀").size, 4)
     },
     test("special tokens can be added and skipped during decoding") {
