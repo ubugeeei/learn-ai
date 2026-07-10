@@ -36,7 +36,7 @@
 | --- | --- | --- | --- |
 | 09 | ✅ | 勾配降下 | 一変数の最適化と学習曲線 |
 | 10 | ✅ | 自動微分 | scalar computation graph |
-| 11 | ⬜ | neuron と MLP | XOR を解くネットワーク |
+| 11 | ✅ | neuron と MLP | XOR を解くネットワーク |
 | 12 | ⬜ | Tensor 自動微分 | broadcasting のない明示的 Tensor |
 | 13 | ⬜ | optimizer と初期化 | SGD、AdamW、gradient clipping |
 
