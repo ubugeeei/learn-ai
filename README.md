@@ -2,6 +2,9 @@
 
 A from-scratch, hands-on path to large language models and AI agents in Scala 3.
 
+> Japanese translation: [README.ja.md](README.ja.md), with the full
+> documentation mirror under [docs/ja/](docs/ja/). English is canonical.
+
 The repository maps every important equation to executable code. It does not
 hide vectors, automatic differentiation, tokenization, attention, training, or
 tool execution behind a machine-learning framework. The main path uses only the
