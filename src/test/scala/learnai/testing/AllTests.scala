@@ -7,6 +7,7 @@ import learnai.math.MatrixDSuite
 import learnai.math.ProbabilitySuite
 import learnai.math.CalculusSuite
 import learnai.learning.GradientDescentSuite
+import learnai.autodiff.ValueSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -16,7 +17,8 @@ object AllTests:
     MatrixDSuite,
     ProbabilitySuite,
     CalculusSuite,
-    GradientDescentSuite
+    GradientDescentSuite,
+    ValueSuite
   )
 
   def main(arguments: Array[String]): Unit =
