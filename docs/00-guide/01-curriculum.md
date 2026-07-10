@@ -96,7 +96,7 @@ shape-safe code.
 | 27c | ⬜ | Pipeline parallelism | stages, microbatches, bubbles, schedules |
 | 27d | ⬜ | ZeRO and recovery | state partitioning and coordinated checkpoints |
 | 27e | ⬜ | Serving scheduler | prefill/decode, continuous batching, overload |
-| 27f | ⬜ | Paged KV and prefix reuse | allocation, fragmentation, eviction |
+| 27f | ✅ | Paged KV and prefix reuse | allocation, fragmentation, eviction |
 | 27g | ⬜ | Speculative decoding | distribution-preserving draft verification |
 
 **Part deliverable:** explain training/inference differences and measure
