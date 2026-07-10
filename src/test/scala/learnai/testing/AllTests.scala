@@ -32,6 +32,7 @@ import learnai.training.ResumableTrainingSuite
 import learnai.transformer.MiniGptSuite
 import learnai.lm.SamplingSuite
 import learnai.io.MiniGptCheckpointSuite
+import learnai.io.TrainingBundleSuite
 import learnai.quantization.Int8QuantizationSuite
 import learnai.random.SplitMix64Suite
 import learnai.json.JsonSuite
@@ -77,6 +78,7 @@ object AllTests:
     LoraSuite,
     SamplingSuite,
     MiniGptCheckpointSuite,
+    TrainingBundleSuite,
     Int8QuantizationSuite,
     JsonSuite,
     AgentRuntimeSuite,

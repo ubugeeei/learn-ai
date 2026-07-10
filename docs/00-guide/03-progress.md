@@ -22,6 +22,7 @@ Nix / Scala 3 / dependency-free tests
   -> observable-state RNG / optimizer snapshots / bitwise exact resume
   -> restartable epoch shuffle / sequence packing / masked loss
   -> LoRA adapters with frozen-base and merge-equivalence oracles
+  -> persisted training bundles with experiment-identity refusal
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
@@ -36,17 +37,15 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 
 ## Next milestones
 
-1. persisted training bundles: on-disk exact-resume state with the
-   Chapter 25 format discipline and config-identity refusal;
-2. JVM profiling plus deterministic FLOP/work/memory estimators;
-3. RoPE/SwiGLU/GQA integration ablations inside MiniGPT training runs;
-4. corpus manifests, streaming shards, provenance, and deduplication;
-5. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
-6. serving scheduler and paged KV cache;
-7. SFT and LoRA before reward/preference/policy optimization;
-8. model/safety evaluation and release evidence;
-9. provider adapters plus durable agent/tool state;
-10. model, systems, agent, and research capstones.
+1. JVM profiling plus deterministic FLOP/work/memory estimators;
+2. RoPE/SwiGLU/GQA integration ablations inside MiniGPT training runs;
+3. corpus manifests, streaming shards, provenance, and deduplication;
+4. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
+5. serving scheduler and paged KV cache;
+6. SFT and chat templates before reward/preference/policy optimization;
+7. model/safety evaluation and release evidence;
+8. provider adapters plus durable agent/tool state;
+9. model, systems, agent, and research capstones.
 
 A chapter is not marked complete for prose alone. It requires a reference
 implementation, an independent oracle, failure tests, and an experiment.

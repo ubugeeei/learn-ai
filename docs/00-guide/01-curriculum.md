@@ -79,6 +79,7 @@ shape-safe code.
 | 22a | ✅ | Experiment records | canonical configuration identity, corpus hash, runtime manifest |
 | 22b | ✅ | Training system | train/validation, schedules, accumulation, telemetry |
 | 22c | ✅ | Exact resume | model, optimizer, scheduler, data cursor, random state |
+| 22d | ✅ | Training bundles | persisted exact-resume state with experiment-identity refusal |
 
 **Part deliverable:** train a small GPT and explain every parameter.
 
