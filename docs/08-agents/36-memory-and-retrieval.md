@@ -93,6 +93,122 @@ Measure retrieval separately from answer generation:
 Use a fixed query/evidence set to compare chunk size, overlap, embedding model,
 and result count.
 
+## Implementation walkthrough
+
+`Retrieval.scala` deliberately keeps the full pipeline in one file. Trace a
+document from source text to tool JSON before replacing any component with a
+production service.
+
+### 1. Derive chunk boundaries by hand
+
+Take a ten-character document, `maximumCharacters = 4`, and
+`overlapCharacters = 1`. The step is (4-1=3), so starts are `0, 3, 6, 9` and
+the half-open spans are:
+
+```text
+[0,4)  [3,7)  [6,10)  [9,10)
+```
+
+`substring(start, end)` uses the same half-open convention. Adjacent chunks
+share one UTF-16 code unit at their boundary. The final short chunk is retained
+because the loop condition is `start < text.length`.
+
+The offsets are JVM `String` indices, not Unicode code-point indices and not
+UTF-8 byte offsets. A production citation API must state its convention or it
+will highlight the wrong span around non-BMP characters.
+
+### 2. Build a deterministic hashing vector
+
+`HashingEmbedder.embed` lowercases with `Locale.ROOT`, splits on non-letter and
+non-number characters, and processes each token:
+
+```scala
+val hash = token.hashCode
+val bucket = (hash & 0x7fffffff) % dimensions
+val sign = if (hash & 0x80000000) == 0 then 1.0 else -1.0
+values(bucket) += sign
+```
+
+Masking the sign bit makes the bucket index non-negative. The original sign
+bit still chooses `+1` or `-1`. Repeated tokens add repeatedly, so this is a
+signed bag-of-words frequency vector. Finally, division by `raw.norm` gives
+unit length unless there are no tokens.
+
+Normalization changes magnitude, not direction. A document containing a term
+ten times does not automatically beat a shorter document solely because its
+vector is longer.
+
+### 3. Index once, score exactly
+
+`VectorIndex.build` first validates unique document IDs. It chunks each
+document independently, embeds every chunk, and stores immutable
+`(TextChunk, VectorD)` entries. Search embeds the query once, rejects a zero
+vector, computes one dot product per entry, then sorts:
+
+```scala
+.sortBy(result => (-result.score, result.chunk.id))
+.take(resultCount)
+```
+
+Negating the score turns Scala's ascending ordering into descending relevance.
+Chunk ID breaks exact ties, so snapshots and evaluations do not change with
+map iteration order.
+
+The exact scan costs (O(ND)) for (N) chunks and (D) dimensions. Keep it as
+a correctness oracle when later introducing an approximate index.
+
+### 4. Convert search into a capability
+
+`SearchTool.definition` grants exactly one string field, `query`, and defaults
+to the read-only effect. The runtime validates the schema before `execute`, so
+the implementation safely extracts the already-validated `JsonString`.
+
+Every result is returned as an object containing `chunk_id`, `document_id`,
+title, offsets, score, and exact text. The score helps debugging but is not a
+probability. A cosine value of `0.8` does not mean an 80% chance that the answer
+is correct.
+
+### 5. Observe the lab as separate stages
+
+When experimenting, print and inspect:
+
+1. chunk IDs, offsets, and exact substrings;
+2. vector norms and non-zero buckets;
+3. ranked chunk IDs and raw cosine scores;
+4. the rendered tool JSON;
+5. citations chosen by the answer layer.
+
+This localizes failures. If the correct evidence never reaches top-k, prompt
+engineering cannot recover it.
+
+## Reading the tests
+
+`RetrievalSuite` follows pipeline order. The chunk tests prove coverage,
+overlap, and document isolation. The embedder test proves determinism,
+case-folding, and unit norm. Ranking tests cover a relevant result and a score
+tie. Failure tests cover an empty index and tokenless query. The final tool test
+asserts structured citation metadata rather than only matching returned text.
+
+When adding a neural embedder, retain the chunk and tool tests. Replace only
+embedding-specific assertions, and add a fixed relevance fixture that compares
+Recall@k against the exact baseline.
+
+## Debugging checklist
+
+- If characters disappear, list every half-open span and verify that the union
+  covers `[0, text.length)`.
+- If the chunk loop never terminates, verify `overlapCharacters <
+  maximumCharacters`, making the step strictly positive.
+- If equivalent casing gives different vectors, use `Locale.ROOT` rather than
+  the machine's default locale.
+- If cosine scores exceed the expected range, inspect normalization and vector
+  dimensions before ranking.
+- If tie order changes, ensure the secondary key is the stable chunk ID.
+- If citations point to the wrong text, compare the stored offset convention
+  with the consumer's byte/code-point/UTF-16 convention.
+- If answers hallucinate despite good retrieval, evaluate citation use and
+  faithfulness separately from retrieval recall.
+
 ## Exercises
 
 1. Implement sentence-boundary-aware chunking.

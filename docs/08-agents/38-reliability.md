@@ -162,7 +162,93 @@ ToolFinished
 The outer events describe one logical call. Inner events describe authorization
 and physical attempts. Terminal `AgentStopped` remains present for every run.
 
-## 9. Tests as executable policy
+## Implementation walkthrough
+
+The reliability policy is split between declarations in `Protocol.scala` and
+control flow in `AgentRuntime.scala`. Read both: a correct enum with an
+incorrect branch condition is still an unsafe runtime.
+
+### 1. Encode effect policy in host-owned metadata
+
+Each `ToolEffect` case carries two values:
+
+```scala
+enum ToolEffect(val requiresApproval: Boolean, val safeToRetry: Boolean)
+```
+
+The model receives the resulting `ToolDefinition`, but it cannot manufacture a
+new executable `Tool` or change the effect stored by the host implementation.
+`ToolApprover.denyEffectful` is the constructor default for `AgentRuntime`, so
+omitting configuration does not grant writes.
+
+### 2. Follow `executeCall` as a security pipeline
+
+For a known tool with valid arguments, `executeCall` calls `authorize` and
+immediately records `ToolAuthorizationChecked`. A denial is converted into a
+non-retryable observation:
+
+```scala
+ToolFailed(ToolError("approval_denied", reason, retryable = false))
+```
+
+No `ToolAttemptStarted` event is produced. This absence is a testable guarantee
+that authorization happened before implementation code.
+
+Read-only calls produce an internal `ApprovalGranted` without invoking the
+external approver. Effectful calls invoke `approver.decide` with host-created
+`ToolContext`. The `try/catch` converts every approver exception into
+`ApprovalDenied`; the fallback is never permission.
+
+### 3. Execute the retry predicate literally
+
+`invokeWithRetries` starts at attempt 1 and records start/finish around every
+physical invocation. After a failed outcome it evaluates:
+
+```scala
+error.retryable &&
+attempt < config.maximumToolAttempts &&
+tool.definition.effect.safeToRetry
+```
+
+When true, it increments `attempt` and records `ToolRetryScheduled` with the
+next number. When only the effect condition is false, it records
+`ToolRetrySuppressed`. When the error is non-retryable or the attempt budget is
+exhausted, it simply finishes with the last outcome.
+
+Notice that `maximumToolAttempts = 3` permits attempts 1, 2, and 3—not three
+retries after the first call.
+
+### 4. Preserve a stable logical identity
+
+Every retry receives `ToolContext(call.id, step, attempt)`. `call.id` is stable;
+only `attempt` changes. An external adapter should send the call ID as its
+idempotency key if the service supports one. Generating a new idempotency key
+per retry would defeat the runtime's logical identity.
+
+The run-level `cached` map stores `(ToolCall, ToolObservation)`. Equality checks
+all case-class fields. Identical repeat requests reuse the final observation;
+same ID with changed name or arguments is rejected. Cached reuse occurs before
+the logical call budget and before authorization.
+
+### 5. Interpret timeout and exception outcomes precisely
+
+`invokeWithTimeout` has three result channels:
+
+| Tool behavior | Runtime outcome |
+| --- | --- |
+| returns `Right(value)` | `ToolSucceeded(value)` |
+| returns `Left(error)` | `ToolFailed(error)` |
+| exceeds deadline | retryable `tool_timeout` |
+| throws | non-retryable `tool_exception` |
+
+An `ExecutionException` wraps a throwable from the worker thread, so the code
+unwraps its cause before creating the safe error. In production, do not expose
+raw exception messages until they have been classified and redacted.
+
+The executor is shut down in `finally` for every branch. That is resource
+cleanup, not proof of remote cancellation or transaction rollback.
+
+## 9. Reading the tests as executable policy
 
 The suite verifies:
 
@@ -179,6 +265,16 @@ The suite verifies:
 These are policy tests, not only code-coverage tests. A change that alters an
 authorization or retry rule must change an explicit expectation.
 
+`AgentRuntimeSuite` uses tools with counters and recorded attempt numbers. For
+the denial test, assert zero executions and zero `ToolAttemptStarted` events.
+For retries, assert the exact attempt vector and event order, not only eventual
+success. For a non-idempotent timeout, assert `ToolRetrySuppressed` and a single
+execution.
+
+This test style catches policy regressions that final-answer assertions miss.
+A model may gracefully describe a denial even if unsafe code was invoked before
+the denial event, so event order and physical counters are part of the oracle.
+
 ## 10. Remaining production boundaries
 
 This implementation deliberately leaves several concerns visible:
@@ -193,6 +289,23 @@ This implementation deliberately leaves several concerns visible:
 
 The small runtime establishes where those mechanisms belong without pretending
 they are already solved.
+
+## Debugging checklist
+
+- If a write executes without approval, inspect the tool's host-owned
+  `ToolEffect` and confirm the runtime did not receive `allowAll` accidentally.
+- If an approver outage permits work, ensure every exception path constructs
+  `ApprovalDenied` and produces no attempt event.
+- If a retry count is off by one, remember that `maximumToolAttempts` includes
+  attempt 1 and inspect the comparison before incrementing.
+- If a payment-like call retries, correct the effect classification first;
+  changing only the error's `retryable` flag is insufficient policy.
+- If duplicate calls consume budget, verify cache lookup occurs before the
+  logical-call limit and increment.
+- If a timeout duplicates remote state, inspect external idempotency and status
+  lookup. Local thread interruption cannot repair a committed remote effect.
+- If audit order is confusing, group events by call ID, then separate outer
+  logical-call events from numbered attempt events.
 
 ## Exercises
 

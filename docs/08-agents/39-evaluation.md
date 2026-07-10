@@ -178,6 +178,97 @@ prompt or policy revision
 latency and token bucket
 ```
 
+## Implementation walkthrough
+
+`Evaluation.scala` builds evaluation from small composable checks. The harness
+does not know which answer is universally good; each case declares its own
+oracles.
+
+### 1. Treat checks as named pure functions
+
+`AgentRunCheck` has one method:
+
+```scala
+def evaluate(run: AgentRun): EvalCheckResult
+```
+
+Each implementation derives a Boolean and explanatory detail from an immutable
+run. For example, `ExpectedStatusCheck` compares enum values, while
+`MaximumTokensCheck` compares `run.usage.totalTokens` with a fixed limit.
+
+Checks in one case must have unique names. Without that invariant, an aggregate
+such as `failedChecksByName("maximum_tokens")` could not identify whether two
+same-named entries were accidental duplicates or distinct requirements.
+
+### 2. Derive request and attempt sets from different artifacts
+
+`AgentEvaluation.requestedToolNames` walks model-visible history:
+
+```scala
+run.history.collect {
+  case AssistantToolCalls(calls) => calls.map(_.name)
+}.flatten.toSet
+```
+
+`attemptedToolNames` walks host audit events and selects
+`ToolAttemptStarted`. A denied call appears only in the requested set. A
+retried call appears multiple times in events but once in the returned set.
+When exact retry count matters, write a check over the event vector rather than
+this set helper.
+
+### 3. Evaluate each case in isolation
+
+`AgentEvaluator.evaluate` first rejects empty input and duplicate case names.
+For each case it:
+
+1. records a monotonic start time;
+2. invokes `modelFactory()` to obtain fresh state;
+3. runs the configured `AgentRuntime`;
+4. records non-negative elapsed nanoseconds;
+5. evaluates every check against the same completed run;
+6. estimates cost from that run's usage.
+
+Case order is vector order. No case short-circuits the suite after failure, so
+one bad scenario does not hide later results.
+
+### 4. Calculate a price snapshot exactly
+
+For 2,000 input tokens at $3 per million and 500 output tokens at $12 per
+million:
+
+\[
+\frac{2000(3)+500(12)}{1{,}000{,}000}
+=\frac{12{,}000}{1{,}000{,}000}
+=0.012\text{ USD}
+\]
+
+`BigDecimal` avoids introducing binary floating-point error into this simple
+accounting calculation. The number remains an estimate because usage
+categories and the price snapshot may be incomplete.
+
+### 5. Aggregate without deleting evidence
+
+`AgentEvalReport` computes totals with folds and counts, but its constructor
+argument remains the complete result vector. `failedChecksByName` uses
+`groupMapReduce` to count failed check categories:
+
+```scala
+results
+  .flatMap(_.checks.filter(!_.passed).map(_.name))
+  .groupMapReduce(identity)(_ => 1)(_ + _)
+```
+
+If three cases fail `maximum_tokens`, the map reports `3`; the individual
+results still retain actual limits, usage, histories, and event traces.
+
+### 6. Extend with an environment oracle
+
+A file-state check can implement `AgentRunCheck`, but setup and teardown do not
+belong inside the pure `evaluate` method. Wrap case execution in a fixture layer
+that resets an isolated directory, runs the agent, then constructs a check with
+the observed file hash. This prevents one case's side effects from becoming the
+next case's initial state.
+
 ## 9. Deterministic fakes before live providers
 
 Runtime and policy regression tests use scripted models and deterministic tools.
@@ -222,7 +313,7 @@ The lab runs three deterministic scenarios:
 
 It prints each check, tokens, latency, aggregate pass rate, and logical calls.
 
-## 12. Tests
+## 12. Reading the tests
 
 The suite verifies:
 
@@ -232,6 +323,16 @@ The suite verifies:
 - a fresh model is created for every case;
 - case order remains deterministic;
 - duplicate case/check identity fails before execution.
+
+`EvaluationSuite` is organized around failure visibility. The first test proves
+successful aggregation. The second deliberately fails checks and asserts both
+per-case detail and grouped counts. The third creates a denied write and proves
+that “requested” and “attempted” produce different answers. The final tests
+verify fresh model construction, stable order, and validation before execution.
+
+When adding a check, include one passing and one failing case. Assert the
+`detail` string contains enough measured and expected data to diagnose the
+failure without replaying it.
 
 ## 13. Remaining production boundaries
 
@@ -244,6 +345,23 @@ The suite verifies:
 - planning-level DAG metrics and checkpoint recovery evals;
 - human review protocols and inter-annotator agreement;
 - continuous drift detection and release gates.
+
+## Debugging checklist
+
+- If evaluation results depend on case order, verify every model, fake tool,
+  random generator, and environment fixture is recreated or reset per case.
+- If a denied tool is reported as attempted, derive attempts only from
+  `ToolAttemptStarted`, not `AssistantToolCalls` or `ToolStarted`.
+- If retries disappear from metrics, distinguish set-based capability checks
+  from event-count checks.
+- If total usage is wrong, compare every `AgentEvalResult.run.usage` before
+  changing the report fold.
+- If cost differs from a provider invoice, record pricing date, cache tiers,
+  reasoning-token rules, rounding, and provider-reported usage categories.
+- If latency claims fluctuate, stop treating one `nanoTime` observation as a
+  benchmark and add warmup, repetitions, and distribution reporting.
+- If pass rate looks healthy while a critical case fails, inspect per-case
+  results and gate critical checks independently of the aggregate.
 
 ## Exercises
 

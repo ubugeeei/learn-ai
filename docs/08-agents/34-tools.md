@@ -104,6 +104,121 @@ prompt:
 
 Prompts are not security boundaries.
 
+## Implementation walkthrough
+
+This chapter has two source files because it crosses two trust boundaries.
+`Json.scala` turns untrusted text into a JSON syntax tree. `Protocol.scala`
+checks whether that tree satisfies a granted capability's argument contract.
+
+### 1. Parse exactly one JSON document
+
+`JsonParser.parse` first rejects oversized input, then creates a mutable
+`Cursor`. The cursor owns one integer, `index`, which always points to the next
+unconsumed character. `parseDocument` performs three operations:
+
+```scala
+skipWhitespace()
+val value = parseValue(depth = 0)
+skipWhitespace()
+if index != input.length then fail("unexpected trailing character ...")
+```
+
+The final check is essential. Without it, `{"path":"safe"} malicious` could
+be accepted because the valid prefix parsed successfully.
+
+`parseValue` dispatches from the leading character. Arrays and objects receive
+`depth + 1`; scalar values do not. The check happens before descending again,
+so deeply nested input terminates with `Left` instead of exhausting the stack.
+
+### 2. Understand the object loop
+
+For `{"x":1,"ok":true}`, `parseObject` advances past `{`, then repeats:
+
+1. parse a quoted field name;
+2. reject it if the mutable `names` set already contains it;
+3. require `:`;
+4. recursively parse the value;
+5. require either `}` or `,`.
+
+After a comma, an immediate `}` is rejected as a trailing comma. The builder is
+converted to an immutable `Vector` only after the complete object is valid.
+`JsonObject` independently checks uniqueness, so objects constructed directly
+in Scala obey the same invariant as parsed objects.
+
+### 3. Follow string and number grammar, not convenience parsing
+
+`parseString` handles each JSON escape explicitly. A `\u` high surrogate must
+be followed by a low surrogate; a lone low surrogate fails. This is why an
+emoji encoded as two UTF-16 code units becomes one valid Unicode scalar rather
+than malformed text.
+
+`parseNumber` recognizes sign, integer, optional fraction, and optional
+exponent before calling `BigDecimal`. `BigDecimal` alone is not the grammar:
+the parser explicitly rejects leading zeroes, missing fractional digits, and
+incomplete exponents.
+
+### 4. Validate the parsed object without executing anything
+
+`ToolSchema.validate` constructs a name-to-field map, checks missing required
+fields, then walks every supplied field. It returns *all* problems:
+
+```text
+missing required field 'query'; unknown field 'limit';
+field 'exact' must be BooleanValue, got JsonString
+```
+
+Returning a vector improves diagnostics and tests. It still does not authorize
+execution. A syntactically valid `{"path":"../../secret"}` may match a string
+schema but fail path-domain policy.
+
+`IntegerValue` accepts a `JsonNumber` only when `BigDecimal.isWhole` is true.
+Thus `2.0` is mathematically integral, while `2.5` is not. Decide whether that
+is the wire contract you want before exposing a tool.
+
+### 5. Keep lookup, validation, authorization, and execution ordered
+
+`AgentRuntime.executeCall` implements the trust pipeline:
+
+```text
+toolsByName.get(call.name)
+  -> definition.schema.validate(call.arguments)
+  -> authorize(tool, call, step)
+  -> invokeWithRetries(tool, call, step)
+```
+
+Unknown names never reach schema code. Invalid arguments never reach approval
+or tool code. Denied calls never create a physical attempt. This ordering is an
+observable security property, not merely an optimization.
+
+## Reading the tests
+
+Read `JsonSuite` in grammar order. The happy-path test establishes the complete
+JSON value set; later tests isolate duplicate fields, commas, number grammar,
+Unicode, and resource limits. A parser rejection test should assert the
+relevant error category, not only `isLeft`, so the wrong rejection path cannot
+pass accidentally.
+
+In `AgentRuntimeSuite`, “schema errors are returned to the model without
+invoking the tool” uses a counting fake tool. The important oracle is both the
+`invalid_arguments` observation *and* an execution count of zero. The final
+schema test verifies that missing, unknown, and type problems are accumulated
+rather than failing after the first one.
+
+## Debugging checklist
+
+- If valid JSON leaves trailing text unreported, inspect `parseDocument`, not
+  the individual value parser.
+- If nested input crashes, verify that recursive object and array calls advance
+  the depth counter and that limits are positive.
+- If emoji fails, determine whether the input contains literal Unicode or
+  escaped UTF-16 surrogate code units.
+- If schema-valid input causes a domain error, keep both checks: schema answers
+  “is it shaped correctly?”, while domain policy answers “is it allowed?”.
+- If an invalid call invokes a tool, inspect the ordering in `executeCall` and
+  add a side-effect counter to the regression test.
+- If snapshots change between runs, check object insertion order and avoid
+  constructing protocol JSON from an unordered map.
+
 ## Exercises
 
 1. Add integer ranges and string-length constraints.

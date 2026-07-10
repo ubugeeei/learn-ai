@@ -103,6 +103,113 @@ Tests inspect more than final text:
 Real-model evaluation should separately measure final correctness, tool
 selection, argument accuracy, steps, cost, latency, and unsafe attempts.
 
+## Implementation walkthrough
+
+Read `AgentRuntime.run` as an interpreter for a small state machine. It uses
+local mutable variables internally, but exposes only the immutable `AgentRun`
+snapshot when it stops.
+
+### 1. Identify the complete run state
+
+The loop owns six evolving values:
+
+| Variable | Meaning |
+| --- | --- |
+| `history` | model-visible conversation items |
+| `events` | host-visible audit trajectory |
+| `usage` | sum of every returned model decision |
+| `executedToolCalls` | logical new call IDs charged to the budget |
+| `step` | number of completed model/tool iterations |
+| `cached` | call ID to original proposal and observation |
+
+`stop` closes over those values. Every return path therefore produces the same
+complete shape, including failures. There is no exception-only result format
+that discards the trace.
+
+### 2. Trace a successful tool round trip
+
+Assume the initial history contains one user message and the model first
+returns `RequestTools(Vector(call), usage0)`.
+
+1. `ModelInvoked(0, 1)` is appended.
+2. `ModelRequest(history, definitions, 0)` is sent.
+3. `usage0` is added to the run total.
+4. `ModelReturned(0, "tool_calls", usage0)` and
+   `AssistantToolCalls` are appended.
+5. The call ID is absent from `cached`, so the logical budget is checked and
+   incremented.
+6. `executeCall` returns one observation plus authorization/attempt events.
+7. The observation enters both history and the ID cache.
+8. `step` becomes 1, and the next request contains user message, assistant
+   call, and tool observation.
+
+If the second decision is `FinalAnswer`, the runtime appends assistant text and
+returns `Completed`. A two-decision interaction therefore invokes the model
+twice but executes one logical tool call.
+
+### 3. Understand why limits are checked in different places
+
+The model-step bound is the outer `while` condition. The tool-call bound is
+checked only for a new call ID, immediately before physical execution. A cached
+duplicate consumes neither another logical call nor another physical attempt.
+A conflicting duplicate also does not execute, but becomes a typed
+`conflicting_call_id` observation.
+
+This placement prevents an off-by-one error: with `maximumToolCalls = 1`, the
+first new call executes, while the second new call stops the run before any
+side effect.
+
+### 4. Separate logical calls from physical attempts
+
+`executedToolCalls` counts accepted new IDs. `ToolAttemptStarted` counts actual
+invocations, including retries. One logical read call may therefore produce
+three physical attempts. This distinction is necessary for billing,
+idempotency analysis, and evaluation.
+
+### 5. Follow the timeout boundary
+
+`invokeWithTimeout` creates a virtual-thread executor, submits the tool, and
+waits using `future.get(timeout, MILLISECONDS)`. A normal `Right` becomes
+`ToolSucceeded`; a normal `Left` becomes `ToolFailed`. A timeout cancels with
+interrupt and returns retryable `tool_timeout`. An exception from the worker is
+unwrapped from `ExecutionException` and becomes non-retryable `tool_exception`.
+The `finally` block always shuts down the executor.
+
+This contains the waiting thread, not the external world. An HTTP request or
+database transaction needs its own deadline and idempotency key.
+
+## Reading the tests
+
+Use `AgentRuntimeSuite` as a trajectory specification. Each fake has one
+purpose: scripted model decisions control the route, counting tools prove
+whether execution happened, and blocking tools exercise timeout behavior.
+
+For every new terminal path, assert four layers:
+
+1. `AgentStatus` and final answer;
+2. exact history correspondence;
+3. relevant audit-event ordering;
+4. usage and logical/physical counters.
+
+The model-step-limit test is especially useful: it proves an otherwise
+infinite correction loop terminates and still emits `AgentStopped`.
+
+## Debugging checklist
+
+- If the second model request lacks a result, check that the observation is
+  appended to `history`, not only to `events`.
+- If usage is low, add usage before matching on decision type so final and tool
+  decisions follow the same accounting path.
+- If a limit permits one extra side effect, locate the comparison relative to
+  the increment and `executeCall`.
+- If a duplicate executes twice, compare the entire cached `ToolCall`, not only
+  its ID or name.
+- If a timed-out operation keeps running, add cooperative interruption and
+  transport deadlines inside the tool; executor cancellation alone is not a
+  rollback mechanism.
+- If a test checks only final text, inspect the event trace as well; unsafe
+  attempts can be hidden behind a plausible answer.
+
 ## Exercises
 
 1. Add a whole-run deadline and token budget.

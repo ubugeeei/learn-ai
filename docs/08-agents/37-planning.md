@@ -199,6 +199,116 @@ The hierarchy makes questions answerable:
 - Did recovery repeat a completed task?
 - Which failure blocked the final report?
 
+## Implementation walkthrough
+
+The implementation lives in `Planning.scala`. It has two phases: validate an
+immutable graph, then execute that graph while keeping terminal state explicit.
+
+### 1. Validate structure before constructing `TaskPlan`
+
+`TaskPlan` has a private constructor. Callers must use `TaskPlan.create`, which
+returns either every structural problem or a validated plan:
+
+```scala
+TaskPlan.create(goal, tasks): Either[Vector[String], TaskPlan]
+```
+
+The method first accumulates local errors: empty input, duplicate IDs,
+duplicate dependencies, self-dependencies, and unknown dependencies. Cycle
+detection runs only if those checks pass. This order matters because a graph
+algorithm assumes that every referenced vertex exists and IDs are unique.
+
+Cycle detection is Kahn's algorithm. For the graph `A -> C`, `B -> C`:
+
+```text
+remaining dependency counts: A=0, B=0, C=2
+ready queue: [A, B]
+dequeue A -> C becomes 1
+dequeue B -> C becomes 0, enqueue C
+dequeue C -> visited=3
+```
+
+If `visited != tasks.size`, some vertices could never reach zero incoming
+dependencies, so a cycle exists. The traversal is (O(V+E)), where (V) is
+the number of tasks and (E) the number of dependency edges.
+
+### 2. Validate resume state with dependency closure
+
+`PlanCheckpoint.create` rejects unknown task IDs, then examines every completed
+task. If completed task `C` depends on `A`, `A` must also be in
+`completedAnswers`. It does not require every plan task to be present because a
+checkpoint represents partial progress.
+
+The checkpoint stores answers in a map. The plan retains declaration order, so
+recovery and final `taskResults` remain deterministic even though map order is
+not used for scheduling.
+
+### 3. Initialize four disjoint task-state collections
+
+Inside `PlanningAgent.run`:
+
+```scala
+var completed = checkpoint.completedAnswers
+var failed = Set.empty[String]
+var blocked = Set.empty[String]
+var results = Map.empty[String, PlannedTaskResult]
+```
+
+A task is terminal when its ID occurs in exactly one of `completed`, `failed`,
+or `blocked`. Checkpoint tasks are copied into `results` with zero attempts and
+a `TaskRecovered` event. `sequence` is incremented through the local `record`
+function, giving plan events stable total order.
+
+### 4. Read one scheduler iteration in the right order
+
+The outer loop continues while any task is non-terminal. Each iteration first
+finds `newlyBlocked`: tasks with a failed or blocked dependency. Marking these
+before selecting ready work propagates failure through multiple levels over
+successive iterations.
+
+Next, `plan.tasks.find` selects the first non-terminal task whose dependencies
+all occur in `completed`. Because `find` scans the declaration vector, ties are
+stable.
+
+For a ready task, the inner attempt loop:
+
+1. gathers dependency answers in dependency declaration order;
+2. creates `TaskExecutionContext` with a one-based attempt number;
+3. asks the factory for a fresh model;
+4. executes one complete bounded `AgentRuntime.run`;
+5. retains that nested run and adds usage/tool-call accounting;
+6. accepts an answer only when status is `Completed` and `finalAnswer` exists;
+7. otherwise tries again until `maximumTaskAttempts` is exhausted.
+
+The fresh model requirement prevents a failed scripted/provider conversation
+from leaking state into the next task attempt.
+
+### 5. Understand the fallback `None` branch
+
+For a validated DAG, `ready == None` while unfinished work exists can only mean
+that no remaining dependency chain can succeed. The code marks all remaining
+tasks blocked instead of spinning. This is a defensive liveness branch: graph
+validation proves cycles are absent, while terminal-state accounting proves no
+ready task was silently skipped.
+
+### 6. Build downstream history without upgrading data to policy
+
+`taskHistory` creates a host-owned system instruction from goal and objective.
+Dependency answers are placed in a separate user message and explicitly
+labeled untrusted. The code uses the task's dependency vector to select data;
+unrelated completed answers are not copied into the prompt.
+
+This is good context minimization, but arbitrary answer strings remain weakly
+typed. A production version should validate structured task output before
+adding it to another task's input.
+
+### 7. Finalize status, checkpoint, and accounting
+
+The plan is `Completed` only when `completed.size == plan.tasks.size`. The final
+checkpoint is reconstructed through the validating factory rather than the
+private constructor. `taskResults` is emitted in plan order, while nested
+attempts retain execution order.
+
 ## 9. Run the lab
 
 ```console
@@ -215,7 +325,7 @@ The first `analyze` worker fails, the second succeeds, and the final checkpoint
 contains all three tasks. Fake workers make state transitions reproducible;
 provider integration is deliberately outside the state-machine test.
 
-## 10. Tests as independent scenarios
+## 10. Reading the tests as independent scenarios
 
 The suite verifies:
 
@@ -230,6 +340,16 @@ The suite verifies:
 
 These tests use fake language models. That is a feature: orchestration tests
 must not depend on a remote model's changing output.
+
+When reading `PlanningSuite`, pay special attention to negative-space oracles.
+The failed-branch test asserts not only that the descendant is `Blocked`, but
+also that the independent branch still ran. The checkpoint test uses a
+side-effect counter to prove recovered work was skipped, rather than trusting
+only a `TaskRecovered` label.
+
+For a new planner feature, assert the plan-level event sequence and the nested
+`AgentRun`. A correct final answer can otherwise hide a repeated effect, an
+extra worker attempt, or incorrect usage aggregation.
 
 ## 11. Remaining production boundaries
 
@@ -247,6 +367,24 @@ The current planner intentionally exposes future work:
 
 The implementation is useful because these mechanisms now have explicit
 places to attach. They are not hidden inside one prompt loop.
+
+## Debugging checklist
+
+- If a valid plan is reported cyclic, print remaining dependency counts and
+  the ready queue after each Kahn traversal step.
+- If a task runs early, evaluate `dependencies.forall(completed.contains)` for
+  that exact ID and inspect checkpoint contents.
+- If the scheduler spins, verify every iteration either completes, fails, or
+  blocks at least one task; the fallback branch must terminate unrunnable work.
+- If an independent branch is skipped after a failure, distinguish direct or
+  transitive dependencies from mere declaration order.
+- If resume repeats a side effect, check checkpoint durability and tool-call ID
+  durability together; the in-memory checkpoint alone cannot provide crash
+  safety.
+- If task tokens are missing, aggregate every nested `AgentRun.usage`, including
+  failed attempts.
+- If dependency output changes system behavior, inspect message roles and add
+  schema/provenance validation; warning text alone is not enforcement.
 
 ## Exercises
 
