@@ -59,7 +59,7 @@
 | --- | --- | --- | --- |
 | 18 | ✅ | embedding と位置 | token/position embedding |
 | 19 | ✅ | Attention | causal self-attention |
-| 20 | ⬜ | Transformer block | RMSNorm、residual、MLP |
+| 20 | ✅ | Transformer block | RMSNorm、residual、MLP |
 | 21 | ⬜ | MiniGPT | 学習、checkpoint、生成 CLI |
 | 22 | ⬜ | 正しさと性能 | gradient check、profile、benchmark |
 

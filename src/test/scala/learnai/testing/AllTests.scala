@@ -17,6 +17,7 @@ import learnai.data.CausalDatasetSuite
 import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
+import learnai.transformer.TransformerBlockSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -36,7 +37,8 @@ object AllTests:
     CausalDatasetSuite,
     BigramLanguageModelSuite,
     LayersSuite,
-    AttentionSuite
+    AttentionSuite,
+    TransformerBlockSuite
   )
 
   def main(arguments: Array[String]): Unit =
