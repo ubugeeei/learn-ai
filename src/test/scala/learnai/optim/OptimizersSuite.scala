@@ -64,6 +64,80 @@ object OptimizersSuite extends TestSuite:
       Assert.close(parameter.valueAtFlat(0), 0.8)
       Assert.close(default.learningRate, 0.1)
     },
+    test("a restored snapshot continues AdamW exactly like an uninterrupted run") {
+      val initial = Vector(1.5, -2.0)
+
+      def quadraticStep(optimizer: AdamW, parameter: Tensor): Unit =
+        parameter.clearGradients()
+        parameter.pow(2.0).sum.backward()
+        val _ = optimizer.step(Vector(parameter))
+
+      // Uninterrupted reference: five consecutive updates.
+      val reference = Tensor.parameter(Shape(2), initial, "x")
+      val referenceOptimizer = new AdamW(learningRate = 0.05)
+      (0 until 5).foreach(_ => quadraticStep(referenceOptimizer, reference))
+
+      // Chunked run: three updates, snapshot, resume in a *new* optimizer
+      // attached to a *new* tensor rebuilt from the captured values.
+      val firstHalf = Tensor.parameter(Shape(2), initial, "x")
+      val firstOptimizer = new AdamW(learningRate = 0.05)
+      (0 until 3).foreach(_ => quadraticStep(firstOptimizer, firstHalf))
+      val captured = firstOptimizer.snapshot(Vector(firstHalf))
+      Assert.equal(captured.step, 3L)
+
+      val resumed = Tensor.parameter(Shape(2), firstHalf.values, "x")
+      val resumedOptimizer = new AdamW(learningRate = 0.05)
+      resumedOptimizer.restore(Vector(resumed), captured)
+      (0 until 2).foreach(_ => quadraticStep(resumedOptimizer, resumed))
+
+      Assert.equal(resumed.values, reference.values)
+    },
+    test("an unstepped optimizer snapshots to the zero state") {
+      val parameter = Tensor.parameter(Shape(3), Vector(1.0, 2.0, 3.0), "x")
+      val optimizer = new AdamW(learningRate = 0.1)
+      Assert.equal(
+        optimizer.snapshot(Vector(parameter)),
+        AdamWSnapshot.zero(Vector(parameter))
+      )
+    },
+    test("restore rejects mismatched or corrupted snapshots without mutating state") {
+      val parameter = Tensor.parameter(Shape(2), Vector(1.0, 2.0), "x")
+      val optimizer = new AdamW(learningRate = 0.1)
+
+      val wrongCount = Assert.throws[IllegalArgumentException] {
+        optimizer.restore(
+          Vector(parameter),
+          AdamWSnapshot(1L, Vector(Vector(0.0), Vector(0.0)), Vector(Vector(0.0), Vector(0.0)))
+        )
+      }
+      Assert.isTrue(wrongCount.getMessage.contains("covers"))
+
+      val wrongSize = Assert.throws[IllegalArgumentException] {
+        optimizer.restore(
+          Vector(parameter),
+          AdamWSnapshot(1L, Vector(Vector(0.0)), Vector(Vector(0.0)))
+        )
+      }
+      Assert.isTrue(wrongSize.getMessage.contains("sizes"))
+
+      val negativeSecondMoment = Assert.throws[IllegalArgumentException] {
+        optimizer.restore(
+          Vector(parameter),
+          AdamWSnapshot(1L, Vector(Vector(0.0, 0.0)), Vector(Vector(0.1, -0.1)))
+        )
+      }
+      Assert.isTrue(negativeSecondMoment.getMessage.contains("non-negative"))
+
+      val negativeStep = Assert.throws[IllegalArgumentException] {
+        AdamWSnapshot(-1L, Vector.empty, Vector.empty)
+      }
+      Assert.isTrue(negativeStep.getMessage.contains("non-negative"))
+
+      // The rejected restores must not have poisoned the optimizer.
+      parameter.pow(2.0).sum.backward()
+      val stats = optimizer.step(Vector(parameter))
+      Assert.equal(stats.step, 1L)
+    },
     test("Xavier initialization is bounded and deterministic") {
       val first = Initialization.xavierUniform(
         Shape(3, 2),

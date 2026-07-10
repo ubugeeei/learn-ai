@@ -14,6 +14,34 @@ final case class OptimizerStats(
     learningRate: Double
 )
 
+/** Complete AdamW state for one ordered parameter list.
+  *
+  * Moments are stored by parameter *position*, so a snapshot is only valid
+  * for the same parameter ordering it was captured from. Every value is
+  * validated on restore: first moments must be finite and second moments
+  * finite and non-negative, because a corrupted checkpoint must fail loudly
+  * rather than silently poison later updates.
+  */
+final case class AdamWSnapshot(
+    step: Long,
+    firstMoments: Vector[Vector[Double]],
+    secondMoments: Vector[Vector[Double]]
+):
+  require(step >= 0L, s"optimizer step must be non-negative: $step")
+  require(
+    firstMoments.size == secondMoments.size,
+    s"moment list sizes differ: ${firstMoments.size} != ${secondMoments.size}"
+  )
+
+object AdamWSnapshot:
+  /** The state of an optimizer that has not performed any update. */
+  def zero(parameters: Vector[Tensor]): AdamWSnapshot =
+    AdamWSnapshot(
+      step = 0L,
+      firstMoments = parameters.map(parameter => Vector.fill(parameter.size)(0.0)),
+      secondMoments = parameters.map(parameter => Vector.fill(parameter.size)(0.0))
+    )
+
 object GradientNorm:
   def global(parameters: Vector[Tensor]): Double =
     require(parameters.forall(_.isTrainable), "gradient norm accepts only trainable tensors")
@@ -131,6 +159,59 @@ final class AdamW(
       }
     }
     OptimizerStats(currentStep, norm, scale, effectiveLearningRate)
+
+  /** Captures step count and both moment arrays in parameter order.
+    *
+    * A parameter that has never been stepped yields zero moments, matching
+    * the state `stepAtLearningRate` would lazily create for it.
+    */
+  def snapshot(parameters: Vector[Tensor]): AdamWSnapshot =
+    require(parameters.nonEmpty, "snapshot requires at least one parameter tensor")
+    require(parameters.forall(_.isTrainable), "snapshot accepts only trainable tensors")
+    val moments = parameters.map { parameter =>
+      Option(states.get(parameter)) match
+        case Some(state) => (state.firstMoment.toVector, state.secondMoment.toVector)
+        case None =>
+          (Vector.fill(parameter.size)(0.0), Vector.fill(parameter.size)(0.0))
+    }
+    AdamWSnapshot(currentStep, moments.map(_._1), moments.map(_._2))
+
+  /** Replaces all optimizer state from a snapshot captured for the same
+    * parameter ordering.
+    *
+    * Every moment vector is validated for size, finiteness, and (for second
+    * moments) non-negativity before any state is changed, so a rejected
+    * snapshot leaves the optimizer untouched.
+    */
+  def restore(parameters: Vector[Tensor], snapshot: AdamWSnapshot): Unit =
+    require(parameters.nonEmpty, "restore requires at least one parameter tensor")
+    require(parameters.forall(_.isTrainable), "restore accepts only trainable tensors")
+    require(
+      snapshot.firstMoments.size == parameters.size,
+      s"snapshot covers ${snapshot.firstMoments.size} tensors, expected ${parameters.size}"
+    )
+    parameters.zipWithIndex.foreach { case (parameter, index) =>
+      val first = snapshot.firstMoments(index)
+      val second = snapshot.secondMoments(index)
+      require(
+        first.size == parameter.size && second.size == parameter.size,
+        s"snapshot moments for tensor $index have sizes ${first.size}/${second.size}, " +
+          s"expected ${parameter.size}"
+      )
+      first.foreach(value => Numerics.requireFinite(value, s"first moment of tensor $index"))
+      second.foreach { value =>
+        Numerics.requireFinite(value, s"second moment of tensor $index")
+        require(value >= 0.0, s"second moment of tensor $index must be non-negative: $value")
+      }
+    }
+    states.clear()
+    currentStep = snapshot.step
+    parameters.zipWithIndex.foreach { case (parameter, index) =>
+      val _ = states.put(
+        parameter,
+        State(snapshot.firstMoments(index).toArray, snapshot.secondMoments(index).toArray)
+      )
+    }
 
   private def validateHyperparameters(): Unit =
     Vector(
