@@ -24,6 +24,7 @@ Nix / Scala 3 / dependency-free tests
   -> LoRA adapters with frozen-base and merge-equivalence oracles
   -> persisted training bundles with experiment-identity refusal
   -> chat templates and assistant-span SFT with held-out evaluation
+  -> implementation-anchored parameter/FLOP/memory accounting
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
@@ -38,7 +39,8 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 
 ## Next milestones
 
-1. JVM profiling plus deterministic FLOP/work/memory estimators;
+1. JVM profiling and allocation measurement on top of the Chapter 29a
+   deterministic estimators;
 2. RoPE/SwiGLU/GQA integration ablations inside MiniGPT training runs;
 3. corpus manifests, streaming shards, provenance, and deduplication;
 4. collectives and data parallelism before tensor/pipeline/ZeRO simulation;

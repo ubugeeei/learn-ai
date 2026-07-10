@@ -111,7 +111,7 @@ speed-memory tradeoffs.
 | 28c | ✅ | GQA/MQA | query/KV head ownership and cache bytes |
 | 28d | ⬜ | Mixture of experts | routing, capacity, load balance, dropped tokens |
 | 28e | ⬜ | IO-aware attention | online softmax reference and tiled simulation |
-| 29a | ⬜ | Model accounting | parameters, FLOPs, activations, optimizer and communication bytes |
+| 29a | ✅ | Model accounting | parameters, FLOPs, activations, optimizer and communication bytes |
 | 29b | ⬜ | Scaling experiments | fitted laws, uncertainty, budget allocation |
 | 30a | ⬜ | Deduplication | exact/approximate matches and precision/recall |
 | 30b | ⬜ | Filters and provenance | quality, PII, policy, licenses, lineage |

@@ -1,5 +1,6 @@
 package learnai.testing
 
+import learnai.accounting.ModelAccountingSuite
 import learnai.foundations.ScalaTourSuite
 import learnai.math.NumericsSuite
 import learnai.math.VectorDSuite
@@ -73,6 +74,7 @@ object AllTests:
     RopeSuite,
     SwiGluSuite,
     GroupedQueryAttentionSuite,
+    ModelAccountingSuite,
     MiniGptSuite,
     MiniGptTrainingSuite,
     ResumableTrainingSuite,
