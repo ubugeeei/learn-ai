@@ -5,17 +5,6 @@
 From the repository directory, run:
 
 ```console
-$ ./learn-ai chat
-```
-
-This opens an actual read/evaluate/generate loop around the MiniGPT implemented
-in this repository. It performs no network request and needs no API key. On the
-first run it trains the tiny conversational checkpoint before displaying the
-`you>` prompt.
-
-To start with the non-interactive model lab instead, run:
-
-```console
 $ ./learn-ai model
 ```
 
@@ -82,7 +71,6 @@ these implementation names.
 
 | Command | Changes model weights? | Uses remote API? | Main question |
 | --- | --- | --- | --- |
-| `./learn-ai chat` | first run only | no | Can I send terminal text through local SFT, tokenization, generation, and decoding? |
 | `./learn-ai foundations` | no | no | Can I read the Scala control flow? |
 | `./learn-ai xor` | yes | no | Does scalar autodiff learn a nonlinear function? |
 | `./learn-ai bigram` | yes | no | What is next-token training before a Transformer? |
@@ -95,91 +83,9 @@ these implementation names.
 | `./learn-ai planning` | no | no | How are dependent agent tasks retried and recovered? |
 | `./learn-ai test` | tests many fixtures | no | Do all implemented contracts still pass? |
 
-Every guided command runs locally on the CPU. The agent labs use
+Every current guided command runs locally on the CPU. The agent labs use
 scripted fake models so their state transitions are reproducible. They do not
 send prompts to OpenAI or another provider.
-
-## Reading `./learn-ai chat`
-
-This is the only command that waits for your input. It is still entirely local:
-
-```text
-terminal text
-  -> UTF-8 byte token IDs
-  -> user role marker + content + end-of-turn + assistant marker
-  -> local MiniGPT next-token probabilities
-  -> greedy token selection until the learned end-of-turn token
-  -> UTF-8 text printed after assistant>
-```
-
-On the first invocation, no checkpoint exists under `target/local-chat`, so the
-command prints a short SFT run. The default run uses seven conversations, 80
-epochs, 560 optimizer updates, a fixed initialization seed, and a 4,968-scalar
-MiniGPT. A representative successful trace is:
-
-```text
-no usable checkpoint; training 7 conversations for 80 epochs on the CPU
-training epoch= 20 mean_loss=0.299709
-training epoch= 40 mean_loss=0.032875
-training epoch= 60 mean_loss=0.001929
-training epoch= 80 mean_loss=0.001005
-training complete: loss 5.719473 -> 0.001005, updates=560, parameters=4968
-```
-
-The loss is computed only on assistant content and the assistant end-of-turn
-token. User text is context, not a target. This is the same assistant-span SFT
-contract implemented in Chapter 31a, now connected to inference rather than
-stopping at a unit test.
-
-The checkpoint is then written to:
-
-```text
-target/local-chat/mini-gpt-chat-v4.laigpt
-```
-
-`target/` is generated build state and is ignored by Git. A later invocation
-verifies the file checksum and architecture before loading it. Delete that file
-if you deliberately want to observe training again.
-
-At the `you>` prompt, begin with:
-
-```text
-you> /examples
-learned prompts: hello | who are you? | token? | attention? | training? | scala? | bye
-you> hello
-assistant> hello from scala.
-[tokens: input=8, output=18; stop=end_of_turn]
-```
-
-The `input` count includes chat-control tokens as well as the UTF-8 bytes in
-`hello`. The `output` count includes the learned end-of-turn token. The stop
-reason matters: `end_of_turn` means the model chose to stop; `token_limit`
-means the host stopped it at the configured safety bound; and
-`unexpected_control_token` means it emitted a role marker where ordinary
-assistant text was expected.
-
-Available commands are:
-
-| Input | Effect |
-| --- | --- |
-| `/examples` | Print the exact seven user prompts in the SFT corpus. |
-| `/history` | Print successful user and assistant turns held in process memory. |
-| `/reset` | Clear that display history. |
-| `/help` | Explain the terminal commands. |
-| `/quit` | End the process without changing the checkpoint. |
-
-The current model intentionally uses only the latest user turn for inference.
-The history is display-only. The seven SFT examples are independent one-turn
-conversations; passing old turns into a 48-token context would create a format
-and length distribution the model never learned. Production chat models are
-trained on multi-turn corpora with much larger context windows and explicit
-truncation policies. This limitation is printed at startup rather than hidden.
-
-Prompts outside `/examples` still pass through the real model. Nothing performs
-a keyword lookup or replaces generated output with a canned answer. Because
-the model has only 4,968 parameters and seven training pairs, out-of-corpus
-text will often produce incorrect or nonsensical output. That failure is a
-measurement of the current training setup, not a terminal bug.
 
 ## Reading `./learn-ai model`
 

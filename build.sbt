@@ -13,7 +13,6 @@ lazy val root = project
       "-Wvalue-discard"
     ),
     Compile / run / fork := true,
-    Compile / run / connectInput := true,
     Test / parallelExecution := false,
     Test / test := (Test / runMain).toTask(" learnai.testing.AllTests").value
   )

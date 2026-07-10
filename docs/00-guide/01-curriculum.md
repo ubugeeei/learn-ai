@@ -139,7 +139,7 @@ about quality, compute, data, and operational tradeoffs.
 | 37 | ✅ | Planning | State machine, task graph, recovery |
 | 38 | ✅ | Reliability | Timeout, retry, idempotency, permissions |
 | 39 | ✅ | Evaluation | Trajectory, fake model, quality/cost metrics |
-| 39a | 🚧 | Provider adapters and CLI | local MiniGPT chat complete; remote/streaming/failover pending |
+| 39a | ⬜ | Provider adapters | local/remote/streaming contract suites and failover |
 | 39b | ⬜ | Durable operation | event store, transactions, replay, schema migration |
 | 39c | ⬜ | Sandboxed tools | resource scopes, isolation, quotas, incident evidence |
 | 39d | ⬜ | Hybrid retrieval | lexical/vector fusion, reranking, faithfulness |

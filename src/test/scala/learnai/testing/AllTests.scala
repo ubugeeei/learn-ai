@@ -43,7 +43,6 @@ import learnai.agent.PlanningSuite
 import learnai.agent.EvaluationSuite
 import learnai.retrieval.RetrievalSuite
 import learnai.serving.PagedKvCacheSuite
-import learnai.chat.LocalChatSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -91,8 +90,7 @@ object AllTests:
     AgentRuntimeSuite,
     PlanningSuite,
     EvaluationSuite,
-    RetrievalSuite,
-    LocalChatSuite
+    RetrievalSuite
   )
 
   def main(arguments: Array[String]): Unit =

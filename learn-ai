@@ -13,13 +13,11 @@ Usage:
   ./learn-ai <command>
 
 Start with:
-  ./learn-ai chat         Train/load local MiniGPT and talk to it in this terminal.
   ./learn-ai model        Train the smallest Transformer and generate text.
   ./learn-ai training     Run the train/validation experiment.
 
 Commands:
   help          Show this explanation.
-  chat          Talk to the locally trained MiniGPT (no API or network).
   model         Train tiny MiniGPT on one repeated phrase, then generate text.
   training      Train MiniGPT with batches, validation, scheduling, and metrics.
   diagnostics   Check MiniGPT gradients, parameter bytes, and local timing.
@@ -33,9 +31,8 @@ Commands:
   test          Compile the repository and run every automated test.
   tour          Run model, training, diagnostics, and agent in that order.
 
-Nothing here calls a remote AI API. The chat model, training labs, and
-fake-agent scenarios all run locally on the CPU using the Scala/JDK
-implementation in this repository.
+Nothing here calls a remote AI API. All models and fake-agent scenarios run
+locally on the CPU using the Scala/JDK implementation in this repository.
 EOF
 }
 
@@ -69,15 +66,6 @@ run_main() {
   local main_class="$1"
   printf 'Underlying command:\n  nix develop -c sbt '\''runMain %s'\''\n\n' "$main_class"
   nix develop -c sbt "runMain $main_class"
-}
-
-run_chat() {
-  explain \
-    "Interactive local MiniGPT chat" \
-    "On the first run, the repository's MiniGPT is supervised-fine-tuned on seven tiny conversations and cached under target/. Then your terminal input is byte-tokenized, wrapped in the chat template, generated autoregressively, and decoded." \
-    "Start with /examples, then type one learned prompt such as 'hello' or 'attention?'. Inspect input/output token counts and the learned end-of-turn stop reason." \
-    "This 4,968-parameter memorization model has no broad knowledge. It uses only the latest user turn as context and will be unreliable on prompts outside its seven-example corpus."
-  run_main learnai.chat.runLocalChat
 }
 
 run_model() {
@@ -184,7 +172,6 @@ require_nix
 
 case "${1:-help}" in
   help|-h|--help) usage ;;
-  chat) run_chat ;;
   model) run_model ;;
   training) run_training ;;
   diagnostics) run_diagnostics ;;
