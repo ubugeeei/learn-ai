@@ -556,9 +556,25 @@ final class Tensor private (
     output
 
   def backward(): Unit =
+    backwardInternal(accumulateTrainableGradients = false)
+
+  /** Runs reverse mode while preserving gradients already stored in trainable leaves.
+    *
+    * Intermediate graph-node gradients are always cleared. This operation is
+    * intended for gradient accumulation across separately constructed
+    * microbatch graphs. The caller owns the accumulation boundary and must
+    * clear parameter gradients before the first microbatch and after the
+    * optimizer step.
+    */
+  def backwardAccumulating(): Unit =
+    backwardInternal(accumulateTrainableGradients = true)
+
+  private def backwardInternal(accumulateTrainableGradients: Boolean): Unit =
     require(shape == Shape.scalar, s"backward requires a scalar output, got $shape")
     val order = topologicalOrder()
-    order.foreach(_.clearGradients())
+    order.foreach { tensor =>
+      if !accumulateTrainableGradients || !tensor.isTrainable then tensor.clearGradients()
+    }
     currentGradient(0) = 1.0
     order.reverseIterator.foreach(_.backwardRule())
 

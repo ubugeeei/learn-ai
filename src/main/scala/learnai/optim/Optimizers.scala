@@ -10,7 +10,8 @@ import learnai.tensor.Tensor
 final case class OptimizerStats(
     step: Long,
     gradientNorm: Double,
-    gradientScale: Double
+    gradientScale: Double,
+    learningRate: Double
 )
 
 object GradientNorm:
@@ -38,24 +39,36 @@ final class TensorSgd(
   private var currentStep = 0L
 
   def step(parameters: Vector[Tensor]): OptimizerStats =
+    stepAtLearningRate(parameters, learningRate)
+
+  /** Applies one update using a schedule-provided learning rate. */
+  def stepAtLearningRate(
+      parameters: Vector[Tensor],
+      effectiveLearningRate: Double
+  ): OptimizerStats =
     require(parameters.nonEmpty, "SGD requires at least one parameter tensor")
     require(parameters.forall(_.isTrainable), "SGD accepts only trainable tensors")
+    Numerics.requireFinite(effectiveLearningRate, "effective learning rate")
+    require(
+      effectiveLearningRate >= 0.0,
+      s"effective learning rate must be non-negative: $effectiveLearningRate"
+    )
     val norm = GradientNorm.global(parameters)
     val scale = GradientNorm.clippingScale(norm, maximumGradientNorm)
 
     parameters.foreach { parameter =>
       parameter.updateParameter { (_, data, gradient) =>
-        val decayed = data * (1.0 - learningRate * weightDecay)
-        decayed - learningRate * scale * gradient
+        val decayed = data * (1.0 - effectiveLearningRate * weightDecay)
+        decayed - effectiveLearningRate * scale * gradient
       }
     }
     currentStep += 1
-    OptimizerStats(currentStep, norm, scale)
+    OptimizerStats(currentStep, norm, scale, effectiveLearningRate)
 
   private def validateHyperparameters(): Unit =
     Numerics.requireFinite(learningRate, "learning rate")
     Numerics.requireFinite(weightDecay, "weight decay")
-    require(learningRate > 0.0, s"learning rate must be positive: $learningRate")
+    require(learningRate >= 0.0, s"learning rate must be non-negative: $learningRate")
     require(weightDecay >= 0.0, s"weight decay must be non-negative: $weightDecay")
     maximumGradientNorm.foreach { maximum =>
       Numerics.requireFinite(maximum, "maximum gradient norm")
@@ -78,8 +91,20 @@ final class AdamW(
   private var currentStep = 0L
 
   def step(parameters: Vector[Tensor]): OptimizerStats =
+    stepAtLearningRate(parameters, learningRate)
+
+  /** Applies one AdamW update using a schedule-provided learning rate. */
+  def stepAtLearningRate(
+      parameters: Vector[Tensor],
+      effectiveLearningRate: Double
+  ): OptimizerStats =
     require(parameters.nonEmpty, "AdamW requires at least one parameter tensor")
     require(parameters.forall(_.isTrainable), "AdamW accepts only trainable tensors")
+    Numerics.requireFinite(effectiveLearningRate, "effective learning rate")
+    require(
+      effectiveLearningRate >= 0.0,
+      s"effective learning rate must be non-negative: $effectiveLearningRate"
+    )
     currentStep += 1
     val norm = GradientNorm.global(parameters)
     val scale = GradientNorm.clippingScale(norm, maximumGradientNorm)
@@ -101,11 +126,11 @@ final class AdamW(
         val correctedFirst = state.firstMoment(index) / firstBiasCorrection
         val correctedSecond = state.secondMoment(index) / secondBiasCorrection
         val adaptiveUpdate = correctedFirst / (math.sqrt(correctedSecond) + epsilon)
-        val decayed = data * (1.0 - learningRate * weightDecay)
-        decayed - learningRate * adaptiveUpdate
+        val decayed = data * (1.0 - effectiveLearningRate * weightDecay)
+        decayed - effectiveLearningRate * adaptiveUpdate
       }
     }
-    OptimizerStats(currentStep, norm, scale)
+    OptimizerStats(currentStep, norm, scale, effectiveLearningRate)
 
   private def validateHyperparameters(): Unit =
     Vector(
@@ -115,7 +140,7 @@ final class AdamW(
       "epsilon" -> epsilon,
       "weight decay" -> weightDecay
     ).foreach { case (name, value) => Numerics.requireFinite(value, name) }
-    require(learningRate > 0.0, s"learning rate must be positive: $learningRate")
+    require(learningRate >= 0.0, s"learning rate must be non-negative: $learningRate")
     require(beta1 >= 0.0 && beta1 < 1.0, s"beta1 must be in [0,1): $beta1")
     require(beta2 >= 0.0 && beta2 < 1.0, s"beta2 must be in [0,1): $beta2")
     require(epsilon > 0.0, s"epsilon must be positive: $epsilon")

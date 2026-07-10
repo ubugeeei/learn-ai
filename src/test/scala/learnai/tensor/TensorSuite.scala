@@ -23,6 +23,28 @@ object TensorSuite extends TestSuite:
       Assert.equal(left.gradients, Vector(5.0, 6.0))
       Assert.equal(right.gradients, Vector(2.0, 3.0))
     },
+    test("separate microbatch graphs accumulate only trainable leaf gradients") {
+      val accumulated = Tensor.parameter(Shape(2), Vector(1.0, -2.0), "accumulated")
+      accumulated.clearGradients()
+      accumulated.hadamard(Tensor.constant(Shape(2), Vector(2.0, 3.0))).sum
+        .scale(0.5)
+        .backwardAccumulating()
+      accumulated.hadamard(Tensor.constant(Shape(2), Vector(4.0, -1.0))).sum
+        .scale(0.5)
+        .backwardAccumulating()
+
+      val fullBatch = Tensor.parameter(Shape(2), Vector(1.0, -2.0), "fullBatch")
+      val combined = (
+        fullBatch.hadamard(Tensor.constant(Shape(2), Vector(2.0, 3.0))).sum +
+          fullBatch.hadamard(Tensor.constant(Shape(2), Vector(4.0, -1.0))).sum
+      ).scale(0.5)
+      combined.backward()
+
+      Assert.equal(accumulated.gradients, fullBatch.gradients)
+      Assert.equal(accumulated.gradients, Vector(3.0, 1.0))
+      accumulated.pow(2.0).sum.backward()
+      Assert.equal(accumulated.gradients, Vector(2.0, -4.0))
+    },
     test("matrix multiplication backward computes both operand gradients") {
       val left = Tensor.parameter(Shape(2, 2), Vector(1.0, 2.0, 3.0, 4.0), "left")
       val right = Tensor.parameter(Shape(2, 1), Vector(5.0, 6.0), "right")
@@ -136,6 +158,8 @@ object TensorSuite extends TestSuite:
     test("backward requires a scalar output") {
       val tensor = Tensor.fill(Shape(2), 1.0)
       val error = Assert.throws[IllegalArgumentException](tensor.backward())
+      val accumulatingError = Assert.throws[IllegalArgumentException](tensor.backwardAccumulating())
       Assert.isTrue(error.getMessage.contains("scalar output"))
+      Assert.isTrue(accumulatingError.getMessage.contains("scalar output"))
     }
   )

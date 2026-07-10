@@ -20,6 +20,7 @@ object OptimizersSuite extends TestSuite:
       Assert.close(parameter.valueAtFlat(0), 1.6)
       Assert.close(stats.gradientNorm, 4.0)
       Assert.equal(stats.step, 1L)
+      Assert.close(stats.learningRate, 0.1)
     },
     test("global norm clipping preserves gradient direction") {
       val parameter = Tensor.parameter(Shape(2), Vector(0.0, 0.0), "x")
@@ -49,6 +50,19 @@ object OptimizersSuite extends TestSuite:
       parameter.scale(0.0).sum.backward()
       val _ = new TensorSgd(learningRate = 0.1, weightDecay = 0.5).step(Vector(parameter))
       Assert.close(parameter.valueAtFlat(0), 1.9)
+    },
+    test("a schedule-provided learning rate controls one update without replacing the default") {
+      val parameter = Tensor.parameter(Shape.scalar, Vector(2.0), "x")
+      val optimizer = new TensorSgd(learningRate = 0.1)
+      parameter.pow(2.0).sum.backward()
+      val scheduled = optimizer.stepAtLearningRate(Vector(parameter), effectiveLearningRate = 0.25)
+      Assert.close(parameter.valueAtFlat(0), 1.0)
+      Assert.close(scheduled.learningRate, 0.25)
+
+      parameter.pow(2.0).sum.backward()
+      val default = optimizer.step(Vector(parameter))
+      Assert.close(parameter.valueAtFlat(0), 0.8)
+      Assert.close(default.learningRate, 0.1)
     },
     test("Xavier initialization is bounded and deterministic") {
       val first = Initialization.xavierUniform(
