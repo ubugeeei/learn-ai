@@ -10,7 +10,7 @@ Nix / Scala 3 / dependency-free tests
   -> UTF-8 bytes / BPE / causal dataset / bigram
   -> embeddings / RMSNorm / causal attention / Transformer
   -> MiniGPT training and generation
-  -> sampling / checkpoint / int8 quantization
+  -> sampling / KV-cached decoding / checkpoint / int8 quantization
   -> strict JSON / typed tools / bounded agent / cited retrieval
 ```
 
@@ -26,7 +26,7 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 
 ## Next milestones
 
-1. correctness/performance harness and KV-cache equivalence;
+1. reusable correctness/performance harness;
 2. data, tensor, and pipeline parallel simulations;
 3. RoPE, GQA, SwiGLU, MoE, and a scaling estimator;
 4. data deduplication, mixture, and contamination checks;

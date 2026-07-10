@@ -56,7 +56,7 @@ The runnable path currently reaches:
 
 ```text
 math -> autodiff -> neural networks -> tokenization -> language modeling
-  -> causal Transformer -> MiniGPT -> inference artifacts
+  -> causal Transformer -> MiniGPT -> KV-cached decoding -> inference artifacts
   -> typed tools -> bounded agent runtime -> cited retrieval
 ```
 
@@ -70,8 +70,8 @@ $ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 
-KV caching, distributed training, modern blocks, post-training, agent planning,
-and evaluation remain explicit future milestones. See the [curriculum](docs/00-guide/01-curriculum.md)
+Distributed training, modern blocks, post-training, agent planning, and
+evaluation remain explicit future milestones. See the [curriculum](docs/00-guide/01-curriculum.md)
 for exact chapter status and [progress and quality standards](docs/00-guide/03-progress.md)
 for the definition of done.
 

@@ -2,6 +2,7 @@ package learnai.transformer
 
 import java.util.SplittableRandom
 
+import learnai.tensor.Shape
 import learnai.tensor.Tensor
 
 /** Attention output plus the normalized causal weights of every head. */
@@ -58,6 +59,65 @@ final class CausalSelfAttention private (
     val weights = headResults.map(_._1)
     val concatenated = Tensor.concatenateColumns(headResults.map(_._2))
     AttentionResult(outputProjection(concatenated), weights)
+
+  /** Evaluates one token against keys and values retained by an inference session.
+    *
+    * Input and output shapes are `[1, channels]`. The new key/value row is
+    * appended before attention, so the current token may attend to itself and
+    * every earlier cached position. This path is forward-only: cached arrays
+    * are detached from the training graph by design.
+    */
+  def forwardCached(input: Tensor, cache: AttentionKeyValueCache): Tensor =
+    require(input.shape == Shape(1, channels), s"cached attention expected [1,$channels], got ${input.shape}")
+    require(cache.channels == channels, s"cache channels ${cache.channels} do not match $channels")
+    require(cache.remainingCapacity > 0, s"KV cache capacity ${cache.capacity} is exhausted")
+
+    val query = queryProjection(input)
+    val key = keyProjection(input)
+    val value = valueProjection(input)
+    cache.append(key, value)
+
+    val queryValues = query.values
+    val concatenated = new Array[Double](channels)
+    val scale = 1.0 / math.sqrt(headChannels.toDouble)
+    var head = 0
+    while head < headCount do
+      val channelOffset = head * headChannels
+      val scores = new Array[Double](cache.length)
+      var maximum = Double.NegativeInfinity
+      var position = 0
+      while position < cache.length do
+        var dot = 0.0
+        var headChannel = 0
+        while headChannel < headChannels do
+          val channel = channelOffset + headChannel
+          dot += queryValues(channel) * cache.keyAt(position, channel)
+          headChannel += 1
+        val score = dot * scale
+        scores(position) = score
+        maximum = math.max(maximum, score)
+        position += 1
+
+      var exponentialSum = 0.0
+      position = 0
+      while position < cache.length do
+        scores(position) = math.exp(scores(position) - maximum)
+        exponentialSum += scores(position)
+        position += 1
+
+      var headChannel = 0
+      while headChannel < headChannels do
+        val channel = channelOffset + headChannel
+        var weightedValue = 0.0
+        position = 0
+        while position < cache.length do
+          weightedValue += scores(position) / exponentialSum * cache.valueAt(position, channel)
+          position += 1
+        concatenated(channel) = weightedValue
+        headChannel += 1
+      head += 1
+
+    outputProjection(Tensor.constant(Shape(1, channels), concatenated, "cachedAttention"))
 
   def parameters: Vector[Tensor] =
     queryProjection.parameters ++

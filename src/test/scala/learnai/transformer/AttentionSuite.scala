@@ -64,6 +64,44 @@ object AttentionSuite extends TestSuite:
       Assert.equal(output.shape, Shape(2, 6))
       Assert.equal(attention.parameters.map(_.size).sum, 4 * (6 * 6 + 6))
     },
+    test("cached one-token attention matches every full-prefix final row") {
+      val attention = CausalSelfAttention.random(4, 2, new SplittableRandom(5L), "attention")
+      val rows = Vector(
+        Vector(1.0, 2.0, 3.0, 4.0),
+        Vector(-1.0, 0.5, 2.0, -0.25),
+        Vector(3.0, -2.0, 1.0, 0.0)
+      )
+      val cache = AttentionKeyValueCache.create(channels = 4, capacity = rows.size)
+
+      rows.indices.foreach { index =>
+        val cached = attention.forwardCached(
+          Tensor.constant(Shape(1, 4), rows(index)),
+          cache
+        )
+        val prefix = Tensor.constant(Shape(index + 1, 4), rows.take(index + 1).flatten)
+        val reference = attention(prefix).rowValues(index)
+        cached.rowValues(0).zip(reference).foreach { case (actual, expected) =>
+          Assert.close(actual, expected, tolerance = 1e-12)
+        }
+      }
+
+      Assert.equal(cache.length, 3)
+      Assert.equal(cache.usedPayloadBytes, 3L * 4L * 2L * 8L)
+      Assert.equal(cache.usedPayloadBytes, cache.allocatedPayloadBytes)
+    },
+    test("a fixed KV cache rejects overflow and can be reused after clear") {
+      val attention = CausalSelfAttention.random(4, 2, new SplittableRandom(6L), "attention")
+      val cache = AttentionKeyValueCache.create(channels = 4, capacity = 1)
+      val token = Tensor.constant(Shape(1, 4), Vector.fill(4)(0.25))
+      val _ = attention.forwardCached(token, cache)
+      val overflow = Assert.throws[IllegalArgumentException] {
+        attention.forwardCached(token, cache)
+      }
+      Assert.isTrue(overflow.getMessage.contains("exhausted"))
+      cache.clear()
+      Assert.equal(cache.length, 0)
+      Assert.equal(attention.forwardCached(token, cache).shape, Shape(1, 4))
+    },
     test("head count must divide channels") {
       val error = Assert.throws[IllegalArgumentException] {
         CausalSelfAttention.random(5, 2, new SplittableRandom(1L), "attention")

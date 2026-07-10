@@ -6,6 +6,8 @@ import java.util.random.RandomGenerator
 import learnai.math.Categorical
 import learnai.math.Probability
 import learnai.math.VectorD
+import learnai.lm.Sampling
+import learnai.lm.SamplingConfig
 import learnai.optim.AdamW
 import learnai.tensor.Shape
 import learnai.tensor.Tensor
@@ -113,6 +115,74 @@ final class MiniGpt private (
     error match
       case Some(message) => Left(message)
       case None          => Right(generated)
+
+  /** Samples with one KV cache per block and returns deterministic work metrics.
+    *
+    * Within the context capacity, each generated token adds one model token
+    * evaluation instead of recomputing the full prefix. If a learned absolute-
+    * position window becomes full, the retained window is rebuilt with
+    * positions starting at zero so results remain equivalent to
+    * `nextDistribution` rather than silently changing positional semantics.
+    */
+  def generateCached(
+      prompt: Vector[TokenId],
+      newTokenCount: Int,
+      sampling: SamplingConfig,
+      random: RandomGenerator
+  ): Either[String, CachedGenerationResult] =
+    require(prompt.nonEmpty, "cached generation requires a non-empty prompt")
+    require(newTokenCount >= 0, s"new token count must be non-negative: $newTokenCount")
+
+    val session = new MiniGptInferenceSession(this)
+    if newTokenCount == 0 then
+      Right(
+        CachedGenerationResult(
+          prompt,
+          CachedGenerationStatistics(0L, 0L, 0, 0, session.allocatedCachePayloadBytes)
+        )
+      )
+    else
+      var generated = prompt
+      var activeContext = prompt.takeRight(config.maximumContextLength)
+      var nextLogits = session.prefill(activeContext)
+      var remaining = newTokenCount
+      var referenceTokenEvaluations = 0L
+      var cacheRebuilds = 0
+      var peakCachedTokens = session.length
+      var error: Option[String] = None
+
+      while remaining > 0 && error.isEmpty do
+        referenceTokenEvaluations += math.min(generated.size, config.maximumContextLength).toLong
+        Sampling.sample(nextLogits, sampling, random) match
+          case Left(message) => error = Some(message)
+          case Right(nextToken) =>
+            generated :+= nextToken
+            remaining -= 1
+            if remaining > 0 then
+              if session.length < config.maximumContextLength then
+                activeContext :+= nextToken
+                nextLogits = session.append(nextToken)
+              else
+                activeContext = (activeContext :+ nextToken).takeRight(config.maximumContextLength)
+                nextLogits = session.rebuild(activeContext)
+                cacheRebuilds += 1
+              peakCachedTokens = math.max(peakCachedTokens, session.length)
+
+      error match
+        case Some(message) => Left(message)
+        case None =>
+          Right(
+            CachedGenerationResult(
+              generated,
+              CachedGenerationStatistics(
+                session.evaluatedTokens,
+                referenceTokenEvaluations,
+                cacheRebuilds,
+                peakCachedTokens,
+                session.allocatedCachePayloadBytes
+              )
+            )
+          )
 
   /** Every owned trainable Tensor exactly once; the tied logit head adds none. */
   def parameters: Vector[Tensor] =

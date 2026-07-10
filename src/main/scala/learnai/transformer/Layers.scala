@@ -83,6 +83,14 @@ final class TokenPositionEmbedding(
     val positionValues = tokenIds.indices.toVector
     tokens(tokenValues) + positions(positionValues)
 
+  /** Embeds one token at an explicit absolute position for cached decoding. */
+  def at(tokenId: TokenId, position: Int): Tensor =
+    require(
+      position >= 0 && position < maximumContextLength,
+      s"position $position outside [0, $maximumContextLength)"
+    )
+    tokens(Vector(tokenId.value)) + positions(Vector(position))
+
   def parameters: Vector[Tensor] = tokens.parameters ++ positions.parameters
 
 /** A dense affine transform over the final channel axis of a rank-2 input. */

@@ -62,6 +62,15 @@ final class TransformerBlock private (
     val afterAttention = input + attention(attentionNorm(input))
     afterAttention + feedForward(feedForwardNorm(afterAttention))
 
+  /** Evaluates one inference token while appending this layer's KV state. */
+  def forwardCached(input: Tensor, cache: AttentionKeyValueCache): Tensor =
+    require(
+      input.rank == 2 && input.shape(0) == 1 && input.shape(1) == channels,
+      s"cached Transformer block expected [1,$channels], got ${input.shape}"
+    )
+    val afterAttention = input + attention.forwardCached(attentionNorm(input), cache)
+    afterAttention + feedForward(feedForwardNorm(afterAttention))
+
   /** Returns every trainable Tensor exactly once in forward ownership order. */
   def parameters: Vector[Tensor] =
     attentionNorm.parameters ++

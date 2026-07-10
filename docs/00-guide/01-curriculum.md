@@ -71,7 +71,7 @@ shape-safe code.
 | # | Status | Chapter | Deliverable |
 | --- | --- | --- | --- |
 | 23 | ✅ | Sampling | Temperature, top-k, top-p, seed |
-| 24 | ⬜ | KV cache | Cached/reference equivalence and timing |
+| 24 | ✅ | KV cache | Cached/reference equivalence and timing |
 | 25 | ✅ | Model format | Versioned, checksummed safe loader |
 | 26 | ✅ | Quantization | Symmetric int8 and measured error |
 | 27 | ⬜ | Parallelism | Data/tensor/pipeline simulations |
