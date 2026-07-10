@@ -29,6 +29,7 @@ import learnai.transformer.MiniGptSuite
 import learnai.lm.SamplingSuite
 import learnai.io.MiniGptCheckpointSuite
 import learnai.quantization.Int8QuantizationSuite
+import learnai.random.SplitMix64Suite
 import learnai.json.JsonSuite
 import learnai.agent.AgentRuntimeSuite
 import learnai.agent.PlanningSuite
@@ -53,6 +54,7 @@ object AllTests:
     ScalarNetworkSuite,
     TensorSuite,
     OptimizersSuite,
+    SplitMix64Suite,
     Utf8Suite,
     BpeTokenizerSuite,
     CausalDatasetSuite,
