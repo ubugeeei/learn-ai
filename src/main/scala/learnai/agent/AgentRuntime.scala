@@ -10,11 +10,13 @@ import java.util.concurrent.TimeoutException
 final case class AgentConfig(
     maximumModelSteps: Int = 16,
     maximumToolCalls: Int = 32,
-    toolTimeoutMillis: Long = 10_000L
+    toolTimeoutMillis: Long = 10_000L,
+    maximumToolAttempts: Int = 1
 ):
   require(maximumModelSteps > 0, "maximum model steps must be positive")
   require(maximumToolCalls >= 0, "maximum tool calls must be non-negative")
   require(toolTimeoutMillis > 0L, "tool timeout must be positive")
+  require(maximumToolAttempts > 0, "maximum tool attempts must be positive")
 
 enum AgentStatus:
   case Completed
@@ -30,6 +32,27 @@ final case class ModelReturned(step: Int, decision: String, usage: ModelUsage) e
 final case class ToolStarted(step: Int, callId: String, toolName: String) extends AgentEvent
 final case class ToolFinished(step: Int, observation: ToolObservation) extends AgentEvent
 final case class ToolResultReused(step: Int, observation: ToolObservation) extends AgentEvent
+final case class ToolAuthorizationChecked(
+    step: Int,
+    callId: String,
+    toolName: String,
+    effect: ToolEffect,
+    approved: Boolean,
+    reason: String
+) extends AgentEvent
+final case class ToolAttemptStarted(step: Int, callId: String, toolName: String, attempt: Int)
+    extends AgentEvent
+final case class ToolAttemptFinished(
+    step: Int,
+    callId: String,
+    toolName: String,
+    attempt: Int,
+    outcome: ToolOutcome
+) extends AgentEvent
+final case class ToolRetryScheduled(step: Int, callId: String, toolName: String, nextAttempt: Int)
+    extends AgentEvent
+final case class ToolRetrySuppressed(step: Int, callId: String, toolName: String, reason: String)
+    extends AgentEvent
 final case class AgentStopped(step: Int, status: AgentStatus, reason: String) extends AgentEvent
 
 /** Complete immutable trace returned for success and every failure mode. */
@@ -43,7 +66,11 @@ final case class AgentRun(
 )
 
 /** Executes a bounded model/tool loop over explicitly granted capabilities. */
-final class AgentRuntime(tools: Vector[Tool], config: AgentConfig):
+final class AgentRuntime(
+    tools: Vector[Tool],
+    config: AgentConfig,
+    approver: ToolApprover = ToolApprover.denyEffectful
+):
   private val toolNames = tools.map(_.definition.name)
   require(toolNames.forall(_.nonEmpty), "tool names cannot be empty")
   require(toolNames.distinct.size == toolNames.size, s"tool names must be unique: $toolNames")
@@ -111,7 +138,9 @@ final class AgentRuntime(tools: Vector[Tool], config: AgentConfig):
                       )
                     executedToolCalls += 1
                     events :+= ToolStarted(step, call.id, call.name)
-                    val observation = executeCall(call, step)
+                    val execution = executeCall(call, step)
+                    events ++= execution.events
+                    val observation = execution.observation
                     events :+= ToolFinished(step, observation)
                     history :+= observation
                     cached += call.id -> (call -> observation)
@@ -126,27 +155,97 @@ final class AgentRuntime(tools: Vector[Tool], config: AgentConfig):
   private def executeCall(
       call: ToolCall,
       step: Int
-  ): ToolObservation =
+  ): CallExecution =
     toolsByName.get(call.name) match
       case None =>
-        ToolObservation(
-          call.id,
-          call.name,
-          ToolFailed(ToolError("unknown_tool", s"tool '${call.name}' is not granted", false))
+        CallExecution(
+          ToolObservation(
+            call.id,
+            call.name,
+            ToolFailed(ToolError("unknown_tool", s"tool '${call.name}' is not granted", false))
+          ),
+          Vector.empty
         )
       case Some(tool) =>
         val validationProblems = tool.definition.schema.validate(call.arguments)
         if validationProblems.nonEmpty then
-          ToolObservation(
-            call.id,
-            call.name,
-            ToolFailed(ToolError("invalid_arguments", validationProblems.mkString("; "), false))
+          CallExecution(
+            ToolObservation(
+              call.id,
+              call.name,
+              ToolFailed(ToolError("invalid_arguments", validationProblems.mkString("; "), false))
+            ),
+            Vector.empty
           )
         else
-          val outcome = invokeWithTimeout(tool, call, step)
-          ToolObservation(call.id, call.name, outcome)
+          val authorization = authorize(tool, call, step)
+          val authorizationEvent = ToolAuthorizationChecked(
+            step,
+            call.id,
+            call.name,
+            tool.definition.effect,
+            authorization.isInstanceOf[ApprovalGranted],
+            authorization.reason
+          )
+          authorization match
+            case ApprovalDenied(reason) =>
+              CallExecution(
+                ToolObservation(
+                  call.id,
+                  call.name,
+                  ToolFailed(ToolError("approval_denied", reason, retryable = false))
+                ),
+                Vector(authorizationEvent)
+              )
+            case _: ApprovalGranted =>
+              val (outcome, attemptEvents) = invokeWithRetries(tool, call, step)
+              CallExecution(
+                ToolObservation(call.id, call.name, outcome),
+                authorizationEvent +: attemptEvents
+              )
 
-  private def invokeWithTimeout(tool: Tool, call: ToolCall, step: Int): ToolOutcome =
+  private def authorize(tool: Tool, call: ToolCall, step: Int): ApprovalDecision =
+    if !tool.definition.effect.requiresApproval then
+      ApprovalGranted(s"${tool.definition.effect} tools are allowed without interactive approval")
+    else
+      try approver.decide(call, tool.definition, ToolContext(call.id, step))
+      catch
+        case error: Throwable =>
+          ApprovalDenied(
+            s"approver failed with ${error.getClass.getSimpleName}: ${Option(error.getMessage).getOrElse("")}".trim
+          )
+
+  private def invokeWithRetries(
+      tool: Tool,
+      call: ToolCall,
+      step: Int
+  ): (ToolOutcome, Vector[AgentEvent]) =
+    val attemptEvents = Vector.newBuilder[AgentEvent]
+    var attempt = 1
+    var outcome: ToolOutcome = ToolFailed(ToolError("not_attempted", "tool was not attempted", false))
+    var finished = false
+    while !finished do
+      attemptEvents += ToolAttemptStarted(step, call.id, call.name, attempt)
+      outcome = invokeWithTimeout(tool, call, step, attempt)
+      attemptEvents += ToolAttemptFinished(step, call.id, call.name, attempt, outcome)
+      outcome match
+        case ToolFailed(error)
+            if error.retryable && attempt < config.maximumToolAttempts && tool.definition.effect.safeToRetry =>
+          attempt += 1
+          attemptEvents += ToolRetryScheduled(step, call.id, call.name, attempt)
+        case ToolFailed(error)
+            if error.retryable && attempt < config.maximumToolAttempts && !tool.definition.effect.safeToRetry =>
+          attemptEvents += ToolRetrySuppressed(
+            step,
+            call.id,
+            call.name,
+            s"${tool.definition.effect} is not safe to retry automatically"
+          )
+          finished = true
+        case _ => finished = true
+    outcome -> attemptEvents.result()
+
+  private def invokeWithTimeout(tool: Tool, call: ToolCall, step: Int, attempt: Int): ToolOutcome =
     val executor = Executors.newVirtualThreadPerTaskExecutor()
     val requestedCall = call
     try
@@ -155,7 +254,7 @@ final class AgentRuntime(tools: Vector[Tool], config: AgentConfig):
           override def call(): Either[ToolError, learnai.json.JsonValue] =
             tool.execute(
               requestedCall.arguments,
-              ToolContext(requestedCall.id, step)
+              ToolContext(requestedCall.id, step, attempt)
             )
       )
       try
@@ -179,3 +278,8 @@ final class AgentRuntime(tools: Vector[Tool], config: AgentConfig):
           )
     finally
       val _ = executor.shutdownNow()
+
+private final case class CallExecution(
+    observation: ToolObservation,
+    events: Vector[AgentEvent]
+)

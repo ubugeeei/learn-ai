@@ -40,6 +40,30 @@ object AgentRuntimeSuite extends TestSuite:
       if delayMillis > 0L then Thread.sleep(delayMillis)
       Right(arguments.get("message").get)
 
+  private final class ControlledTool(
+      effect: ToolEffect,
+      outcomes: Vector[Either[ToolError, learnai.json.JsonValue]]
+  ) extends Tool:
+    require(outcomes.nonEmpty, "controlled tool requires at least one outcome")
+    var invocations = 0
+    val contexts: ArrayBuffer[ToolContext] = ArrayBuffer.empty
+
+    override val definition: ToolDefinition = ToolDefinition(
+      "controlled",
+      "A deterministic tool used to verify runtime policy.",
+      ToolSchema(Vector.empty),
+      effect
+    )
+
+    override def execute(
+        arguments: JsonObject,
+        context: ToolContext
+    ): Either[ToolError, learnai.json.JsonValue] =
+      contexts += context
+      val outcome = outcomes(math.min(invocations, outcomes.size - 1))
+      invocations += 1
+      outcome
+
   private val userHistory = Vector(TextMessage(MessageRole.User, "hello"))
   private val smallUsage = ModelUsage(10, 2)
 
@@ -148,6 +172,116 @@ object AgentRuntimeSuite extends TestSuite:
       }
       Assert.isTrue(timeout.exists(_.retryable))
       Assert.equal(run.status, AgentStatus.Completed)
+    },
+    test("effectful tools are denied unless the host grants approval") {
+      val tool = new ControlledTool(
+        ToolEffect.IdempotentWrite,
+        Vector(Right(JsonString("written")))
+      )
+      val call = ToolCall("write-1", "controlled", JsonObject.empty)
+      val model = new ScriptedModel(
+        Vector(Right(RequestTools(Vector(call), smallUsage)), Right(FinalAnswer("not written", smallUsage)))
+      )
+      val run = new AgentRuntime(Vector(tool), AgentConfig()).run(model, userHistory)
+      val error = run.history.collectFirst {
+        case ToolObservation(_, _, ToolFailed(problem)) => problem
+      }
+      Assert.equal(tool.invocations, 0)
+      Assert.isTrue(error.exists(_.code == "approval_denied"))
+      val authorization = run.events.collectFirst { case event: ToolAuthorizationChecked => event }
+      Assert.isTrue(authorization.exists(event => !event.approved))
+    },
+    test("an approved idempotent write executes with an auditable decision") {
+      val tool = new ControlledTool(
+        ToolEffect.IdempotentWrite,
+        Vector(Right(JsonString("written")))
+      )
+      val call = ToolCall("write-2", "controlled", JsonObject.empty)
+      val model = new ScriptedModel(
+        Vector(Right(RequestTools(Vector(call), smallUsage)), Right(FinalAnswer("done", smallUsage)))
+      )
+      val run = new AgentRuntime(
+        Vector(tool),
+        AgentConfig(),
+        ToolApprover.allowAll
+      ).run(model, userHistory)
+      Assert.equal(tool.invocations, 1)
+      Assert.isTrue(run.events.exists {
+        case event: ToolAuthorizationChecked => event.approved
+        case _                               => false
+      })
+    },
+    test("retryable read-only failures use distinct bounded attempts") {
+      val tool = new ControlledTool(
+        ToolEffect.ReadOnly,
+        Vector(
+          Left(ToolError("temporary", "try again", retryable = true)),
+          Right(JsonString("recovered"))
+        )
+      )
+      val call = ToolCall("retry-1", "controlled", JsonObject.empty)
+      val model = new ScriptedModel(
+        Vector(Right(RequestTools(Vector(call), smallUsage)), Right(FinalAnswer("done", smallUsage)))
+      )
+      val run = new AgentRuntime(
+        Vector(tool),
+        AgentConfig(maximumToolAttempts = 2)
+      ).run(model, userHistory)
+      Assert.equal(tool.invocations, 2)
+      Assert.equal(tool.contexts.map(_.attempt).toVector, Vector(1, 2))
+      Assert.equal(run.executedToolCalls, 1)
+      Assert.equal(run.events.count(_.isInstanceOf[ToolRetryScheduled]), 1)
+      Assert.isTrue(run.history.exists {
+        case ToolObservation(_, _, ToolSucceeded(JsonString("recovered"))) => true
+        case _                                                             => false
+      })
+    },
+    test("non-idempotent writes are never retried automatically") {
+      val tool = new ControlledTool(
+        ToolEffect.NonIdempotentWrite,
+        Vector(
+          Left(ToolError("uncertain_commit", "response lost", retryable = true)),
+          Right(JsonString("would duplicate"))
+        )
+      )
+      val call = ToolCall("charge-1", "controlled", JsonObject.empty)
+      val model = new ScriptedModel(
+        Vector(Right(RequestTools(Vector(call), smallUsage)), Right(FinalAnswer("stopped", smallUsage)))
+      )
+      val run = new AgentRuntime(
+        Vector(tool),
+        AgentConfig(maximumToolAttempts = 3),
+        ToolApprover.allowAll
+      ).run(model, userHistory)
+      Assert.equal(tool.invocations, 1)
+      Assert.equal(run.events.count(_.isInstanceOf[ToolRetrySuppressed]), 1)
+    },
+    test("an approver exception fails closed without invoking the tool") {
+      val tool = new ControlledTool(
+        ToolEffect.IdempotentWrite,
+        Vector(Right(JsonString("written")))
+      )
+      val failingApprover = new ToolApprover:
+        override def decide(
+            call: ToolCall,
+            definition: ToolDefinition,
+            context: ToolContext
+        ): ApprovalDecision = throw new IllegalStateException("approval service unavailable")
+      val call = ToolCall("write-3", "controlled", JsonObject.empty)
+      val model = new ScriptedModel(
+        Vector(Right(RequestTools(Vector(call), smallUsage)), Right(FinalAnswer("safe", smallUsage)))
+      )
+      val run = new AgentRuntime(
+        Vector(tool),
+        AgentConfig(),
+        failingApprover
+      ).run(model, userHistory)
+      Assert.equal(tool.invocations, 0)
+      Assert.isTrue(run.history.exists {
+        case ToolObservation(_, _, ToolFailed(error)) =>
+          error.code == "approval_denied" && error.message.contains("approver failed")
+        case _ => false
+      })
     },
     test("tool-call budget stops before an unapproved extra execution") {
       val tool = new EchoTool()

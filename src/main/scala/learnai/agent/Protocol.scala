@@ -91,11 +91,58 @@ final case class ToolSchema(
       case (JsonNull, JsonFieldType.NullValue)          => true
       case _                                            => false
 
-/** Model-visible metadata for one granted tool capability. */
-final case class ToolDefinition(name: String, description: String, schema: ToolSchema)
+/** Operational effect used to decide approval and retry behavior.
+  *
+  * Read-only and idempotent operations may be retried after an explicitly
+  * retryable failure. Non-idempotent writes are never retried automatically
+  * because the first attempt may have committed before its response failed.
+  */
+enum ToolEffect(val requiresApproval: Boolean, val safeToRetry: Boolean):
+  case ReadOnly extends ToolEffect(requiresApproval = false, safeToRetry = true)
+  case IdempotentWrite extends ToolEffect(requiresApproval = true, safeToRetry = true)
+  case NonIdempotentWrite extends ToolEffect(requiresApproval = true, safeToRetry = false)
+
+/** Model-visible metadata plus host-only operational policy for one capability. */
+final case class ToolDefinition(
+    name: String,
+    description: String,
+    schema: ToolSchema,
+    effect: ToolEffect = ToolEffect.ReadOnly
+):
+  require(name.nonEmpty, "tool definition name cannot be empty")
+
+sealed trait ApprovalDecision:
+  def reason: String
+
+final case class ApprovalGranted(reason: String) extends ApprovalDecision
+final case class ApprovalDenied(reason: String) extends ApprovalDecision
+
+/** Host-controlled authorization boundary for effectful tool calls. */
+trait ToolApprover:
+  def decide(call: ToolCall, definition: ToolDefinition, context: ToolContext): ApprovalDecision
+
+object ToolApprover:
+  /** Secure default: effectful tools require an approver supplied by the host. */
+  val denyEffectful: ToolApprover = new ToolApprover:
+    override def decide(
+        call: ToolCall,
+        definition: ToolDefinition,
+        context: ToolContext
+    ): ApprovalDecision =
+      ApprovalDenied(s"${definition.effect} tool '${definition.name}' has no host approval")
+
+  /** Explicit opt-in useful for controlled tests and trusted local workflows. */
+  val allowAll: ToolApprover = new ToolApprover:
+    override def decide(
+        call: ToolCall,
+        definition: ToolDefinition,
+        context: ToolContext
+    ): ApprovalDecision =
+      ApprovalGranted(s"host approved ${definition.effect} tool '${definition.name}'")
 
 /** Runtime context passed to a tool but not controlled by model arguments. */
-final case class ToolContext(callId: String, agentStep: Int)
+final case class ToolContext(callId: String, agentStep: Int, attempt: Int = 1):
+  require(attempt > 0, s"tool attempt must be positive: $attempt")
 
 /** A capability that the host explicitly grants to an agent run. */
 trait Tool:

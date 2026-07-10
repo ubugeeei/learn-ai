@@ -101,7 +101,7 @@ about quality, compute, data, and operational tradeoffs.
 | 35 | ✅ | Agent loop | Reproducible loop with hard stop conditions |
 | 36 | ✅ | Memory and retrieval | Chunks, embeddings, vector search, citations |
 | 37 | ⬜ | Planning | State machine, task graph, recovery |
-| 38 | ⬜ | Reliability | Timeout, retry, idempotency, permissions |
+| 38 | ✅ | Reliability | Timeout, retry, idempotency, permissions |
 | 39 | ⬜ | Evaluation | Trajectory, fake model, quality/cost metrics |
 
 **Part deliverable:** build an agent runtime whose external actions are bounded,
