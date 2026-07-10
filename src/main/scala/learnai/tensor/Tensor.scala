@@ -236,6 +236,21 @@ final class Tensor private (
       )
       index += 1
 
+  /** Applies an optimizer-defined update to every trainable element.
+    *
+    * The callback receives `(flatIndex, data, gradient)` and returns the new
+    * data value. This is the only mutation boundary used by tensor optimizers.
+    */
+  def updateParameter(function: (Int, Double, Double) => Double): Unit =
+    require(isTrainable, "only trainable leaf tensors may be updated")
+    var index = 0
+    while index < size do
+      currentData(index) = Numerics.requireFinite(
+        function(index, currentData(index), currentGradient(index)),
+        s"updated parameter '$label' at flat index $index"
+      )
+      index += 1
+
   override def toString: String =
     s"Tensor(shape=$shape, values=${currentData.mkString("[", ", ", "]")}, " +
       s"operation=$operation, label=$label)"

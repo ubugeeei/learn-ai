@@ -10,6 +10,7 @@ import learnai.learning.GradientDescentSuite
 import learnai.autodiff.ValueSuite
 import learnai.nn.ScalarNetworkSuite
 import learnai.tensor.TensorSuite
+import learnai.optim.OptimizersSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -22,7 +23,8 @@ object AllTests:
     GradientDescentSuite,
     ValueSuite,
     ScalarNetworkSuite,
-    TensorSuite
+    TensorSuite,
+    OptimizersSuite
   )
 
   def main(arguments: Array[String]): Unit =
