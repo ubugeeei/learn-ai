@@ -13,7 +13,8 @@ lazy val root = project
       "-Wvalue-discard"
     ),
     Compile / run / fork := true,
-    Test / parallelExecution := false
+    Test / parallelExecution := false,
+    Test / test := (Test / runMain).toTask(" learnai.testing.AllTests").value
   )
 
-addCommandAlias("check", ";clean;compile;Test/compile")
+addCommandAlias("check", ";clean;compile;test")
