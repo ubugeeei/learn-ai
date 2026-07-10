@@ -72,7 +72,7 @@
 | 23 | ✅ | sampling | temperature、top-k、top-p、seed |
 | 24 | ⬜ | KV cache | cache あり/なしの同値性と速度比較 |
 | 25 | ✅ | model format | versioned/checksummed な安全な形式と loader |
-| 26 | ⬜ | 量子化 | symmetric int8 と誤差測定 |
+| 26 | ✅ | 量子化 | symmetric int8 と誤差測定 |
 | 27 | ⬜ | 並列化 | data/tensor/pipeline parallel の simulation |
 
 **Part 成果物:** 学習時と推論時の計算の違いを説明し、速度・メモリを測って改善できる。
