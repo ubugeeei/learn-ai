@@ -1,74 +1,70 @@
-# 12 — Tensor と reverse-mode 自動微分
+# 12 — Tensor reverse-mode autodiff
 
-## この章で作るもの
+## What you will build
 
-任意 rank の dense row-major `Tensor`、shape/index 変換、要素ごとの演算、reduction、reshape、
-transpose、行列積と、それぞれの backward rule を実装します。
+A dense row-major Tensor with arbitrary rank, shape/index conversion,
+element-wise operations, reductions, reshape, transpose, matrix multiplication,
+and backward rules.
 
 - shape: `src/main/scala/learnai/tensor/Shape.scala`
 - tensor: `src/main/scala/learnai/tensor/Tensor.scala`
 
-## scalar graph の限界
+## Why scalar graphs do not scale
 
-前章の `Value` では、一つの数と演算ごとに JVM object を作りました。`[1024, 1024]` の行列積
-なら出力だけで約 100 万 node、内部の乗算・加算はさらに多数です。
+`Value` creates a JVM object for every number and operation. A `[1024,1024]`
+output alone contains about a million scalars, with many more multiplication
+and addition nodes.
 
-Tensor node は多数の数を一つの演算としてまとめます。
-
-```text
-scalar graph: value node x millions
-Tensor graph: MatMul node -> Add node -> Tanh node
-```
-
-backward の数学は同じですが、loop を一つの backward rule 内で実行します。実用 framework では
-この単位が CPU/GPU kernel になります。
-
-## rank、shape、size
-
-- rank 0: scalar、shape `[]`、size 1
-- rank 1: vector、shape `[n]`
-- rank 2: matrix、shape `[m,n]`
-- rank 3: token batch など、shape `[batch,time,channels]`
-
-shape の全 dimension を掛けた値が要素数です。
-
-\[
-\operatorname{size}([d_0,d_1,\ldots,d_{r-1}])=\prod_i d_i
-\]
-
-`Shape.scalar` の dimension は空ですが、空積を 1 と定義するため scalar は一要素です。
-
-## stride と row-major offset
-
-shape `[2,3,4]` の stride は `[12,4,1]` です。座標 `[i,j,k]` の flat offset は次です。
-
-\[
-\operatorname{offset}=12i+4j+k
-\]
-
-最後の軸が memory 上で連続します。`[1,2,3]` は `12 + 8 + 3 = 23`、24 要素中の最後です。
-
-`Shape` は dimension、stride、size を一度計算し、すべての Tensor が同じ index 規則を使うように
-します。dimension の積が `Int` を overflow する場合も構築時に拒否します。
-
-## broadcasting をまだ実装しない
-
-`[2,3] + [3]` のように dimension 1 や不足軸を暗黙に繰り返す規則を broadcasting と呼びます。
-便利ですが、どの軸に gradient を合計して戻すかという追加規則が必要です。
-
-この章の二項要素演算は shape の完全一致を要求します。
+A Tensor node groups an entire operation:
 
 ```text
-[2,3] + [2,3] -> [2,3]  OK
-[2,3] + [3]   -> error  implicit broadcasting is disabled
+scalar graph: millions of scalar nodes
+Tensor graph: MatMul -> Add -> Tanh
 ```
 
-Transformer を実装する際に、必要な broadcasting を名前付き演算として追加し、forward と backward
-の axis を明示します。
+The calculus is unchanged. Loops move inside a backward rule. Production
+systems execute those rules as CPU or GPU kernels.
 
-## 要素ごとの backward
+## Rank, shape, and size
 
-\(\boldsymbol{C}=\boldsymbol{A}\odot\boldsymbol{B}\) なら各要素は独立です。
+- rank 0: scalar, shape `[]`, size 1;
+- rank 1: vector, shape `[n]`;
+- rank 2: matrix, shape `[m,n]`;
+- rank 3: often `[batch,time,channels]`.
+
+\[
+\operatorname{size}([d_0,\ldots,d_{r-1}])=\prod_i d_i
+\]
+
+The scalar shape has no dimensions, but the empty product is one.
+
+## Strides and offsets
+
+Shape `[2,3,4]` has row-major strides `[12,4,1]`:
+
+\[
+\operatorname{offset}([i,j,k])=12i+4j+k
+\]
+
+Coordinate `[1,2,3]` maps to offset `23`. The final axis is contiguous in
+memory. `Shape` computes dimensions, strides, and size once for every Tensor.
+
+## No implicit broadcasting yet
+
+Broadcasting repeats singleton or missing axes, but backward must then reduce
+gradient along exactly those axes. This first engine requires equal shapes:
+
+```text
+[2,3] + [2,3] -> [2,3]
+[2,3] + [3]   -> error
+```
+
+Later operations such as `addRowVector` name their broadcast and reduction
+semantics explicitly.
+
+## Element-wise backward
+
+For \(C=A\odot B\):
 
 \[
 \frac{\partial L}{\partial A_i}
@@ -77,90 +73,76 @@ Transformer を実装する際に、必要な broadcasting を名前付き演算
 =\frac{\partial L}{\partial C_i}A_i
 \]
 
-scalar `Value` の積の規則を array index ごとに適用しているだけです。同じ Tensor が複数経路で
-使われるため、gradient array にも加算します。
+This is scalar multiplication's rule applied at every index. Shared Tensor
+paths still require gradient accumulation.
 
-## reduction の backward
+## Reduction backward
 
-sum は `[d0,...] -> []` と全要素を一つにします。
+For \(s=\sum_i x_i\):
 
 \[
-s=\sum_i x_i,\qquad \frac{\partial s}{\partial x_i}=1
+\frac{\partial s}{\partial x_i}=1
 \]
 
-したがって出力 scalar に届いた gradient を、入力の全要素へ同じように加えます。mean は sum を
-要素数で割った合成です。
+The scalar upstream gradient is copied to every input element. Mean composes sum
+with division by element count.
 
-## reshape は値の順序を変えない
+## Reshape and transpose
 
-`reshape` は要素数が同じ別 shape へ解釈を変えます。
+Reshape changes interpretation without changing flat order and requires equal
+element count. Its backward keeps flat indices unchanged. Transpose reorders
+elements, so backward applies the inverse index mapping.
 
-```text
-[2,3] -> [6]   OK, both size 6
-[2,3] -> [2,2] error
-```
+## Matrix multiplication backward
 
-flat index の順序は変わらないため、backward も同じ flat index へ gradient を戻します。transpose
-は要素順を入れ替えるので、backward でも逆の index mapping が必要です。
-
-## 行列積の backward
-
-\(\boldsymbol{C}=\boldsymbol{A}\boldsymbol{B}\) の shape を次とします。
+For `C = A B`:
 
 ```text
 A [m,k] x B [k,n] -> C [m,n]
 ```
 
-matrix calculus では gradient を次の行列積で書けます。
-
 \[
-\frac{\partial L}{\partial \boldsymbol{A}}
-=\frac{\partial L}{\partial \boldsymbol{C}}\boldsymbol{B}^\mathsf{T}
+\frac{\partial L}{\partial A}
+=\frac{\partial L}{\partial C}B^{\mathsf T}
 \]
 
 \[
-\frac{\partial L}{\partial \boldsymbol{B}}
-=\boldsymbol{A}^\mathsf{T}\frac{\partial L}{\partial \boldsymbol{C}}
+\frac{\partial L}{\partial B}
+=A^{\mathsf T}\frac{\partial L}{\partial C}
 \]
 
-実装では output の各 `[row,column]` に届いた gradient を、forward で寄与した全 inner index へ
-配ります。これも scalar の積と加算の連鎖律を loop にまとめたものです。
+The implementation distributes each output gradient to every inner-index
+product that contributed during forward.
 
-## gradient check
+## Gradient checking
 
-`TensorSuite` は一つの matrix 要素だけを \(+h\)、\(-h\) へ動かした数値微分と、matmul → pow →
-mean の backward を比較します。
+Tests perturb individual matrix elements by \(+h\) and \(-h\), then compare
+finite differences with `matmul -> pow -> mean` backward. For larger tensors,
+check all elements on tiny shapes and sampled elements on realistic shapes.
 
-大きな Tensor の全要素を数値微分すると遅いため、実用的には次を組み合わせます。
+## Memory estimate
 
-- 小 shape で全要素 check
-- 大 shape でランダムな一部を check
-- 演算の代数的 property
-- reference implementation との比較
+`Double` uses 8 bytes, so `[B,T,C]` data alone costs `8*B*T*C` bytes. Training
+also needs gradients, intermediate activations, and optimizer state.
 
-## memory の見積もり
+This educational engine eagerly allocates a same-size gradient for every node.
+Production systems avoid gradients in inference, reuse buffers, and use
+activation checkpointing.
 
-`Double` は一要素 8 bytes です。`[B,T,C]` の data だけで
-`8 * B * T * C` bytes、学習時には gradient、中間 activation、optimizer state も必要です。
+## Exercises
 
-現在の engine は各 node が data と同サイズの gradient array を最初から確保します。教育上単純
-ですが memory 効率はよくありません。実用 engine は gradient が不要な node、inference mode、
-buffer reuse、activation checkpointing を扱います。
+1. Compute strides and final offset for `[2,3,4,5]`.
+2. Add sigmoid and check its gradient numerically.
+3. Test `transpose2D.transpose2D` for values and gradients.
+4. Derive matmul backward with indexed notation.
+5. Compute data and gradient bytes for `[32,128,768]`.
+6. Design `addRowVector` and its reduction axis.
 
-## 演習
+## Completion criteria
 
-1. shape `[2,3,4,5]` の stride と座標 `[1,2,3,4]` の offset を計算してください。
-2. `sigmoid` を Tensor 演算として追加し、数値微分で確認してください。
-3. `transpose2D.transpose2D` の values と gradient が元に戻る property を追加してください。
-4. 行列積 backward の式を、index notation から導出してください。
-5. `[32,128,768]` の data、gradient を `Double` で保持する bytes を計算してください。
-6. 明示的な `addRowVector` と backward の reduction axis を設計してください。
-
-## 完了条件
-
-- rank、shape、size、stride、offset を相互に変換できる
-- scalar graph と Tensor graph の違いを説明できる
-- sum、reshape、transpose の backward で gradient がどう移動するか説明できる
-- matmul の両入力 gradient の shape と式を書ける
-- broadcasting を暗黙に導入しない理由を説明できる
-- `TensorSuite` が成功する
+- Convert among rank, shape, size, stride, and offset.
+- Explain scalar-graph versus Tensor-graph granularity.
+- Explain gradient movement through sum, reshape, and transpose.
+- State both matmul gradient shapes and equations.
+- Explain why broadcasting is initially explicit.
+- `TensorSuite` passes.

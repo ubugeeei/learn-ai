@@ -1,104 +1,111 @@
-# 36 — chunking、vector search、引用付き retrieval
+# 36 — Chunking, vector search, and cited retrieval
 
-## この章で作るもの
+## What you will build
 
-文書を source offset 付き chunk に分け、deterministic hashing vector へ変換し、cosine similarity で
-検索して citation metadata とともに agent tool へ返します。
+Split documents into source-offset chunks, embed them with a deterministic
+hashing baseline, rank by cosine similarity, and return citation metadata
+through an agent tool. Source:
+`src/main/scala/learnai/retrieval/Retrieval.scala`.
 
-対象コードは `src/main/scala/learnai/retrieval/Retrieval.scala` です。
+## Context windows and external memory
 
-## context window と external memory
-
-model weight は学習時知識を圧縮していますが、最新・private・詳細な文書を正確に保持する database では
-ありません。全資料を prompt に入れると context/cost/attention が増えます。query に関連する小部分だけ
-を取得します。
+Model weights compress training-time patterns but are not an exact, current,
+private-document database. Putting every document into a prompt increases
+context, cost, and attention work. Retrieve only likely relevant spans:
 
 ```text
 documents -> chunks -> embeddings -> index
 query     -> embedding -> similarity -> top chunks -> model context
 ```
 
-retrieval は model parameter を変更しません。検索結果も untrusted data であり、tool 権限にはなりません。
+Retrieval does not modify model parameters. Retrieved text remains untrusted and
+does not grant tool authority.
 
-## chunk と provenance
+## Chunks and provenance
 
-各 `TextChunk` は text だけでなく次を保持します。
+Each `TextChunk` retains:
 
-- stable chunk/document ID
-- document title
-- source start/end offset
+- stable chunk and document IDs;
+- document title;
+- source start and end offsets;
+- exact span text.
 
-回答時に chunk ID を引用し、後から原文 span を検証できます。text だけを copy すると source mapping を
-失い、誤引用や更新追跡が難しくなります。
+An answer can cite a chunk ID and let a reader inspect the source span. Copying
+text without provenance makes update tracking and citation verification hard.
 
-固定文字数 chunk は単純ですが、文・見出し・code block を分断します。production では structure-aware
-chunking、token count 上限、parent/child retrieval を比較します。
+Fixed-size chunking is transparent but can split sentences, headings, or code
+blocks. Production systems compare structure-aware chunks, token limits, and
+parent-child retrieval.
 
-## overlap
+## Overlap
 
-境界をまたぐ語や文脈を両 chunk に含めるため overlap を使います。chunk size \(C\)、overlap \(O\) の
-step は \(C-O\) です。overlap を増やすと recall は上がり得ますが、index size と重複 result が増えます。
+Overlap preserves context around boundaries. For chunk size \(C\) and overlap
+\(O\), step size is \(C-O\). More overlap may improve recall but increases index
+size and duplicate results.
 
-## hashing embedding
+## Hashing embedding baseline
 
-教材 embedder は lower-case token の stable hash を固定 dimension bucket へ加え、L2 normalize します。
-
-\[
-\hat{v}=v/\lVert v\rVert_2
-\]
-
-同じ語の overlap を学ぶ bag-of-words baseline で、synonym や文脈的意味は理解しません。hash collision も
-あります。signed hashing は collision の正方向 bias を減らします。
-
-semantic embedding model を導入する前に、index/query vector、normalization、ranking、citation、eval の
-pipeline を観察できます。
-
-## cosine search
-
-query/chunk vector を normalize 済みなので cosine similarity は内積です。
+The teaching embedder lowercases tokens, hashes them into fixed buckets, uses a
+sign bit, and L2-normalizes:
 
 \[
-\cos(q,d)=\hat{q}\cdot\hat{d}
+\hat v=v/\lVert v\rVert_2
 \]
 
-score 降順、同点は chunk ID 昇順で deterministic にします。ANN index は大規模検索を近似高速化します
-が、まず exact scan を evaluation reference にします。
+It captures exact-token overlap but not semantic synonymy or word order. Hash
+collisions are unavoidable; signed hashing reduces systematic positive bias.
 
-## retrieval tool
+This baseline exposes indexing, normalization, ranking, citations, and
+evaluation before introducing an external neural embedding model.
 
-`SearchTool` は read-only capability で、query を検証後、各 result に score と source metadata を返し
-ます。agent は result text を根拠に回答できますが、runtime/UI は次を強制できます。
+## Cosine search
 
-- cited chunk ID が実在する
-- answer claim と citation span を表示する
-- retrieval failure 時に知識を捏造せず不足を示す
-- retrieved instruction を system policy として扱わない
+Normalized query and document vectors make cosine similarity a dot product:
 
-## retrieval evaluation
+\[
+\cos(q,d)=\hat q\cdot\hat d
+\]
 
-end-to-end answer だけでなく段階別に測ります。
+Results sort by descending score and then chunk ID for deterministic ties. An
+exact scan is a useful oracle before adding an approximate nearest-neighbor
+index.
 
-- Recall@k: 正解根拠が top-k に入る割合
-- MRR: 最初の正解順位の逆数
-- citation precision/coverage
-- answer faithfulness
-- latency と index bytes
+## Retrieval tool
 
-chunk size/overlap/embedder/top-k を変え、固定 query-ground-truth set で比較します。
+`SearchTool` is read-only. Every result contains score, text, document identity,
+and source offsets. A host can enforce:
 
-## 演習
+- every citation refers to a returned chunk;
+- source spans are displayed with claims;
+- retrieval failure is reported instead of fabricated evidence;
+- instructions inside retrieved text remain data, not policy.
 
-1. sentence boundary を優先する chunker を実装してください。
-2. hashing dimension を変え、collision と Recall@k を測ってください。
-3. BM25 lexical baseline を実装し、hashing cosine と比較してください。
-4. retrieved text に prompt injection を入れ、tool capability が増えないことを test してください。
-5. result chunk ID だけを許可する citation validator を追加してください。
+## Retrieval evaluation
 
-## 完了条件
+Measure retrieval separately from answer generation:
 
-- model weight と external retrieval memory を区別できる
-- chunk offset/provenance が引用に必要な理由を説明できる
-- overlap の recall/storage trade-off を説明できる
-- normalized cosine が dot product になることを説明できる
-- retrieval quality と answer quality を分けて評価できる
-- `RetrievalSuite` が成功する
+- Recall@k: whether the correct evidence appears in top-k;
+- MRR: reciprocal rank of the first correct result;
+- citation precision and coverage;
+- answer faithfulness;
+- latency and index bytes.
+
+Use a fixed query/evidence set to compare chunk size, overlap, embedding model,
+and result count.
+
+## Exercises
+
+1. Implement sentence-boundary-aware chunking.
+2. Measure collisions and Recall@k across hashing dimensions.
+3. Implement BM25 and compare it with hashing cosine.
+4. Put prompt injection in a retrieved chunk and verify authority is unchanged.
+5. Validate that citations reference returned chunk IDs.
+
+## Completion criteria
+
+- Distinguish model weights from retrieval memory.
+- Explain why offsets and provenance are needed.
+- Explain overlap's recall/storage tradeoff.
+- Explain normalized cosine as dot product.
+- Evaluate retrieval and answer quality separately.
+- `RetrievalSuite` passes.

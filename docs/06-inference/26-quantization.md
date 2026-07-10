@@ -1,146 +1,139 @@
-# 26 — symmetric int8 weight quantization
+# 26 — Symmetric int8 weight quantization
 
-## この章で作るもの
+## What you will build
 
-`Double` matrix の各 row を signed int8 と一つの scale に量子化し、dequantize せず matrix-vector
-積を計算し、maximum/mean absolute error と RMSE を測ります。
+Quantize each `Double` matrix row to signed int8 plus one scale, compute matvec
+without materializing full-precision weights, and measure maximum, mean, and
+root-mean-square reconstruction error. Source:
+`src/main/scala/learnai/quantization/Int8Quantization.scala`.
 
-対象コードは `src/main/scala/learnai/quantization/Int8Quantization.scala` です。
+## Why quantize?
 
-## quantization の目的
+Lower-bit weights can reduce:
 
-model weight を低 bit 表現にすると、主に次を減らせます。
+- storage and download size;
+- memory capacity requirements;
+- memory bandwidth;
+- arithmetic cost on supported hardware.
 
-- storage と download size
-- memory capacity
-- memory bandwidth
-- 対応 hardware での演算 cost
+They also add rounding error, scaling metadata, and kernel requirements. An
+eight-times-smaller payload does not guarantee eight-times-lower latency.
+Measure the actual bottleneck.
 
-ただし丸め誤差が入り、quantize/dequantize scale の計算や kernel support が必要です。file size が 4 倍
-小さくても latency が必ず 4 倍速くなるわけではありません。bottleneck を測ります。
+## Symmetric int8
 
-## symmetric int8
-
-一 row の最大絶対値を \(a=\max_i|w_i|\) とします。int8 code は対称な `[-127,127]` を使います。
+For one row, let \(a=\max_i|w_i|\):
 
 \[
 s=\frac{a}{127}
 \]
 
 \[
-q_i=\operatorname{clamp}\left(\operatorname{round}\left(\frac{w_i}{s}\right),-127,127\right)
+q_i=\operatorname{clamp}
+\left(\operatorname{round}(w_i/s),-127,127\right)
 \]
 
-復元は次です。
+Reconstruct with:
 
 \[
-\hat{w}_i=sq_i
+\hat w_i=sq_i
 \]
 
-`-128` を使わず、正負の最大 magnitude を同じにします。zero point は 0 なので symmetric quantization
-です。
+Code `-128` remains unused so positive and negative ranges are symmetric. The
+zero point is zero. An all-zero row uses scale `1`; all codes remain zero.
 
-all-zero row は \(a=0\) で scale 0 になりますが、全 code が 0 なら scale は結果に影響しません。
-representation invariant を単純に保つため `s=1` とします。
+## Per-tensor versus per-row scale
 
-## per-tensor と per-row scale
-
-全 matrix に一 scale を使う per-tensor quantization は metadata が少ない一方、小さな row が大きな
-outlier row の scale に合わせられ、resolution を失います。
-
-per-row は各 output channel に scale を持ちます。
+A single scale for the whole matrix has little metadata but can waste
+resolution when rows have very different magnitudes. Per-row quantization uses:
 
 ```text
-weights [outputChannels,inputChannels]
-scales  [outputChannels]
+weights: [outputChannels,inputChannels]
+scales:  [outputChannels]
 ```
 
-linear layer で output row ごとに dynamic range が違う場合の誤差を減らします。scale metadata は
-row あたり 8 bytes（教材では `Double`）増えます。production は fp16/fp32 scale、group-wise scale
-などを使います。
+It adapts to each output channel at the cost of scale metadata. Production
+systems also use per-group scaling and smaller scale dtypes.
 
-## rounding error bound
+## Error bound
 
-clipping が起きず、通常の nearest rounding なら code の誤差は 0.5 以下なので、復元 absolute error
-は概ね scale の半分以下です。
+Nearest rounding without clipping has code error at most `0.5`, so approximate
+absolute reconstruction error is:
 
 \[
-|w_i-\hat{w}_i|\le\frac{s}{2}
+|w_i-\hat w_i|\leq s/2
 \]
 
-最大値から scale を作るため元 weight は範囲内で、通常 clipping は不要ですが、浮動小数点 rounding
-に備えて clamp します。
+Scale comes from the row maximum, so source weights fit the representable
+range. Clamping remains defensive against finite arithmetic effects.
 
-## quantized matvec
+## Quantized matrix-vector multiplication
 
 \[
 y_r=\sum_c w_{rc}x_c
 \approx s_r\sum_c q_{rc}x_c
 \]
 
-row scale は sum の外へ出せます。`QuantizedInt8Matrix.matvec` は full `Double` weight matrix を作らず、
-int8 code を読みながら accumulation し最後に scale を掛けます。
+The row scale can be applied after accumulation. The teaching implementation
+keeps input and accumulator as `Double` so the experiment isolates weight
+quantization error.
 
-この教材は input と accumulator を `Double` にして weight quantization の誤差だけを観察します。
-実用 kernel は int8 activation/int32 accumulator、weight-only int4/fp16 compute など hardware に合う方式を
-選びます。
+Production choices include int8 activation with int32 accumulation, weight-only
+int4 with fp16 compute, and hardware-specific packed kernels.
 
-## error metrics
+## Error metrics
 
-要素単位の reconstruction error:
+- maximum absolute error: worst element;
+- mean absolute error: average magnitude;
+- RMSE: emphasizes large errors through squaring.
 
-- maximum absolute: 最悪の一要素
-- mean absolute: 平均的なずれ
-- RMSE: 大きな error を二乗で強く評価
+Small weight error does not guarantee preserved model quality. Compare
+activations, logits, perplexity, and task evaluation. Outlier channels and rare
+token logits may be especially sensitive.
 
-しかし weight error が小さくても model quality が保たれる保証はありません。層ごとの activation
-distribution、最終 logits、perplexity、task eval を quantized/non-quantized で比較します。
+## Memory estimate
 
-特に outlier channel、Attention softmax 前の score、rare token logits は小さな数値差に敏感な場合が
-あります。
+For matrix `R x C`:
 
-## memory estimate
+- Double payload: \(8RC\) bytes;
+- per-row int8 payload: \(RC+8R\) bytes in this implementation.
 
-`R x C` matrix の payload は、
+Object headers, alignment, packing, scale dtype, and kernel workspace also
+matter in real measurements.
 
-- Double: \(8RC\) bytes
-- per-row int8: \(RC+8R\) bytes
+## PTQ and QAT
 
-row が十分に広ければ約 8 分の 1 です。実際には object/header/alignment、packing、scale dtype、kernel
-workspace も含めて測ります。
+This chapter implements post-training quantization:
 
-## PTQ と QAT
+- **PTQ** converts an already trained model and may use calibration data;
+- **QAT** simulates quantization during training so the model adapts.
 
-この章は学習後 weight を変換する post-training quantization（PTQ）です。
+Lower bit widths are more likely to require fine-tuning, but the result depends
+on model, data, and architecture.
 
-- PTQ: 速く、元 training をやり直さない。calibration data が必要な方式もある
-- QAT: training 中に fake quantization error を入れ、model が誤差へ適応する
-
-低 bit ほど QAT や fine-tuning が必要になりやすいですが、model/data/architecture に依存します。
-
-## 実行
+## Run it
 
 ```console
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 
-payload bytes と実測 reconstruction error を表示します。performance claim には別途 warmup と反復を
-含む benchmark が必要です。
+The experiment reports payload bytes and reconstruction error. Performance
+claims require a warmed repeated benchmark.
 
-## 演習
+## Exercises
 
-1. row `[-2,-1,0,1,2]` の scale、codes、復元値を手計算してください。
-2. per-tensor quantization を実装し、magnitude が大きく違う二 row で error を比較してください。
-3. scale を `Float` に変えた payload bytes と誤差を測ってください。
-4. random weight matrix の matvec output cosine similarity を測ってください。
-5. MiniGPT の各 2D weight を量子化し、固定 prompt logits の最大誤差を測ってください。
-6. int4 packed representation に必要な bit 操作と scale group を設計してください。
+1. Quantize row `[-2,-1,0,1,2]` by hand.
+2. Implement per-tensor scaling and compare mixed-magnitude rows.
+3. Store scales as `Float` and compare bytes and error.
+4. Measure matvec output cosine similarity.
+5. Quantize MiniGPT 2D weights and compare fixed-prompt logits.
+6. Design packed int4 groups and bit operations.
 
-## 完了条件
+## Completion criteria
 
-- scale、quantized code、dequantized value を手計算できる
-- symmetric quantization が zero point 0 になる理由を説明できる
-- per-row と per-tensor の metadata/error trade-off を説明できる
-- weight error と end-task quality の両方を測る必要を説明できる
-- storage reduction と latency improvement を区別できる
-- `Int8QuantizationSuite` が成功する
+- Compute scale, code, and reconstructed value.
+- Explain why symmetric zero point is zero.
+- Compare per-row and per-tensor metadata/error.
+- Explain why weight error and task quality both matter.
+- Distinguish storage reduction from latency improvement.
+- `Int8QuantizationSuite` passes.

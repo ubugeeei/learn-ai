@@ -1,100 +1,87 @@
-# 02 — LLM 実装に必要な Scala 3 入門
+# 02 — The Scala 3 needed for LLM implementation
 
-## この章で作るもの
+## What you will build
 
-loss の観測値を保持し、平均値を計算する小さな command-line program を作ります。この一例から、
-以降の実装で繰り返し使う値、型、関数、collection、分岐、error の表現を学びます。
+A small command-line program that records loss observations and computes their
+mean. It introduces the values, types, functions, collections, branches, and
+error representation used throughout the course.
 
-対象コードは `src/main/scala/learnai/foundations/ScalaTour.scala` です。
+Source: `src/main/scala/learnai/foundations/ScalaTour.scala`.
 
-## program は値を変換する
+## Programs transform values
 
-program を「入力を受け取り、規則に従って出力へ変換するもの」と捉えます。関数の最小例は
-`square` です。
+Treat a program as a transformation from typed input to typed output.
 
 ```scala
 def square(value: Double): Double = value * value
 ```
 
-左から順に読みます。
-
-| 部分 | 意味 |
+| Part | Meaning |
 | --- | --- |
-| `def` | 関数を定義する |
-| `square` | 関数名 |
-| `value` | 入力を参照する名前 |
-| `Double` | 64 bit 浮動小数点数という入力の型 |
-| 最後の `Double` | 出力の型 |
-| `value * value` | 出力を計算する式 |
+| `def` | define a function |
+| `square` | function name |
+| `value` | input name |
+| first `Double` | input type |
+| final `Double` | output type |
+| `value * value` | output expression |
 
-関数は `square(3.0)` のように呼び、結果は `9.0` です。同じ入力に対して同じ出力を返し、外部を
-変更しない関数を **pure function** と呼びます。pure function は小さい入力で検証しやすいため、
-数値計算の中心に置きます。
+`square(3.0)` returns `9.0`. A function that returns the same output for the
+same input and does not mutate external state is a **pure function**. Pure
+functions are central to numerical code because they are easy to test.
 
-## `val` は一度だけ名前を付ける
+## `val` gives a value one stable name
 
 ```scala
 val losses = Vector(2.0, 1.0, 0.5)
 ```
 
-`val` で定義した名前を別の値へ再代入することはできません。変更を減らすと、「この値を最後に
-書き換えた場所」を探さずに済みます。
-
-Scala compiler は右辺から型を推論するため、上の `losses` は `Vector[Double]` になります。
-明示すると次の形です。
+A `val` cannot be reassigned. The compiler infers `Vector[Double]`, though the
+type may also be written explicitly:
 
 ```scala
 val losses: Vector[Double] = Vector(2.0, 1.0, 0.5)
 ```
 
-型は値の集合と、許される操作を表します。`Double` には乗算があり、`String` には文字列の結合が
-あります。違う意味の値を誤って混ぜると、実行前に compiler が拒否します。
+A type describes a set of values and the operations permitted on them. It lets
+the compiler reject many meaning mismatches before execution.
 
-## 複数の値を一つの型にまとめる
+## Combine related fields
 
 ```scala
 final case class Observation(label: String, value: Double)
 ```
 
-`Observation` は label と数値を一組にします。
+`Observation` groups a label and numeric measurement. A case class provides a
+constructor, field access, value equality, and readable rendering. `final`
+states that this learning type is not designed for subclassing.
 
-```scala
-val observation = Observation("training loss", 1.25)
-println(observation.label)
-println(observation.value)
-```
+## Transform a collection
 
-`case class` は constructor、field へのアクセス、値としての比較、読みやすい文字列表現を生成
-します。`final` は、この教材では別の class に継承させないという設計意思です。
-
-## collection を変換する
-
-`Vector` は順序のある immutable collection です。
+`Vector` is an ordered immutable collection.
 
 ```scala
 val losses = observations.map(observation => observation.value)
 ```
 
-`map` は各 `Observation` を `Double` へ変換し、同じ要素数の `Vector[Double]` を返します。
-元の `observations` は変更しません。
+`map` applies `Observation => Double` to every element and returns a new
+`Vector[Double]` with the same length.
 
 ```text
 Vector[Observation] -- map(Observation => Double) --> Vector[Double]
 ```
 
-この「container の各要素に同じ関数を適用する」考えは、後で batch 内の sample や Tensor の
-要素を変換するときにも現れます。
+The same container transformation idea later applies to batches and tensors.
 
-## 空の平均値という不正な入力を表す
+## Represent an undefined mean
 
-平均は要素数で合計を割ります。
+For \(n\) values:
 
 \[
-\operatorname{mean}(x) = \frac{1}{n}\sum_{i=1}^{n} x_i
+\operatorname{mean}(x)=\frac{1}{n}\sum_{i=1}^{n}x_i
 \]
 
-要素がなければ \(n=0\) となり、平均は定義できません。戻り値を常に `Double` にすると、失敗を
-表現できません。そこで成功と失敗のどちらかを持つ `Either` を使います。
+An empty collection has \(n=0\), so its mean is undefined. Returning only a
+`Double` cannot represent that failure. Use `Either`:
 
 ```scala
 def mean(values: Vector[Double]): Either[String, Double] =
@@ -102,10 +89,10 @@ def mean(values: Vector[Double]): Either[String, Double] =
   else Right(values.sum / values.size.toDouble)
 ```
 
-- `Left(problem)` は失敗理由
-- `Right(value)` は計算結果
+- `Left(problem)` contains a failure reason.
+- `Right(value)` contains the result.
 
-呼び出し側は両方を処理します。
+The caller handles both cases:
 
 ```scala
 mean(losses) match
@@ -113,24 +100,23 @@ mean(losses) match
   case Left(problem)  => println(problem)
 ```
 
-この `match` は、考えられる形ごとに処理を分けます。後の agent 実装では tool の成功と失敗、
-JSON parse の成功と失敗を同じ考え方で扱います。
+The agent chapters use the same idea for JSON parsing, model calls, and tool
+execution.
 
-## I/O は境界へ置く
+## Keep I/O at the boundary
 
-`@main` を付けた `runScalaTour` が program の入口です。
+An `@main` function is a program entrypoint:
 
 ```scala
 @main def runScalaTour(): Unit =
-  // ...
   println("visible side effect")
 ```
 
-`println` は console という外部状態を変える **side effect** です。戻り値の `Unit` は、有用な
-計算結果ではなく effect が目的であることを示します。本教材では計算を pure function にし、
-I/O を入口・出口へ寄せます。
+`println` changes the console, so it is a side effect. `Unit` signals that the
+effect, rather than a returned data value, is the purpose. Keep calculations
+pure and concentrate I/O at entry and exit boundaries.
 
-## 実行
+## Run it
 
 ```console
 $ nix develop -c sbt 'runMain learnai.foundations.runScalaTour'
@@ -138,19 +124,17 @@ mean loss: 1.167
 the last loss is positive
 ```
 
-source を変更したらもう一度実行してください。sbt が変更部分を compile します。
+## Exercises
 
-## 演習
+1. Explain why `square(-3.0)` is positive.
+2. Call `mean(Vector.empty)` and print its `Left` message.
+3. Add a step number to `Observation` and update its constructors.
+4. Implement `minimum` as `Either[String, Double]`.
+5. Implement a pure `isImproving` function for two losses.
 
-1. `square(-3.0)` が正になる理由を、掛け算の規則から説明してください。
-2. `mean(Vector.empty)` を呼び、`Left` の message を表示してください。
-3. `Observation` に step 番号を追加し、三つの constructor 呼び出しを修正してください。
-4. `minimum` を `Either[String, Double]` で実装してください。
-5. loss が一つ前より減ったかを表す `isImproving` を pure function として実装してください。
+## Completion criteria
 
-## 完了条件
-
-- `val`、関数、引数、戻り値、型をコード上で指し示せる
-- `Vector.map` が入力と出力の各要素をどう対応させるか説明できる
-- 空 collection の平均を `Either` で表す理由を説明できる
-- pure function と I/O を含む関数を区別できる
+- Point to a value, function, argument, return value, and type in the source.
+- Explain how `Vector.map` relates input and output elements.
+- Explain why the empty mean returns `Either`.
+- Distinguish a pure calculation from I/O.

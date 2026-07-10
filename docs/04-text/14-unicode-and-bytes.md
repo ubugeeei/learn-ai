@@ -1,65 +1,66 @@
-# 14 — Unicode、UTF-8、byte tokenizer
+# 14 — Unicode, UTF-8, and a byte tokenizer
 
-## この章で作るもの
+## What you will build
 
-Scala `String` を UTF-8 bytes の token ID 列へ変換し、壊れた byte 列を黙って置換せず検出する
-tokenizer を作ります。対象コードは `src/main/scala/learnai/text/Utf8.scala` です。
+Convert a Scala `String` to UTF-8 byte token IDs and reject malformed byte
+sequences instead of silently replacing them. Source:
+`src/main/scala/learnai/text/Utf8.scala`.
 
-## model は文字列を直接扱わない
+## Models do not consume strings directly
 
-neural network の入力と出力は数です。tokenizer は文字列と token ID 列の境界です。
+Neural networks consume numbers. A tokenizer is the boundary between text and
+token IDs:
 
 ```text
 text --encode--> token IDs --model--> token IDs --decode--> text
 ```
 
-tokenizer は model の外付け前処理ではありません。vocabulary size、sequence length、学習効率、
-多言語性能、生成可能な文字列、model parameter 数に影響します。
+Tokenization affects vocabulary size, sequence length, training efficiency,
+multilingual behavior, generated text, and model parameter count.
 
-## character とは何か
+## What is a character?
 
-見た目の一文字を数えるだけでも複数の層があります。
+Several units are easily confused:
 
-- **grapheme cluster**: 人が一文字と認識するまとまり
-- **Unicode code point**: `U+3042` のように割り当てられた番号
-- **UTF-16 code unit**: JVM `String` 内部/API で現れる 16 bit 単位
-- **UTF-8 byte**: file や network で広く使われる 8 bit 単位
+- **grapheme cluster**: what a reader perceives as one symbol;
+- **Unicode code point**: a number such as `U+03B1`;
+- **UTF-16 code unit**: a 16-bit unit exposed by JVM string APIs;
+- **UTF-8 byte**: an 8-bit unit widely used in files and networks.
 
-emoji の一つの見た目が複数 code point からできる場合や、同じ見た目の文字列が異なる code point
-列を持つ場合もあります。Scala の `String.length` をそのまま「文字数」と解釈できません。
+One visible symbol may contain several code points. The same visible text may
+also have different normalized code-point sequences. `String.length` is not a
+universal character count.
 
-## Unicode と encoding
+## Unicode and UTF-8
 
-Unicode は文字へ code point を割り当てます。UTF-8 は code point 列を bytes に変換する encoding
-です。
+Unicode assigns code points. UTF-8 encodes a sequence of code points as bytes.
+A code point uses one to four UTF-8 bytes.
 
-UTF-8 は一 code point を 1〜4 bytes で表します。
-
-| text | code point | UTF-8 bytes | byte tokens |
+| Text | Code point | UTF-8 bytes | Byte tokens |
 | --- | --- | --- | --- |
 | `A` | `U+0041` | `41` | 1 |
-| `あ` | `U+3042` | `E3 81 82` | 3 |
+| `α` | `U+03B1` | `CE B1` | 2 |
 | `🚀` | `U+1F680` | `F0 9F 9A 80` | 4 |
 
-`byte & 0xff` は JVM の signed `Byte` `[-128,127]` を、token ID に使いやすい unsigned 値
-`[0,255]` へ変換します。
+On the JVM, `Byte` is signed. `byte & 0xff` converts it to the unsigned token
+range `[0,255]`.
 
-## byte tokenizer の利点
+## Why byte tokenization works for every UTF-8 text
 
-各 byte を 0〜255 の token ID にすれば、UTF-8 で表せる任意の text を未知 token なしで encode
-できます。
+Assign token IDs `0..255` directly to byte values:
 
-- vocabulary が固定 256 と小さい
-- unseen language や記号も必ず表現できる
-- encoding/decoding の規則が単純で reversible
+- fixed, small vocabulary;
+- no unknown token for valid UTF-8;
+- reversible encoding;
+- simple implementation.
 
-一方、日本語や emoji は一つの見た目に複数 token を使い、sequence が長くなります。Attention の
-計算量は sequence length の二乗になるため、長さは大きな cost です。次章の BPE が頻出 byte 列を
-一 token へまとめます。
+The cost is sequence length. Many scripts and emoji require multiple bytes per
+visible symbol. Attention cost grows quadratically with sequence length, so the
+next chapter merges frequent byte sequences with BPE.
 
-## special token
+## Special tokens
 
-通常の bytes とは別に、sequence の境界や protocol を表す token が必要です。
+Structural tokens must not collide with encoded text:
 
 ```text
 0..255: byte values
@@ -67,59 +68,54 @@ UTF-8 は一 code point を 1〜4 bytes で表します。
 257:    end of text
 ```
 
-special token は通常の text を encode して偶然現れてはいけません。ID 空間を分けます。実用 model
-では role、tool call、padding などの token もあります。追加時には embedding/output layer の
-vocabulary size と model checkpoint を一致させます。
+Production protocols may also have role, padding, and tool-call tokens. Adding
+one changes vocabulary size and therefore embedding/output shapes.
 
-## strict decoding
+## Strict decoding
 
-任意の byte 列が正しい UTF-8 とは限りません。たとえば `0x80` は先頭 byte なしの continuation
-byte です。標準 decoder の既定動作で replacement character `�` に置き換えると、model が壊れた
-列を生成した事実を失います。
+Not every byte sequence is valid UTF-8. `0x80` alone is a continuation byte
+without a leader. A replacement-character decoder would hide that the model
+generated an invalid sequence.
 
-この教材は `CodingErrorAction.REPORT` を指定し、`Either[String, String]` で失敗を返します。
-生成系では次の選択を明示します。
+This course configures `CodingErrorAction.REPORT` and returns
+`Either[String,String]`. A streaming UI may buffer an incomplete suffix until
+the next token, but raw tokens and errors must remain observable.
 
-- strict に失敗させる
-- 不完全な末尾 byte を次 token まで buffer する
-- UI 表示時だけ replacement を使い、raw token は log に残す
+## Round-trip invariant
 
-## round-trip invariant
-
-正しい text に対して最重要 property は次です。
+For valid text:
 
 \[
 \operatorname{decode}(\operatorname{encode}(text))=text
 \]
 
-ASCII、日本語、emoji、結合文字、改行、空文字で property をテストします。normalization を行う
-tokenizer では完全一致しないため、どの normalization を仕様とするか明記します。今回の byte
-tokenizer は normalization せず、元 bytes を保ちます。
+Test ASCII, several scripts, emoji, combining marks, newlines, and the empty
+string. This tokenizer performs no normalization, so it preserves original
+UTF-8 bytes.
 
-## opaque type
-
-`TokenId` は実行時には `Int` ですが、API 上は別の型です。
+## Opaque token IDs
 
 ```scala
 opaque type TokenId = Int
 ```
 
-length、byte offset、class label など別の整数を誤って渡しにくくし、負の ID を constructor で拒否
-します。必要な場所だけ `.value` で underlying `Int` を取り出します。
+Runtime representation is `Int`, but the API has a distinct semantic type.
+Lengths and offsets are less likely to be passed accidentally, and construction
+rejects negative IDs.
 
-## 演習
+## Exercises
 
-1. 自分の名前を encode し、各 byte を 16 進数で表示してください。
-2. 空文字、改行、NUL `\u0000` の round-trip test を追加してください。
-3. `String.length`、code point 数、UTF-8 byte 数を複数の emoji で比較してください。
-4. 不完全な三 byte 文字の先頭一 byte、二 bytes を decode し、error を観察してください。
-5. special token を skip せず、構造を保持した decode result の型を設計してください。
+1. Encode your name and print each byte in hexadecimal.
+2. Add round trips for empty text, newline, and NUL.
+3. Compare `String.length`, code-point count, and UTF-8 byte count.
+4. Decode incomplete prefixes of a multi-byte symbol.
+5. Design a decoder result that preserves special tokens structurally.
 
-## 完了条件
+## Completion criteria
 
-- grapheme、code point、UTF-8 byte、token を区別できる
-- byte tokenizer に未知 token がない理由を説明できる
-- 日本語で sequence が ASCII より長くなりやすい理由を説明できる
-- strict decode が障害解析に有用な理由を説明できる
-- round-trip invariant を複数言語で確認できる
-- `Utf8Suite` が成功する
+- Distinguish grapheme, code point, UTF-8 byte, and token.
+- Explain why a byte tokenizer has no unknown token.
+- Explain why some scripts use longer byte sequences than ASCII.
+- Explain why strict decoding helps incident analysis.
+- Verify multilingual round trips.
+- `Utf8Suite` passes.

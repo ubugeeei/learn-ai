@@ -1,147 +1,139 @@
-# 25 — versioned model format と安全な checkpoint
+# 25 — A versioned, safe checkpoint format
 
-## この章で作るもの
+## What you will build
 
-MiniGPT config、parameter label、shape、row-major `Double` values を versioned binary format に保存し、
-SHA-256 検証後に新しい model へ復元します。保存は temporary file から atomic replace します。
+Serialize MiniGPT config, stable parameter labels, shapes, and row-major
+`Double` values. Verify SHA-256 before loading and atomically replace saved
+files. Source: `src/main/scala/learnai/io/MiniGptCheckpoint.scala`.
 
-対象コードは `src/main/scala/learnai/io/MiniGptCheckpoint.scala` です。
+## A checkpoint is more than arrays
 
-## checkpoint は単なる数値配列ではない
+Raw values do not identify their meaning. A useful format includes:
 
-weight values だけでは各配列の意味を復元できません。最低限、次が必要です。
+- magic bytes and format version;
+- architecture config;
+- stable parameter names;
+- rank, shape, element count, dtype, and byte order;
+- values;
+- integrity checksum.
 
-- format magic と version
-- architecture config
-- parameter の安定した名前
-- rank、shape、element count
-- dtype と byte order
-- values
-- integrity checksum
+Tokenizer vocabulary and merges are also required for a deployable bundle. The
+teaching format intentionally stores only the inference model and documents
+that limitation.
 
-tokenizer vocabulary/merge table が違えば token ID の意味が変わるため、実際の配布 bundle では
-tokenizer artifact と checksum も必要です。この章の inference checkpoint は tokenizer を意図的に
-含めず、その限界を format contract に明記します。
-
-## file layout
+## File layout
 
 ```text
 magic "LAIGPT01"                 8 bytes
 format version                   Int32
 MiniGptConfig                    fixed fields
 parameter tensor count          Int32
-repeat parameter count:
+repeat:
   UTF-8 label length + bytes
   rank + dimensions
   scalar count
-  Float64 values (big-endian)
+  Float64 values, big-endian
 SHA-256(payload)                 32 bytes
 ```
 
-JDK `DataOutputStream` の integer/double は big-endian です。format は JVM memory layout や Java object
-serialization に依存しません。
+JDK data streams use big-endian numeric encoding. The format does not depend on
+JVM object serialization or in-memory object layout.
 
-## parameter label と順序
+## Labels and order
 
-`blocks.0.attention.query.weight` のような label は、model 内の意味を表す stable key です。loader は
-新しい model を config から構築し、期待する順序・label・shape・count のすべてを照合します。
+Names such as `blocks.0.attention.query.weight` identify semantic ownership.
+The loader constructs the expected model and checks count, order, label, shape,
+and element count before assignment.
 
-shape だけが同じ別 parameter を誤って入れ替える事故を label で検出します。save 前に label の重複も
-拒否します。
+Shape alone cannot detect swapping two equal-shaped weights. Save rejects
+duplicate labels.
 
-## integrity と authenticity
+## Integrity versus authenticity
 
-SHA-256 は accidental corruption や不完全 upload を検出します。一 byte 変われば checksum mismatch
-になります。ただし checksum は誰でも再計算できるため、攻撃者による改ざんを防ぐ署名ではあり
-ません。
+SHA-256 detects accidental corruption and incomplete transfer. Anyone can
+recompute it, so it does not authenticate a publisher.
 
-- integrity: SHA-256 checksum
-- authenticity: trusted key による digital signature、配布 channel、provenance
+- integrity: checksum;
+- authenticity: trusted digital signature, publisher identity, and provenance.
 
-実運用では artifact registry の署名、publisher identity、reviewed conversion pipeline を組み合わせ
-ます。
+Production distribution needs both.
 
-## verify before parse
+## Verify before parsing
 
-loader は file 全体の上限を確認し、payload checksum を検証してから config/shape/value を解釈します。
-さらに次の上限を持ちます。
+The loader checks file-size limits and checksum before interpreting fields. It
+also limits:
 
-- file bytes
-- config から推定した scalar parameter 数
-- label bytes
-- rank
-- expected tensor count/shape/element count
+- total file bytes;
+- scalar count implied by config;
+- label bytes and rank;
+- expected tensor shapes and counts.
 
-untrusted length をそのまま array allocation に使うと memory exhaustion になります。期待 model shape と
-照合してから values を読みます。
+Allocating an untrusted length before validation enables memory-exhaustion
+attacks.
 
-## all-or-nothing parameter assignment
+## All-or-nothing assignment
 
-`Tensor.assignParameterValues` は count と全値の finite check を先に済ませ、その後に data を変更
-します。途中で `NaN` を見つけて半分だけ load された parameter を残しません。
+`Tensor.assignParameterValues` validates count and all finite values before
+mutating any element. The loader modifies a newly constructed model, so a failed
+load cannot corrupt the currently serving model.
 
-loader は新しく構築した model だけを変更するため、失敗時に利用中 model が壊れることもありません。
-service では新 model を完全検証し、smoke inference 後に pointer を切り替えます。
+Production rollout should verify a new model, run smoke inference, then swap a
+reference atomically.
 
-## atomic save
+## Atomic save
 
-target file へ直接書くと、process crash や disk full で既存の正常 checkpoint まで壊れます。
+Writing directly over a good checkpoint can destroy it after a crash or full
+disk. Instead:
 
-1. 同じ directory に temporary file を作る
-2. 完全な payload + checksum を書く
-3. atomic move で target を置き換える
-4. platform が atomic move 非対応なら replace move へ fallback
+1. write a complete temporary file in the same directory;
+2. include its checksum;
+3. atomically move it over the destination;
+4. fall back to replacement move only if atomic move is unsupported.
 
-同じ filesystem 内の rename を使うことが重要です。より厳密な durability には file/directory `fsync`
-も必要です。
+Stronger durability also requires syncing the file and directory.
 
-## inference checkpoint と training checkpoint
+## Inference versus resumable training
 
-この format は inference 再現に必要な model weight/config を持ちます。training を完全に再開するには
-さらに次が必要です。
+Inference needs model config and weights. Exact training resumption also needs:
 
-- AdamW first/second moments と step
-- learning-rate scheduler state
-- gradient scaler state
-- RNG states
-- data sampler position/shuffle state
-- tokenizer/data revision
-- code/build revision
+- AdamW moments and step;
+- scheduler and loss-scaler state;
+- RNG state;
+- data sampler/shuffle position;
+- tokenizer, data, code, and build revisions.
 
-weight だけから再開すると optimizer warmup が失われ、同じ training trajectory になりません。
+Loading weights alone restarts optimizer dynamics and cannot reproduce the
+original trajectory.
 
-## pickle/Java serialization を避ける理由
+## Why not object serialization?
 
-一般 object serialization は deserialization 時に任意 class constructor/hooks を実行し得て、untrusted
-model file の code execution risk になります。また class 名や実装詳細へ強く結合します。
+General object deserialization can execute class hooks and binds the file to
+implementation details. Untrusted model files can become a code-execution risk.
+This format reads only explicit primitive fields and constructs an allowed
+model structure. Safetensors follows the same data-not-code principle.
 
-この format は primitive field を手続き的に読み、許可した model structure だけを構築します。
-production では safetensors のように data と executable code を分離した format が使われます。
+## Tests
 
-## test coverage
+- bit-exact config, labels, values, and logits after a round trip;
+- one-byte corruption rejection;
+- truncated-file rejection;
+- atomic replacement of an existing file;
+- invalid assignment leaves old values unchanged.
 
-- training 後 model の config/label/value/logit bit-exact round-trip
-- one-byte corruption の checksum rejection
-- truncated file の rejection
-- existing file の atomic replacement
-- invalid assignment が元 parameter を変更しない all-or-nothing property
+## Exercises
 
-file I/O の成功例だけでなく、壊れた artifact を意図的に入力します。
+1. Inspect magic and version in a hex viewer.
+2. Design a version-2 migration.
+3. Add tokenizer metadata and checksum to a bundle manifest.
+4. Add optional optimizer state that inference loading can skip.
+5. Place an Ed25519 signature and verification step.
+6. Design publish-time load and fixed-logit smoke tests.
 
-## 演習
+## Completion criteria
 
-1. checkpoint を hex viewer で開き、magic と version を確認してください。
-2. config field 順を変える format version 2 migration を設計してください。
-3. tokenizer merge table と checksum を bundle manifest に追加してください。
-4. optimizer state を別 section として追加し、inference-only load が skip できる設計にしてください。
-5. Ed25519 signature と public-key verification を加える位置を設計してください。
-6. save 後に load + fixed prompt logits を確認してから publish する workflow を書いてください。
-
-## 完了条件
-
-- checkpoint に config/label/shape が必要な理由を説明できる
-- checksum と signature の保証範囲を区別できる
-- untrusted length を検証前に allocate する危険を説明できる
-- atomic replace が既存 checkpoint を守る理由を説明できる
-- inference と resumable training checkpoint の state 差を列挙できる
-- `MiniGptCheckpointSuite` が成功する
+- Explain why config, labels, and shapes are required.
+- Distinguish checksum from signature.
+- Explain untrusted-length validation.
+- Explain how atomic replacement protects the previous file.
+- List extra state for resumable training.
+- `MiniGptCheckpointSuite` passes.

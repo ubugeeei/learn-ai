@@ -1,40 +1,33 @@
-# 19 — scaled dot-product causal self-attention
+# 19 — Scaled dot-product causal self-attention
 
-## この章で作るもの
+## What you will build
 
-query/key/value projection、scaled dot-product、causal mask、row softmax、multi-head split/concat、output
-projection を実装します。対象コードは
-`src/main/scala/learnai/transformer/Attention.scala` です。
+Query, key, and value projections; scaled scores; causal masking; row softmax;
+multi-head split/concatenation; and output projection. Source:
+`src/main/scala/learnai/transformer/Attention.scala`.
 
-テストでは shape だけでなく、未来位置の weight が 0、prefix 出力が未来 token 変更に不変、prefix
-loss から未来 input への gradient が 0 であることを確認します。
+Tests verify normalized rows, zero future weights, prefix invariance, and zero
+future-input gradient from a prefix-only loss.
 
-## Attention が解く問題
+## What attention solves
 
-各 token embedding は最初、自分の token と位置だけを表します。文脈依存の表現を作るには、過去の
-どの位置から、どの程度情報を読むかを内容に応じて変える必要があります。
-
-各位置の hidden vector \(\boldsymbol{x}_t\) から三つを作ります。
+An initial token representation contains only its token and position. Context
+requires selecting earlier positions based on content. From each hidden vector
+\(x_t\), create:
 
 \[
-\boldsymbol{q}_t=\boldsymbol{x}_t\boldsymbol{W}_Q
-\]
-\[
-\boldsymbol{k}_t=\boldsymbol{x}_t\boldsymbol{W}_K
-\]
-\[
-\boldsymbol{v}_t=\boldsymbol{x}_t\boldsymbol{W}_V
+q_t=x_tW_Q,\qquad k_t=x_tW_K,\qquad v_t=x_tW_V
 \]
 
-- query: 今の位置が何を探しているか
-- key: その位置が何を提供できるか
-- value: 選ばれたとき実際に渡す情報
+- query: what this position seeks;
+- key: what a position can match;
+- value: information transferred after selection.
 
-Q/K が「どこから読むか」、V が「何を読むか」を分離します。
+Queries and keys choose where to read; values determine what is read.
 
-## shape を追う
+## Trace the shapes
 
-一 sequence、time \(T\)、channels \(C\) の single-head なら次です。
+For one sequence, time \(T\), and channels \(C\):
 
 ```text
 X: [T,C]
@@ -42,135 +35,130 @@ Wq, Wk, Wv: [C,C]
 Q, K, V: [T,C]
 scores = Q K^T: [T,T]
 weights = softmax(mask(scores)): [T,T]
-headOutput = weights V: [T,C]
+output = weights V: [T,C]
 ```
 
-scores の row が「読む側の query position」、column が「読まれる key position」です。
+A score row is the reading query position; a column is the candidate key
+position.
 
-## dot product similarity
-
-query \(i\) と key \(j\) の score は内積です。
-
-\[
-s_{ij}=\boldsymbol{q}_i\cdot\boldsymbol{k}_j
-\]
-
-学習により、必要な関係で query/key の方向が揃い、score が高くなります。内積は norm にも依存する
-ため、cosine similarity と完全には同じではありません。
-
-## \(\sqrt{d}\) で scale する理由
-
-head dimension \(d\) の各要素が独立で平均 0、分散 1 程度なら、内積の分散は \(d\) に比例します。
-dimension が大きいほど logits の絶対値が増え、softmax が one-hot に近く飽和し、gradient が小さく
-なります。
+## Dot-product similarity
 
 \[
-s_{ij}=\frac{\boldsymbol{q}_i\cdot\boldsymbol{k}_j}{\sqrt{d}}
+s_{ij}=q_i\cdot k_j
 \]
 
-標準偏差の規模を揃え、head dimension を変えても softmax の初期挙動を安定させます。
+Training can align query and key directions for useful relationships. Dot
+product includes magnitude and therefore is not identical to cosine similarity.
 
-## causal mask
+## Why divide by \(\sqrt d\)?
 
-position \(i\) は未来 \(j>i\) を見てはいけません。training target 自体が input 内の次位置にある
-ため、mask がなければ正解 token を直接読む data leakage になります。
+For head width \(d\), independent unit-variance channel products make dot-
+product variance grow with \(d\). Large scores saturate softmax and shrink useful
+gradients. Scale them:
+
+\[
+s_{ij}=\frac{q_i\cdot k_j}{\sqrt d}
+\]
+
+This keeps initial score scale more stable across head widths.
+
+## Causal mask
+
+Position \(i\) must not read future position \(j>i\):
 
 ```text
-allowed key positions
-query 0: [0, -, -]
-query 1: [0, 1, -]
-query 2: [0, 1, 2]
+query 0: [0,-,-]
+query 1: [0,1,-]
+query 2: [0,1,2]
 ```
 
-softmax 前に未来 score を非常に小さい値へ置換します。
-
 \[
-\tilde{s}_{ij}=\begin{cases}
-s_{ij} & j\le i\\
--\infty & j>i
+\tilde s_{ij}=\begin{cases}
+s_{ij}&j\le i\\
+-\infty&j>i
 \end{cases}
 \]
 
-実装は finite invariant を保つため `-1e9` を使います。row 最大値を引いた `exp` で underflow し、
-未来確率は `0.0` になります。backward も未来 score へ gradient を通しません。
+The implementation uses finite `-1e9` to preserve finite-value invariants. It
+underflows to zero probability after stable softmax. Backward also blocks the
+upper triangle.
 
-## row softmax
+Without the mask, training can read the target token already present at the
+next input position, creating direct leakage.
 
-query row ごとに key score を確率へします。
-
-\[
-a_{ij}=\frac{e^{\tilde{s}_{ij}}}{\sum_{r=1}^{T}e^{\tilde{s}_{ir}}}
-\]
-
-各 row は非負で合計 1 です。output は value の重み付き平均です。
+## Row softmax and value aggregation
 
 \[
-\boldsymbol{o}_i=\sum_j a_{ij}\boldsymbol{v}_j
+a_{ij}=\frac{e^{\tilde s_{ij}}}{\sum_r e^{\tilde s_{ir}}}
 \]
 
-softmax backward は Jacobian を明示的な `[T,T]` matrix として作らず計算します。上流 gradient
-\(g_i\) と output probability \(y_i\) に対し、
+Each row is a distribution over allowed keys. Output is a weighted sum:
+
+\[
+o_i=\sum_j a_{ij}v_j
+\]
+
+Softmax backward avoids building a Jacobian. For output probabilities \(y_i\)
+and upstream gradient \(g_i\):
 
 \[
 \frac{\partial L}{\partial x_i}
 =y_i\left(g_i-\sum_jg_jy_j\right)
 \]
 
-logit 全体へ同じ定数を足しても softmax は変わらないため、入力 gradient の row 合計は 0 です。
+The row gradient sums to zero because adding a constant to all logits changes
+no softmax probability.
 
-## multi-head
+## Multi-head attention
 
-channels を \(H\) heads に分け、各 head dimension を \(d=C/H\) とします。
+Split channels into \(H\) heads with width \(d=C/H\):
 
 ```text
-projected Q/K/V: [T,C]
-split H times:   H x [T,d]
-attention:       H x [T,d]
-concatenate:     [T,C]
-output project:  [T,C]
+project Q/K/V: [T,C]
+split:         H x [T,d]
+attention:     H x [T,d]
+concatenate:   [T,C]
+project:       [T,C]
 ```
 
-異なる head が構文、参照、局所 pattern など異なる関係を表現する余地を作ります。ただし「head 1 は
-必ず構文」のように人間が固定するのではなく、loss から学びます。channels は head count で割り切れる
-必要があります。
+Different heads can learn different relationships. The architecture does not
+preassign human-readable roles. `C` must be divisible by `H`.
 
-この実装は Q/K/V を一度 `[T,C]` へ projection して column slice します。production では通常
-`[T,H,d]` へ view/reshape し、batch/head を含む batched matmul kernel を使います。
+The teaching engine slices columns explicitly. Production kernels reshape to
+`[batch,head,time,d]` and use batched matrix multiplication.
 
-## causality の三段階テスト
+## Three causality tests
 
-1. **weight:** upper triangle が 0
-2. **forward:** future input を大きく変えても earlier output が同じ
-3. **backward:** earlier position だけの loss から future input gradient が 0
+1. **Weight:** strict upper triangle is zero.
+2. **Forward:** changing future inputs cannot change earlier outputs.
+3. **Backward:** a prefix-only loss gives zero future-input gradient.
 
-一つだけでは mask の forward/backward bug を見逃し得ます。特に値がたまたま同じ、projection が 0、
-mask 後の gradient が誤って流れる場合を分けて検査します。
+Each catches a different class of masking defect.
 
-## 計算量
+## Complexity
 
-score matrix と value 集約は時間 \(O(T^2C)\)、attention weights memory は \(O(T^2)\) per head/batch
-です。context length を 2 倍にすると score 要素は 4 倍です。長文向けに flash attention、sliding
-window、sparse/linear attention などが使われます。
+Attention costs \(O(T^2C)\) time and \(O(T^2)\) weight memory per head/batch.
+Doubling context quadruples score elements.
 
-Flash Attention は近似でなく、tiling と online softmax により巨大 score matrix を HBM に materialize
-しない exact algorithm です。教材の式と結果を保ちながら memory traffic を減らします。
+Flash Attention preserves exact attention while tiling and computing softmax
+online so the full score matrix need not be materialized in high-bandwidth
+memory.
 
-## 演習
+## Exercises
 
-1. `T=4` の causal mask を 0/1 matrix で書いてください。
-2. query/key を手で決めた一 head attention を計算してください。
-3. scale を外し、head dimension を増やした softmax entropy を測ってください。
-4. mask を softmax 後に掛けるだけでは row sum が 1 でなくなることを示してください。
-5. softmax backward 式を Jacobian から導出してください。
-6. head count を変えた parameter 数が変わらない理由を Q/K/V shape から説明してください。
-7. attention weight 可視化が「model の完全な説明」ではない理由を考えてください。
+1. Write the causal mask for `T=4`.
+2. Compute one head by hand from chosen Q/K/V.
+3. Remove scaling and measure softmax entropy as head width grows.
+4. Show why masking after softmax breaks row normalization.
+5. Derive softmax backward from its Jacobian.
+6. Explain why changing head count need not change Q/K/V parameter count.
+7. Explain why attention weights are not a complete model explanation.
 
-## 完了条件
+## Completion criteria
 
-- Q/K/V の役割と shape を説明できる
-- score `[T,T]` の row/column の意味を説明できる
-- \(1/\sqrt{d}\) scale の分散上の理由を説明できる
-- causal mask を softmax 前に適用する理由を説明できる
-- softmax row と weighted value sum を計算できる
-- multi-head split/concat の shape を追える
-- Attention/Tensor の causality と gradient test が成功する
+- Explain Q, K, and V roles and shapes.
+- Interpret both axes of `[T,T]` scores.
+- Explain variance scaling by \(1/\sqrt d\).
+- Explain why masking occurs before softmax.
+- Trace multi-head split and concatenation.
+- All attention causality and gradient tests pass.

@@ -1,44 +1,42 @@
-# 08 — 微分、偏微分、勾配、連鎖律
+# 08 — Derivatives, gradients, and the chain rule
 
-## この章で作るもの
+## What you will build
 
-一変数関数の数値微分と、多変数関数の gradient を central finite difference で実装します。
-対象コードは `src/main/scala/learnai/math/Calculus.scala` です。
+Central finite-difference derivatives for scalar and multivariable functions.
+Source: `src/main/scala/learnai/math/Calculus.scala`.
 
-この実装は大規模な学習には遅過ぎますが、次章以降で作る自動微分が正しいかを独立した方法で
-検査する基準になります。
+The method is too slow for large-model training, but it provides an independent
+reference for checking automatic differentiation.
 
-## 関数は入力を出力へ対応させる
-
-関数 \(f\) が実数 \(x\) を受け取り実数 \(y\) を返すことを次のように書きます。
+## Functions map inputs to outputs
 
 \[
 f:\mathbb{R}\to\mathbb{R},\qquad y=f(x)
 \]
 
-例 \(f(x)=x^2\) なら、`x = 3` のとき `y = 9` です。グラフの一点だけでなく、「入力を少し
-動かしたとき出力がどれだけ変わるか」が最適化に必要です。
+For \(f(x)=x^2\), input `3` gives output `9`. Optimization also needs to know
+how output changes when input changes slightly.
 
-## 平均変化率から瞬間の傾きへ
+## From average change to instantaneous slope
 
-\(x\) から \(x+h\) までの平均変化率は次です。
+Average change from \(x\) to \(x+h\) is:
 
 \[
 \frac{f(x+h)-f(x)}{h}
 \]
 
-\(h\) を 0 に近づけた極限が derivative（導関数）です。
+The derivative is its limit as \(h\) approaches zero:
 
 \[
 f'(x)=\lim_{h\to0}\frac{f(x+h)-f(x)}{h}
 \]
 
-これは「入力を非常に少し増やしたとき、出力が入力の何倍くらい変わるか」を表します。
-単位も重要です。loss を weight で微分した値の単位は `loss / weight` です。
+It says how many output units change per small input unit. Units matter: a loss
+derivative with respect to a weight has units `loss / weight`.
 
-## 基本的な微分規則
+## Basic rules
 
-| 関数 | 導関数 |
+| Function | Derivative |
 | --- | --- |
 | \(c\) | \(0\) |
 | \(x\) | \(1\) |
@@ -49,12 +47,12 @@ f'(x)=\lim_{h\to0}\frac{f(x+h)-f(x)}{h}
 | \(\log x\) | \(1/x\) |
 | \(\tanh x\) | \(1-\tanh^2x\) |
 
-たとえば \(f(x)=x^2\) なら \(f'(x)=2x\)、`x = 3` で傾きは `6` です。
+For \(f(x)=x^2\), \(f'(x)=2x\), so slope at `3` is `6`.
 
-## 数値微分
+## Numerical differentiation
 
-極限を computer で直接計算できないため、小さい有限値 \(h\) を使います。片側だけを使うより誤差を
-減らす central difference は次です。
+A computer cannot directly evaluate the limit. Central difference uses a small
+finite \(h\):
 
 \[
 f'(x)\approx\frac{f(x+h)-f(x-h)}{2h}
@@ -66,98 +64,94 @@ val below = function(at - step)
 (above - below) / (2.0 * step)
 ```
 
-`h` が大き過ぎると曲線の離れた二点の傾きになり、小さ過ぎると浮動小数点の桁落ちが増えます。
-既定値 `1e-5` は万能な正解ではありません。gradient check では複数の step も試します。
+Large \(h\) measures distant points; extremely small \(h\) amplifies
+floating-point cancellation. The default `1e-5` is a practical starting point,
+not a universal constant.
 
-## 多変数関数と偏微分
+## Partial derivatives and gradients
 
-neural network の loss は、全 parameter を要素に持つ vector から一つの scalar を返す関数と
-見なせます。
+A neural-network loss is a scalar function of all parameters:
 
 \[
 L:\mathbb{R}^n\to\mathbb{R}
 \]
 
-一つの変数 \(x_i\) だけを動かし、他を固定して測る傾きが partial derivative（偏微分）です。
+A partial derivative changes one input while holding the others fixed:
 
 \[
 \frac{\partial L}{\partial x_i}
 \]
 
-全偏微分を並べた vector が gradient です。
+Collecting all partial derivatives produces the gradient:
 
 \[
 \nabla L(\boldsymbol{x})=
 \begin{bmatrix}
-\frac{\partial L}{\partial x_1} \\
-\vdots \\
+\frac{\partial L}{\partial x_1}\\
+\vdots\\
 \frac{\partial L}{\partial x_n}
 \end{bmatrix}
 \]
 
-shape は loss が scalar でも gradient は parameter と同じ `[n]` です。
+The loss is scalar, but its parameter gradient has shape `[n]`.
 
-## gradient は最も増加する方向
+## Gradient direction
 
-unit vector \(\boldsymbol{u}\) 方向の変化率は directional derivative です。
+For unit direction \(\boldsymbol{u}\), the directional derivative is:
 
 \[
 D_{\boldsymbol{u}}L=\nabla L\cdot\boldsymbol{u}
 \]
 
-gradient と同じ方向で増加率が最大、反対の \(-\nabla L\) 方向で最も減少します。これが gradient
-descent で parameter から gradient を引く理由です。
+The gradient points toward greatest local increase. Its negative points toward
+greatest local decrease, motivating gradient descent.
 
-## 連鎖律
+## Chain rule
 
-関数を合成した \(y=f(g(x))\) の微分は、経路上の局所的な微分を掛けます。
+For a composition \(y=f(g(x))\):
 
 \[
 \frac{dy}{dx}=\frac{dy}{dg}\frac{dg}{dx}
 \]
 
-例として \(g(x)=x^2\)、\(f(g)=3g+1\) なら、
+If \(g(x)=x^2\) and \(f(g)=3g+1\), then:
 
 \[
-\frac{dy}{dx}=3\times 2x=6x
+\frac{dy}{dx}=3\times2x=6x
 \]
 
-neural network は層を何度も合成した関数です。backpropagation は出力から入力へ連鎖律を効率よく
-適用し、共有された中間計算の微分を再利用します。
+A neural network is a deep composition. Backpropagation applies the chain rule
+from output to input while reusing shared intermediate calculations.
 
-## 数値微分の計算量
+## Complexity of finite differences
 
-parameter が \(n\) 個なら、central difference は loss の forward 計算を `2n` 回行います。
-10 億 parameter なら現実的ではありません。reverse-mode automatic differentiation は、概ね
-数回の forward 相当の計算で全 gradient を求めます。
+For \(n\) parameters, central differences require `2n` forward evaluations.
+That is infeasible for billions of parameters. Reverse-mode autodiff finds all
+gradients for a scalar loss in roughly a small multiple of one forward cost.
 
-数値微分を捨てるのではなく、小さい入力で自動微分と比較する **gradient check** に使います。
-同じ bug を共有しない別方式が reference になります。
+Finite differences remain valuable as a small-input **gradient check** because
+they use an independent mechanism.
 
-## 実行と確認
+## Run and verify
 
 ```console
 $ nix develop -c sbt 'runMain learnai.math.runGradientLab'
-point:    VectorD(2.0, -1.0)
-gradient: VectorD(1.0..., 4.0...)
-expected: VectorD(1.0, 4.0)
-
 $ nix develop -c sbt test
 ```
 
-## 演習
+## Exercises
 
-1. \(f(x)=3x^2+2x+1\) の導関数を手で求め、`x = 2` で数値微分と比べてください。
-2. step を `1e-1` から `1e-12` まで変え、誤差を表にしてください。
-3. \(f(x,y)=x^2+y^2\) の gradient を手で求めてください。
-4. gradient の反対方向へ小さく動くと関数値が減ることを実験してください。
-5. `Calculus.gradient` が `2n` 回 function を呼ぶことを counter で確認してください。
+1. Differentiate \(3x^2+2x+1\) and compare at `x=2`.
+2. Sweep step size from `1e-1` to `1e-12` and tabulate error.
+3. Derive the gradient of \(x^2+y^2\).
+4. Move a small distance opposite the gradient and observe loss.
+5. Count the number of function calls made by `Calculus.gradient`.
 
-## 完了条件
+## Completion criteria
 
-- derivative を「入力を少し変えたときの出力の変化率」と説明できる
-- partial derivative と gradient の shape を説明できる
-- gradient の反対方向で loss が減る理由を説明できる
-- 連鎖律を二つの合成関数へ適用できる
-- 数値微分を学習本体でなく gradient check に使う理由を説明できる
-- `CalculusSuite` が成功する
+- Explain a derivative as local output change per input change.
+- State the shape of a gradient.
+- Explain why moving opposite the gradient lowers loss locally.
+- Apply the chain rule to two composed functions.
+- Explain why finite differences are a test rather than the training engine.
+- `CalculusSuite` passes.

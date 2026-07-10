@@ -1,108 +1,105 @@
-# 18 — embedding、位置、linear、RMSNorm
+# 18 — Embeddings, position, linear layers, and RMSNorm
 
-## この章で作るもの
+## What you will build
 
-Transformer を構成する前に、token/position embedding、channel 軸への linear layer、RMSNorm を
-Tensor 自動微分上へ実装します。対象コードは
-`src/main/scala/learnai/transformer/Layers.scala` です。
+Implement token and position embeddings, dense channel transforms, and RMSNorm
+on the Tensor autodiff engine. Source:
+`src/main/scala/learnai/transformer/Layers.scala`.
 
-## discrete ID から continuous vector へ
+## From discrete IDs to continuous vectors
 
-token ID は単なる category 番号です。ID `100` が ID `10` の 10 倍の意味を持つわけではありません。
-embedding table \(\boldsymbol{E}\in\mathbb{R}^{V\times C}\) の row を lookup し、各 token を \(C\)
-次元 vector へ変換します。
+A token ID is a category label. ID `100` is not ten times ID `10`. An embedding
+table \(E\in\mathbb{R}^{V\times C}\) maps each token to a \(C\)-dimensional
+vector:
 
 ```text
 token IDs:       [time]
-embedding table: [vocabulary, channels]
-output:          [time, channels]
+embedding table: [vocabulary,channels]
+output:          [time,channels]
 ```
 
 \[
-\boldsymbol{x}_t=\boldsymbol{E}[\text{tokenId}_t]
+\boldsymbol{x}_t=E[\text{tokenId}_t]
 \]
 
-初期 vector に意味はありません。next-token loss から届く gradient により、似た文脈で役立つ token
-の vector が使いやすい配置へ動きます。
+Initial vectors have no inherent semantic meaning. Next-token gradients move
+them into configurations useful for prediction.
 
-## embedding backward は scatter-add
+## Embedding backward is scatter-add
 
-forward は row を集める gather、backward は各出力 row の gradient を元 table row へ戻す scatter
-です。同じ token が一 sequence に複数回現れれば、一つの embedding row へ全 gradient を加えます。
+Forward gathers rows. Backward scatters each output gradient into its source
+row. Repeated token IDs accumulate into one shared parameter row:
 
 ```text
-IDs [2, 0, 2]
-forward: rows 2, 0, 2 を gather
-backward: row 2 へ position 0 と 2 の gradient を加算
+IDs [2,0,2]
+forward:  gather rows 2,0,2
+backward: add positions 0 and 2 into row 2
 ```
 
-parameter sharing の具体例です。
+This is parameter sharing in its simplest form.
 
-## Attention だけでは順序を知らない
+## Attention needs position information
 
-self-attention は入力 row の集合に対する演算だけでは、並び替えに同じように反応します。token
-embedding に position embedding \(\boldsymbol{P}[t]\) を加えます。
+Without a positional signal, self-attention operations cannot distinguish all
+reorderings. Add learned position vectors:
 
 \[
-\boldsymbol{h}_t^{(0)}
-=\boldsymbol{E}[x_t]+\boldsymbol{P}[t]
+\boldsymbol{h}_t^{(0)}=E[x_t]+P[t]
 \]
 
 ```text
-token embedding:    [time, channels]
-position embedding: [time, channels]
-sum:                [time, channels]
+token embeddings:    [time,channels]
+position embeddings: [time,channels]
+sum:                 [time,channels]
 ```
 
-同じ token でも位置が違えば初期 hidden state が変わります。learned absolute position embedding は
-`maximumContextLength` 行だけ持つため、それより長い sequence を拒否します。後で扱う RoPE は
-query/key の各 head 内へ相対的な位置関係を回転として入れます。
+Equal tokens at different positions begin with different hidden states. A
+learned absolute table has only `maximumContextLength` rows and rejects longer
+inputs. RoPE later introduces position by rotating query and key channels.
 
-## linear layer は最後の軸を変換する
+## Linear layers transform the channel axis
 
-token ごとに同じ affine transform を適用します。
+Apply the same affine transform to every time row:
 
 \[
-\boldsymbol{Y}=\boldsymbol{X}\boldsymbol{W}+\boldsymbol{b}
+Y=XW+b
 \]
 
 ```text
-X: [time, inputChannels]
-W: [inputChannels, outputChannels]
+X: [time,inputChannels]
+W: [inputChannels,outputChannels]
 b: [outputChannels]
-Y: [time, outputChannels]
+Y: [time,outputChannels]
 ```
 
-`bias` を全 row に加える `addRowVector` の backward では、全 time row の gradient を bias へ合計
-します。この axis reduction を暗黙 broadcasting に隠さず、名前付き演算にしました。
+`addRowVector` explicitly repeats bias across rows. Its backward sums all row
+gradients into the bias. Query, key, value, output, feed-forward, and logit
+projections are all linear transforms.
 
-Attention の query/key/value projection、head 結合後の projection、feed-forward network、logit head
-はすべてこの linear 変換です。
+## Why normalization is needed
 
-## normalization が必要な理由
+Residual additions can change hidden-state scale across depth. Extreme scales
+can saturate softmax, damage gradient flow, and worsen numerical behavior.
 
-residual connection で層を重ねると、hidden activation の scale が変動します。極端な値は softmax
-飽和、gradient 消失・爆発、浮動小数点問題を起こします。normalization は各 token row の scale を
-揃えます。
-
-RMSNorm は平均を引かず、root mean square で割り、学習可能な scale \(g_i\) を掛けます。
+RMSNorm does not subtract the mean. It divides by root mean square and applies
+a learned per-channel scale \(g_i\):
 
 \[
-\operatorname{RMS}(\boldsymbol{x})
-=\sqrt{\frac{1}{C}\sum_{i=1}^{C}x_i^2+\epsilon}
+\operatorname{RMS}(x)=
+\sqrt{\frac{1}{C}\sum_i x_i^2+\epsilon}
 \]
 
 \[
-y_i=g_i\frac{x_i}{\operatorname{RMS}(\boldsymbol{x})}
+y_i=g_i\frac{x_i}{\operatorname{RMS}(x)}
 \]
 
-shape は `[time,channels] -> [time,channels]` で、time row ごとに独立です。\(\epsilon\) は zero vector
-での 0 除算を防ぎます。
+Every `[channels]` row is normalized independently. \(\epsilon\) prevents
+division by zero.
 
 ## RMSNorm backward
 
-\(r=\operatorname{RMS}(x)\)、上流から scale 適用後の gradient を \(g_i\) と書くと、入力 gradient
-は direct path と、\(r\) が全要素に依存する path の和です。
+Let \(r=\operatorname{RMS}(x)\) and let \(g_i\) denote upstream gradient after
+scale. Then:
 
 \[
 \frac{\partial L}{\partial x_i}
@@ -110,7 +107,7 @@ shape は `[time,channels] -> [time,channels]` で、time row ごとに独立で
 -\frac{x_i}{Cr^3}\sum_j g_jx_j
 \]
 
-scale gradient は各 row から合計します。
+Scale gradients sum over rows:
 
 \[
 \frac{\partial L}{\partial \gamma_i}
@@ -118,34 +115,34 @@ scale gradient は各 row から合計します。
 \frac{x_{row,i}}{r_{row}}
 \]
 
-test は input gradient を数値微分と比較し、scale gradient の有限性も確認します。
+Tests compare input gradients with finite differences.
 
-## parameter count
+## Parameter count
 
-vocabulary \(V\)、maximum context \(T\)、channels \(C\) なら、
+For vocabulary \(V\), context \(T\), and channels \(C\):
 
-- token embedding: \(VC\)
-- position embedding: \(TC\)
-- linear: \(C_{in}C_{out}+C_{out}\)
-- RMSNorm: \(C\)
+- token embedding: \(VC\);
+- position embedding: \(TC\);
+- linear layer: \(C_{in}C_{out}+C_{out}\);
+- RMSNorm: \(C\).
 
-token embedding は vocabulary が大きい model で大きな割合を占めます。出力 logit weight と同じ
-matrix を転置して共有する weight tying により parameter を減らせます。
+Token embedding often dominates at large vocabularies. Weight tying reuses its
+transpose as the output classifier.
 
-## 演習
+## Exercises
 
-1. `V=50,000`、`C=4,096` の token embedding parameter 数と fp16 bytes を計算してください。
-2. 同じ token を三位置で lookup し、weight row gradient が三経路の和になる test を書いてください。
-3. position embedding を外し、sequence を入れ替えた出力の関係を観察してください。
-4. `addRowVector` の bias gradient が time 軸 sum になる式を導出してください。
-5. LayerNorm と RMSNorm の forward 式を比較してください。
-6. zero input に epsilon がない RMSNorm で何が起きるか説明してください。
+1. Compute parameter count and fp16 bytes for `V=50,000`, `C=4,096`.
+2. Verify repeated-token gradient accumulation.
+3. Remove position embeddings and study reordered sequences.
+4. Derive the bias gradient's time-axis sum.
+5. Compare LayerNorm and RMSNorm equations.
+6. Explain zero-input behavior without epsilon.
 
-## 完了条件
+## Completion criteria
 
-- token ID が ordinal 数値でなく category であることを説明できる
-- embedding lookup の gather/scatter gradient を説明できる
-- token と position embedding の shape を書ける
-- linear が最後の channel 軸をどう変えるか説明できる
-- RMSNorm の目的、forward、epsilon、learned scale を説明できる
-- `LayersSuite` と追加 Tensor test が成功する
+- Explain why token IDs are categorical rather than ordinal.
+- Explain gather/scatter embedding gradients.
+- State token and position embedding shapes.
+- Trace a linear layer's channel-axis change.
+- Explain RMSNorm, epsilon, and learned scale.
+- `LayersSuite` passes.

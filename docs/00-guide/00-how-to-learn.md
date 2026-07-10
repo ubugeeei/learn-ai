@@ -1,75 +1,78 @@
-# この教材の進め方
+# How to learn with this repository
 
-## 前提知識
+## Prerequisites
 
-前提知識は置きません。プログラム、ターミナル、Git、Scala、数学を知らない状態から
-始めます。ただし「読むだけ」では身につかないため、各章で必ず次のループを回します。
+No programming, terminal, Git, Scala, or advanced mathematics knowledge is
+assumed. Reading alone is not sufficient, so every chapter follows the same
+experimental loop:
 
-1. **予想する** — 実行結果や学習曲線がどうなるかを先に書く
-2. **実装する** — 数式の各記号をコードの変数へ対応させる
-3. **測る** — テスト、誤差、時間、メモリ量を記録する
-4. **説明する** — なぜその結果になったかを自分の言葉で書く
-5. **変更する** — 条件を一つだけ変え、予想との差を調べる
+1. **Predict** the result or learning curve before running the code.
+2. **Implement** the equation by mapping every symbol to a typed value.
+3. **Measure** tests, errors, time, and memory.
+4. **Explain** why the result occurred in your own words.
+5. **Change one variable** and compare the observation with your prediction.
 
-## 1 章の読み方
+## Chapter structure
 
-各章は同じ構造を使います。
+Each chapter uses a consistent format:
 
-- **この章で作るもの**: 実行できる具体的な成果物
-- **なぜ必要か**: LLM 全体のどこにつながるか
-- **理論**: 数式、図、直観
-- **実装**: 小さくテスト可能な手順
-- **確認**: 正しさを判定するコマンドと期待値
-- **観察**: 実行時に見るべき値
-- **演習**: 一つの概念だけを変える課題
-- **完了条件**: 次章へ進んでよい基準
+- **What you will build**: an executable deliverable;
+- **Why it matters**: its place in an LLM or agent;
+- **Theory**: equations, shapes, and intuition;
+- **Implementation**: small, testable steps;
+- **Verification**: commands and expected properties;
+- **Observations**: values worth inspecting;
+- **Exercises**: focused variations;
+- **Completion criteria**: evidence required before moving on.
 
-## 数学の読み方
+## How to read mathematics
 
-数式は「頭のよい人向けの略記」ではなく、曖昧さを減らすための言語です。本教材では
-新しい記号を使うたびに、読み方、型、単位、コード上の対応を示します。
+Mathematical notation is a compact language for removing ambiguity. Every new
+symbol in this course is connected to its pronunciation, type, shape, and code.
 
-たとえば内積を次のように書きます。
+For example, a dot product is written as:
 
 \[
-y = \boldsymbol{w}\cdot\boldsymbol{x} = \sum_{i=1}^{n} w_i x_i
+y = \boldsymbol{w}\cdot\boldsymbol{x}
+  = \sum_{i=1}^{n} w_i x_i
 \]
 
-| 記号 | 読み方 | 型 | コードでの対応 |
+| Symbol | Meaning | Type | Code |
 | --- | --- | --- | --- |
-| \(n\) | 要素数 | 正の整数 | `x.size` |
-| \(\boldsymbol{x}\) | 入力ベクトル | \(\mathbb{R}^n\) | `VectorD` |
-| \(\boldsymbol{w}\) | 重みベクトル | \(\mathbb{R}^n\) | `VectorD` |
-| \(y\) | 内積の結果 | 実数 | `w.dot(x)` |
-| \(\sum\) | 指定範囲の総和 | 演算 | `foldLeft` |
+| \(n\) | number of elements | positive integer | `x.size` |
+| \(\boldsymbol{x}\) | input vector | \(\mathbb{R}^n\) | `VectorD` |
+| \(\boldsymbol{w}\) | weight vector | \(\mathbb{R}^n\) | `VectorD` |
+| \(y\) | dot-product result | scalar | `w.dot(x)` |
+| \(\sum\) | sum over a range | operation | a loop or `foldLeft` |
 
-式を見たら、最初に「入力と出力の型・shape は何か」を書き出してください。shape の確認は、
-Transformer の実装で最も効果の高いデバッグ方法の一つです。
+When you see an equation, first write down the input and output types and
+shapes. Shape tracing is one of the most effective Transformer debugging tools.
 
-## 手を動かすときのルール
+## Rules for experiments
 
-- 例をコピーした後、変数名を隠してもう一度書く
-- 乱数 seed を固定し、同じ入力で比較する
-- 一度に一条件だけ変える
-- 期待値の分からないコードを大きくしない
-- `Double` の丸め誤差を考え、実数比較には許容誤差を使う
-- 失敗した実験も、仮説と結果をノートに残す
+- After copying an example, hide it and write it again.
+- Fix random seeds when comparing two conditions.
+- Change one condition at a time.
+- Do not grow code whose expected result is unknown.
+- Compare floating-point values with a justified tolerance.
+- Record failed experiments with their hypothesis and observation.
 
-## 必要な時間の目安
+## Time estimate
 
-全 32 章と Capstone を、演習込みで 250〜400 時間程度と想定しています。経験や、章末の
-発展課題をどこまで行うかで大きく変わります。速さより、次の問いに答えられることを
-優先します。
+The complete 40-chapter path and capstone are expected to take roughly 250 to
+400 hours with exercises. Experience and optional extensions change that range
+substantially. Progress is defined by being able to answer:
 
-> この関数の入力、出力、不変条件、計算量、誤差の原因は何か。
+> What are this function's inputs, outputs, invariants, complexity, and sources
+> of error?
 
-## 困ったときの順番
+## Debugging order
 
-1. エラーメッセージの最初の原因箇所を読む
-2. shape、値の範囲、`NaN`/`Infinity` を表示する
-3. 最小の入力（要素 1 個、token 2 個）に減らす
-4. 手計算できる期待値と比較する
-5. 直前に変えた一条件を戻す
+1. Read the first causal error rather than the final cascade.
+2. Inspect shapes, ranges, `NaN`, and `Infinity`.
+3. Reduce the input to one element or two tokens.
+4. Compare with a hand-computable reference.
+5. Revert the one condition changed most recently.
 
-大きなモデルを動かしてから原因を推測するより、小さな例で不変条件を破った場所を特定する
-ほうが速く、得られる理解も深くなります。
+Small inputs reveal broken invariants more reliably than guessing from a large
+model run.

@@ -1,21 +1,20 @@
-# 10 — reverse-mode 自動微分
+# 10 — Reverse-mode automatic differentiation
 
-## この章で作るもの
+## What you will build
 
-scalar 演算の computation graph を記録し、出力から全 parameter への gradient を一回の逆向き
-走査で求める自動微分 engine `Value` を実装します。対象コードは
-`src/main/scala/learnai/autodiff/Value.scala` です。
+A scalar computation graph that computes every parameter gradient with one
+reverse traversal. Source: `src/main/scala/learnai/autodiff/Value.scala`.
 
-## 数値式を graph として見る
+## Treat an expression as a graph
 
-次の計算を考えます。
+Consider:
 
 \[
 x=2,\quad y=-3,\quad z=xy+x^2
 \]
 
-program は通常、途中の演算を終えると結果だけを残します。自動微分では、各演算を node、値の
-依存関係を edge として記録します。
+Normal evaluation may keep only results. Automatic differentiation records
+operations as nodes and dependencies as edges:
 
 ```text
 x ----(*)----+
@@ -25,35 +24,31 @@ x ----(*)----+
     --pow(2)-+
 ```
 
-`Value` は各 node に次を保持します。
+Each `Value` node stores:
 
-- `data`: forward 計算の結果
-- `gradient`: 最終出力をこの node で微分した値
-- `operation`: この node を作った演算
-- `previous`: 直接の入力 node
-- `backwardRule`: 出力側 gradient を入力へ配る局所微分
+- forward `data`;
+- gradient of the final output with respect to this node;
+- the operation and parent nodes;
+- a local backward rule.
 
-## forward mode と reverse mode
+## Forward mode and reverse mode
 
-微分の計算方向には大きく二つあります。
+- forward mode propagates derivatives from one input toward all outputs;
+- reverse mode propagates from one output toward all inputs.
 
-- forward mode: 一つの入力から全出力への微分を伝える
-- reverse mode: 一つの出力から全入力への微分を伝える
+Neural networks have many parameters and one scalar loss. Reverse mode obtains
+all parameter gradients in one reverse traversal.
 
-neural network は非常に多くの parameter から一つの scalar loss を作ります。入力が多数、出力が
-一つなので、一回の逆向き走査で全 parameter gradient を得る reverse mode が適します。
+## Local derivative times upstream gradient
 
-## 局所微分と上流 gradient
-
-ある node \(c=f(a,b)\) に、最終 loss \(L\) からの gradient \(\partial L/\partial c\) が届いたと
-します。連鎖律で入力へ伝えます。
+For \(c=f(a,b)\), if \(\partial L/\partial c\) arrives from above:
 
 \[
 \frac{\partial L}{\partial a}
 =\frac{\partial L}{\partial c}\frac{\partial c}{\partial a}
 \]
 
-乗算 \(c=ab\) の局所微分は \(\partial c/\partial a=b\)、\(\partial c/\partial b=a\) です。
+For multiplication \(c=ab\), local derivatives are \(b\) and \(a\):
 
 ```scala
 output.backwardRule = () =>
@@ -61,78 +56,71 @@ output.backwardRule = () =>
   other.accumulateGradient(data * output.gradient)
 ```
 
-`output.gradient` が上流から届いた gradient、`other.data` と `data` が局所微分です。
+`output.gradient` is upstream information; the operand value is the local
+derivative.
 
-## gradient は代入でなく加算する
+## Accumulate rather than overwrite
 
-\(z=x^2+x\) では \(x\) から出力へ二つの経路があります。
+In \(z=x^2+x\), `x` reaches the output through two paths:
 
 \[
 \frac{dz}{dx}=2x+1
 \]
 
-一つ目の経路から `2x`、二つ目から `1` が届きます。後から届いた値で上書きすると片方を失います。
-そこで `accumulateGradient` は `+=` の意味で加算します。
+One path contributes `2x`, the other contributes `1`. Overwriting loses a path,
+so gradients must accumulate. Parameter sharing, residual connections, and
+repeated embedding lookup all depend on this rule.
 
-parameter sharing、residual connection、同じ token embedding の複数回参照がある LLM では、
-この gradient accumulation が必須です。
+## Topological order
 
-## なぜ topological order が必要か
-
-ある node の backward rule は、その node への全経路の gradient が集まった後に一度実行する必要が
-あります。依存元が先、出力が後になる topological order を作り、逆順に走査します。
+A node's backward rule must run after all downstream paths have contributed.
+Build a topological order, then traverse it in reverse:
 
 ```text
-forward order:  leaves -> intermediate -> loss
-backward order: loss   -> intermediate -> leaves
+forward order:  leaves -> intermediates -> loss
+backward order: loss   -> intermediates -> leaves
 ```
 
-同じ `Value` が複数経路で現れるため、通常の値の等価性でなく object identity を使って訪問済みを
-記録します。
-
-最終出力 \(L\) 自身の微分は 1 です。
+Shared nodes are tracked by object identity. The root gradient is seeded with:
 
 \[
 \frac{\partial L}{\partial L}=1
 \]
 
-これを seed として逆伝播を始めます。
+## Local rules
 
-## 演算ごとの局所微分
-
-`Value` は次を実装します。
-
-| forward | 入力への局所微分 |
+| Forward | Local derivative |
 | --- | --- |
-| \(a+b\) | \(1, 1\) |
-| \(ab\) | \(b, a\) |
+| \(a+b\) | \(1,1\) |
+| \(ab\) | \(b,a\) |
 | \(a^r\) | \(ra^{r-1}\) |
 | \(e^a\) | \(e^a\) |
 | \(\log a\) | \(1/a\) |
 | \(\tanh a\) | \(1-\tanh^2a\) |
-| \(\operatorname{ReLU}(a)\) | \(a>0\) なら 1、それ以外 0 |
+| \(\operatorname{ReLU}(a)\) | `1` for `a>0`, else `0` |
 
-引き算と割り算は、既存演算の合成として実装します。
+Subtraction and division are composed from existing operations:
 
 \[
-a-b=a+(-1)b,\qquad \frac{a}{b}=ab^{-1}
+a-b=a+(-1)b,\qquad a/b=ab^{-1}
 \]
 
-## parameter update と graph の寿命
+## Parameter updates and graph lifetime
 
-演算 node の `data` は forward 時点の snapshot です。正しい一 step は次の順です。
+Operation data is a forward-time snapshot. A correct training step is:
 
-1. 現在の parameter から新しい graph を作る
-2. scalar loss で `backward()` を呼ぶ
-3. parameter の `gradient` を使って update する
-4. 古い graph を捨て、次の forward で作り直す
+1. build a fresh graph from current parameters;
+2. call `backward()` on scalar loss;
+3. update parameter leaves;
+4. discard the old graph;
+5. rebuild forward for the next step.
 
-古い graph の途中値は parameter update 後も変わりません。graph を再利用してはいけません。
-実用 framework も通常、dynamic graph を backward 後に解放します。
+Updating a leaf does not retroactively recompute old intermediates.
 
-## gradient check
+## Gradient checks
 
-自動微分の test は、同じ関数を raw `Double` と `Value` で作り、central difference と比較します。
+Implement the same function with raw `Double` and `Value`, then compare
+automatic and central-difference gradients:
 
 ```scala
 val numeric = Calculus.derivative(rawFunction, at = x.data)
@@ -140,33 +128,32 @@ output.backward()
 Assert.close(x.gradient, numeric, tolerance = 1e-8)
 ```
 
-解析的な期待値、数値微分、自動微分という独立した三つの見方を使うと、局所微分や graph 順序の
-bug を見つけやすくなります。
+Hand derivation, finite differences, and autodiff are three independent views.
 
-## 今回の単純化
+## Simplifications
 
-- scalar node 一つにつき JVM object を作るため遅い
-- recursive な topological sort は巨大 graph で stack を使い過ぎる
-- higher-order derivative を保持しない
-- in-place 演算や並列 backward を扱わない
-- graph visualization と profiler がない
+- one JVM object per scalar node;
+- recursive graph ordering;
+- no higher-order derivatives;
+- no in-place or parallel backward;
+- no graph profiler or visualization.
 
-次の `Tensor` engine では一つの node に多数の数を持たせます。実用 framework はさらに演算 fusion、
-device memory、kernel scheduling を管理します。
+The Tensor engine groups many scalars into one operation node.
 
-## 演習
+## Exercises
 
-1. \(z=(x+2)^3\) を `Value` で作り、手計算と gradient を比較してください。
-2. `sigmoid` を既存の `exp` と四則演算から合成してください。
-3. `sin` 演算と backward rule を追加し、数値微分で検査してください。
-4. `accumulateGradient` を一時的に代入へ変え、共有 node の test がどう失敗するか確認してください。
-5. graph の各 node と edge を DOT 形式で出力する方法を設計してください。
+1. Differentiate \((x+2)^3\) by hand and with `Value`.
+2. Compose sigmoid from `exp` and arithmetic.
+3. Add `sin` and check it numerically.
+4. Replace gradient accumulation with assignment and observe the shared-node
+   failure.
+5. Design a DOT graph exporter.
 
-## 完了条件
+## Completion criteria
 
-- computation graph の node と edge を式へ対応させられる
-- reverse mode が多数入力・一出力に向く理由を説明できる
-- backward rule を上流 gradient と局所微分に分けて説明できる
-- gradient を加算する必要がある式を一つ作れる
-- parameter update 後に graph を作り直す理由を説明できる
-- `ValueSuite` が成功する
+- Map expression nodes and edges to code.
+- Explain why reverse mode fits many inputs and one output.
+- Separate upstream gradient from local derivative.
+- Give an expression requiring gradient accumulation.
+- Explain why the graph is rebuilt after updates.
+- `ValueSuite` passes.

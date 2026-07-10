@@ -1,12 +1,12 @@
-# 35 — bounded agent loop と audit trace
+# 35 — A bounded agent loop and audit trace
 
-## この章で作るもの
+## What you will build
 
-model → tool → observation → model を繰り返し、final answer または明示的 limit/error で必ず停止する
-`AgentRuntime` を実装します。対象コードは
-`src/main/scala/learnai/agent/AgentRuntime.scala` です。
+Implement `model -> tool -> observation -> model` with guaranteed termination
+through final answer, hard limits, or typed failure. Source:
+`src/main/scala/learnai/agent/AgentRuntime.scala`.
 
-## loop as a state machine
+## Agent loop as a state machine
 
 ```text
 InvokeModel
@@ -20,105 +20,103 @@ ValidateAndExecute
 Any state -> model error / step limit / tool limit -> terminal failure
 ```
 
-`while true` と曖昧な文字列 history ではなく、state、counter、terminal reason を型と trace に残します。
+Explicit state, counters, and terminal reasons are safer than an unbounded loop
+over an ambiguous text buffer.
 
-## one iteration
+## One iteration
 
-1. current history と granted tool definitions で `ModelRequest`
-2. usage を累積
-3. final answer なら assistant text を append して完了
-4. tool calls なら assistant call item を append
-5. 各 call の capability/schema/budget を検査
-6. tool を timeout 内で実行
-7. observation を append
-8. 次 model step
+1. Build `ModelRequest` from history and granted tools.
+2. Accumulate usage.
+3. On final answer, append assistant text and finish.
+4. On tool calls, append the assistant call item.
+5. Validate capability, schema, and budget.
+6. Execute within the timeout.
+7. Append structured observations.
+8. Begin the next model step.
 
-model は tool の実際の副作用を直接見ず、structured observation だけを見ます。
+The model sees effects only through observations.
 
-## hard limits
+## Hard limits
 
-`AgentConfig` は少なくとも次を持ちます。
+`AgentConfig` includes:
 
-- `maximumModelSteps`
-- `maximumToolCalls`
-- `toolTimeoutMillis`
+- `maximumModelSteps`;
+- `maximumToolCalls`;
+- `toolTimeoutMillis`.
 
-これらは品質 tuning でなく safety/liveness invariant です。model が同じ call を繰り返す、tool が hang
-する、invalid call を無限に修正する場合も terminal state へ到達します。外側には run 全体 deadline と
-token/cost budget も追加します。
+These are liveness and safety invariants, not quality suggestions. A repeating
+model, hanging tool, or invalid-call correction loop still reaches a terminal
+state. Production systems also need whole-run deadlines and cost/token budgets.
 
-## timeout と cancellation
+## Timeout and cancellation
 
-tool は JDK virtual thread で実行し、`Future.get(timeout)` を使います。timeout 時は task を interrupt
-し、retryable `tool_timeout` observation を返します。
+Tools run on JDK virtual threads and are awaited with a timeout. On timeout, the
+task is interrupted and a retryable `tool_timeout` observation is returned.
 
-interrupt は強制停止保証ではありません。tool implementation は interrupt/deadline に協力し、network
-client 自身にも connect/read timeout を設定する必要があります。外部 side effect が timeout 直前に
-成功した可能性もあるため、盲目的 retry は危険です。
+Interrupt is cooperative, not guaranteed forced termination. Tool code and
+network clients need their own deadlines. A side effect may have succeeded just
+before timeout, so blind retry can duplicate it.
 
-## idempotency
+## Idempotency
 
-call ID を idempotency key として outcome を cache します。
+Call ID acts as an idempotency key:
 
-- 同じ ID・同じ内容: outcome を再利用し side effect を繰り返さない
-- 同じ ID・違う内容: `conflicting_call_id` として拒否
+- same ID and same call: reuse the cached result;
+- same ID with different contents: reject as conflict.
 
-message send/payment/create のような tool は、runtime cache だけでなく外部 service にも idempotency key
-を渡します。process crash 後も重複を防ぐには durable storage が必要です。
+For payments, sends, and creates, pass the same key to the external service.
+Durable deduplication is required across process crashes.
 
-## audit events
+## Audit events
 
-run は success/failure に関係なく event sequence を返します。
+Every run returns success or failure with:
 
-- model invoked/returned と usage
-- tool started/finished/reused
-- terminal status/reason
+- model invocation/decision and usage;
+- tool start/finish/reuse;
+- terminal status and reason.
 
-event は deterministic な step と stable ID を持ちます。production では monotonic duration、trace ID、
-principal、policy decision、redacted argument hash を追加します。secret/full personal data はそのまま log
-しません。
+Production events may add durations, trace ID, principal, policy decision, and
+redacted argument hashes. Do not log secrets or unnecessary personal data.
 
-## stopping is not failure hiding
+## Terminal states are distinct
 
-terminal status を区別します。
+- `Completed`;
+- `ModelFailed`;
+- `ModelStepLimitExceeded`;
+- `ToolCallLimitExceeded`.
 
-- `Completed`
-- `ModelFailed`
-- `ModelStepLimitExceeded`
-- `ToolCallLimitExceeded`
+Limit exhaustion is not disguised as a successful answer. A caller can choose
+retry, more budget, user approval, or manual handoff.
 
-limit 到達を成功回答に変換しません。UI/orchestrator が retry、追加 budget、ユーザー確認、manual handoff
-を選べるようにします。
+## Trajectory tests
 
-## tests as trajectory evaluation
+Tests inspect more than final text:
 
-unit tests は final text だけでなく全 trajectory を検査します。
+- valid call becomes the next request's observation;
+- invalid schema never invokes a tool;
+- unknown capabilities never execute;
+- identical IDs produce one side effect;
+- conflicts and timeouts remain typed;
+- budget prevents the next execution;
+- failures retain a complete trace.
 
-- valid call が次 request の observation になる
-- schema error では tool invocation count が 0
-- unknown capability は実行されない
-- identical ID の side effect は一回
-- conflict/timeout が typed error
-- budget の次の call は実行されない
-- model/step failure に完全 trace が残る
+Real-model evaluation should separately measure final correctness, tool
+selection, argument accuracy, steps, cost, latency, and unsafe attempts.
 
-実 model の agent evaluation でも、final correctness、tool selection、argument accuracy、step count、cost、
-latency、unsafe attempt を別 metric にします。
+## Exercises
 
-## 演習
+1. Add a whole-run deadline and token budget.
+2. Add bounded retry with exponential backoff and a fake clock.
+3. Design parallel read-only calls with deterministic observation ordering.
+4. Add a human-approval state for write tools.
+5. Aggregate success, p95 steps, and tool-error rate from events.
+6. Design a durable idempotency store.
 
-1. run 全体 deadline と token budget を追加してください。
-2. retryable model error に exponential backoff + jitter を追加し、fake clock で test してください。
-3. parallel read-only tool calls と ordered observations を設計してください。
-4. write tool に human approval state を追加してください。
-5. event trace から success rate、p95 steps、tool error rate を集計してください。
-6. crash 後に idempotency cache を復元する append-only store を設計してください。
+## Completion criteria
 
-## 完了条件
-
-- agent loop を有限 state machine として説明できる
-- step/tool/timeout limit が liveness を保証する理由を説明できる
-- timeout と side-effect 成否が別問題であることを説明できる
-- idempotency key を runtime と外部 service の両方で使う理由を説明できる
-- final answer 以外の trajectory metric を列挙できる
-- `AgentRuntimeSuite` の正常/異常/limit tests が成功する
+- Describe the loop as a finite state machine.
+- Explain how limits guarantee liveness.
+- Separate timeout from side-effect success.
+- Explain end-to-end idempotency.
+- List trajectory metrics beyond final answer.
+- `AgentRuntimeSuite` passes.

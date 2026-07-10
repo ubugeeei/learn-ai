@@ -1,48 +1,66 @@
 # learn-ai
 
-Scala 3 で、数式と実装を一行ずつ対応させながら、大規模言語モデル（LLM）と
-AI エージェントをゼロから学ぶハンズオンです。
+A from-scratch, hands-on path to large language models and AI agents in Scala 3.
 
-この教材では、完成済みの機械学習フレームワークを呼び出して終わりにはしません。
-ベクトル・行列、自動微分、ニューラルネットワーク、トークナイザ、Transformer、
-学習と推論、ツール実行型エージェントを、原則として Scala/JDK の標準機能だけで
-実装します。小さなモデルで原理を実験し、同じ原理がフロンティアモデルではどのように
-大規模化・分散化されているかまでつなげます。
+The repository maps every important equation to executable code. It does not
+hide vectors, automatic differentiation, tokenization, attention, training, or
+tool execution behind a machine-learning framework. The main path uses only the
+Scala and JDK standard libraries.
 
-## 到達目標
+Small models make every mechanism observable. Later chapters connect those same
+mechanisms to the systems, data, and scaling decisions used by frontier models.
 
-通読と演習を終えると、次のことを自分の言葉とコードで説明できる状態を目指します。
+## Learning outcomes
 
-- 「学習する」とは何を最小化しているのかを、微分と勾配降下から説明する
-- Tensor と自動微分エンジンを実装し、ニューラルネットワークを学習させる
-- テキストを token ID に変換し、次 token 予測モデルを学習させる
-- Attention と Transformer を数式から実装し、小さな GPT を動かす
-- checkpoint、sampling、KV cache、量子化、並列学習の役割を説明する
-- SFT、選好学習、評価、安全性を含むモデル開発工程を説明する
-- モデル、tool、memory、planning、guardrail からなるエージェントを実装する
-- 品質、遅延、コスト、再現性、安全性を測り、実用システムとして改善する
-- 公開されたフロンティアモデルの技術資料を読み、設計上の選択を批評する
+After completing the curriculum, you should be able to:
 
-> 「フロンティアモデルを理解する」は、個人の計算機で同じ規模を再学習することでは
-> ありません。本教材では、同じ計算原理を観察できる最小実装と、巨大規模で必要になる
-> システム設計の両方を扱います。
+- explain what training minimizes using derivatives and gradient descent;
+- implement tensors and reverse-mode automatic differentiation;
+- train neural networks and next-token language models;
+- build a byte/BPE tokenizer and causal dataset pipeline;
+- derive and implement causal multi-head attention and a small GPT;
+- explain checkpoints, sampling, KV caches, quantization, and parallelism;
+- reason about SFT, preference optimization, evaluation, and safety;
+- implement an agent from model, tool, memory, planning, and policy boundaries;
+- measure quality, latency, memory, cost, reproducibility, and failure modes;
+- read a frontier-model technical report and critique its design choices.
 
-## 学び方
+> Understanding a frontier model does not mean reproducing its full training
+> run on a personal computer. This course combines minimal implementations of
+> the same computations with the large-scale systems design needed to run them.
 
-1. [学習の進め方](docs/00-guide/00-how-to-learn.md)を読む
-2. [カリキュラム](docs/00-guide/01-curriculum.md)を上から順に進める
-3. 各章の `確認` コマンドを実行する
-4. 章末問題を、先に解答を見ずに実装する
-5. 各 Part の成果物を自分の言葉で説明し直す
+## Start here
 
-コードは「後で完成形に置き換える使い捨て」ではなく、後続の章で再利用する小さな部品に
-分けます。設計判断は [設計原則](docs/00-guide/02-design.md) に記録します。
+1. Read [How to learn](docs/00-guide/00-how-to-learn.md).
+2. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
+3. Run the verification command in every completed chapter.
+4. Solve exercises before reading or implementing an answer.
+5. Explain each part's deliverable in your own words.
 
-## 現在の実装範囲
+The code is cumulative rather than disposable. Each chapter adds a tested
+component that later chapters reuse. Architectural choices are recorded in the
+[design principles](docs/00-guide/02-design.md).
 
-現在は、環境構築から MiniGPT の end-to-end 学習、checkpoint、int8 量子化、tool 実行型 agent、
-引用付き retrieval までが実行可能です。実装済みの各章には本文、Scala code、境界/異常系を含む
-test があります。
+## Reproducible environment
+
+```console
+$ nix develop
+$ sbt check
+```
+
+The repository pins JDK 21, sbt, Scala 3, and the Nix package revision.
+
+## Current implementation
+
+The runnable path currently reaches:
+
+```text
+math -> autodiff -> neural networks -> tokenization -> language modeling
+  -> causal Transformer -> MiniGPT -> inference artifacts
+  -> typed tools -> bounded agent runtime -> cited retrieval
+```
+
+Useful entrypoints:
 
 ```console
 $ nix develop -c sbt check
@@ -52,16 +70,17 @@ $ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 
-KV cache、分散学習、現代的 block、post-training、agent planning/evaluation は次の実装 milestone です。
-章単位の正確な状態と依存順は[カリキュラム](docs/00-guide/01-curriculum.md)、完成基準と次の作業は
-[進捗と実装規約](docs/00-guide/03-progress.md)で確認できます。未実装の章にも到達基準を先に定義し、
-学習経路が途中で分岐しないようにしています。
+KV caching, distributed training, modern blocks, post-training, agent planning,
+and evaluation remain explicit future milestones. See the [curriculum](docs/00-guide/01-curriculum.md)
+for exact chapter status and [progress and quality standards](docs/00-guide/03-progress.md)
+for the definition of done.
 
-## 開発規約
+## Contribution standards
 
-公開 API の Scaladoc、数式と shape の対応、正常/境界/異常/property/gradient test を実装と同じ
-commit に含めます。詳しくは [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+Public APIs use English Scaladoc. Every implementation chapter includes the
+relevant normal, boundary, failure, property, numerical, or gradient tests.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## ライセンス
+## License
 
-学習目的のリポジトリです。ライセンスを確定するまでは、再配布条件は未指定です。
+This is a learning repository. Redistribution terms have not yet been selected.

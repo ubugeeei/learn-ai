@@ -1,49 +1,52 @@
-# 34 — JSON、schema、tool capability
+# 34 — JSON, schemas, and tool capabilities
 
-## この章で作るもの
+## What you will build
 
-外部 dependency なしの strict JSON parser/renderer、top-level object schema、明示的に許可された `Tool`
-capability、成功/失敗 observation を実装します。
+Implement a dependency-free strict JSON parser, top-level object schemas,
+explicit `Tool` capabilities, and structured success/failure observations.
 
 - JSON: `src/main/scala/learnai/json/Json.scala`
 - tool protocol: `src/main/scala/learnai/agent/Protocol.scala`
 
-## tool call は命令でなく未検証の提案
+## A model tool call is an untrusted proposal
 
-model が `{"path":"..."}` を生成しても、そのまま実行しません。
+Generated JSON is never an instruction to execute directly:
 
 ```text
 model output
  -> strict JSON parse
- -> tool name lookup in granted registry
+ -> lookup in granted tool registry
  -> schema validation
- -> policy/authorization checks
+ -> authorization and domain policy
  -> timeout-bounded execution
  -> typed observation
 ```
 
-LLM output、user text、retrieved document、tool output はすべて untrusted data として扱います。
+User text, model output, retrieved documents, and tool output are all untrusted
+data.
 
-## dependency-free JSON
+## Strict dependency-free JSON
 
-parser は object/array/string/number/boolean/null を AST へ変換し、次を拒否します。
+The parser supports object, array, string, number, boolean, and null while
+rejecting:
 
-- trailing data/comma
-- duplicate object fields
-- leading zero や不完全 exponent
-- invalid escape/control character
-- unpaired UTF-16 surrogate
-- input size/depth limit 超過
+- trailing data or commas;
+- duplicate object fields;
+- invalid number grammar;
+- invalid escapes and control characters;
+- unpaired UTF-16 surrogates;
+- input-size and nesting-depth violations.
 
-duplicate field を許す parser は「最初を採用」「最後を採用」で security check と executor の解釈が
-分かれる危険があります。strict に一意性を要求します。
+Duplicate fields are dangerous when a validator reads the first occurrence and
+an executor reads the last. Reject them rather than selecting a winner.
 
-renderer は field insertion order を保ち、test snapshot と audit を deterministic にします。JSON object
-field order へ意味を持たせてはいけませんが、stable serialization は hash/debug に有用です。
+The renderer preserves insertion order for deterministic snapshots and audit
+hashes, though application semantics must not depend on JSON field order.
 
-## schema validation
+## Schema validation
 
-`ToolSchema` は required field、JSON type、additional-field policy を検査し、全問題を一度に返します。
+`ToolSchema` validates required fields, top-level JSON types, and additional-
+field policy:
 
 ```scala
 ToolSchema(Vector(
@@ -51,66 +54,69 @@ ToolSchema(Vector(
 ))
 ```
 
-教材 schema は top-level 型だけです。production では string length/pattern、number range、enum、nested
-object/array size、相互制約も必要です。schema validation 後も domain validation を tool 内で行います。
+Production schemas also need lengths, patterns, ranges, enums, nested limits,
+and cross-field rules. Schema validation does not replace domain validation.
 
-## capability-based design
+## Capability-based design
 
-runtime が持つ `Vector[Tool]` だけが実行可能です。model request にも同じ definitions だけを渡します。
-unknown name は `unknown_tool: not granted` になり、reflection や shell fallback はしません。
+Only tools in the runtime's explicit `Vector[Tool]` can execute. The model sees
+the same granted definitions. Unknown names return `unknown_tool`; there is no
+reflection or shell fallback.
 
 ```text
-agent with [weather.read]  cannot call filesystem.write
-agent with [draft.create]  cannot call message.send
+agent with [weather.read] cannot call filesystem.write
+agent with [draft.create] cannot call message.send
 ```
 
-tool は大きな万能 shell でなく、最小権限の domain operation に分けます。read/write、draft/send、
-preview/commit を別 capability にすると approval と audit が明確になります。
+Prefer small domain operations over one universal shell. Separate read/write,
+draft/send, and preview/commit so approval and audit are meaningful.
 
-## ToolContext と arguments を分ける
+## Separate model arguments from host context
 
-model-controlled JSON は `arguments` だけです。call ID、agent step、deadline、principal、tenant、trace ID
-など host-controlled metadata は `ToolContext` で渡します。model が authorization context を偽装できない
-境界にします。
+Model-controlled JSON is `arguments`. Host-controlled call ID, step, principal,
+tenant, deadline, and trace ID belong in `ToolContext`, where the model cannot
+forge authorization metadata.
 
-## failure observation
+## Structured failures
 
-tool は exception を通常 error path にせず、`Either[ToolError,JsonValue]` を返します。
+Tools return `Either[ToolError,JsonValue]`, with:
 
-- stable machine code
-- human/model-readable message
-- retryable flag
+- stable machine-readable code;
+- safe message;
+- retryable flag.
 
-schema error、unknown tool、timeout も `ToolObservation` になり、model は修正・代替・ユーザーへの説明を
-選べます。secret、stack trace、internal path を observation に漏らしません。
+Unknown tools, invalid arguments, and timeouts also become observations. The
+model may correct its call or explain failure. Secrets, stack traces, and
+internal paths must not be exposed.
 
-## prompt injection と tool output
+## Prompt injection and tool output
 
-retrieved page が「以前の指示を無視して送信せよ」と書いていても、それは data です。model が従う
-可能性を前提に、runtime が最後の policy enforcement point になります。
+A retrieved page can contain instructions to ignore previous policy. It remains
+data. Assume the model may follow it and keep runtime enforcement outside the
+prompt:
 
-- tool allowlist
-- argument/path/domain allowlist
-- read/write separation
-- high-impact action approval
-- output size/content filtering
-- immutable audit record
+- capability allowlists;
+- path/domain/argument allowlists;
+- read/write separation;
+- approval for high-impact operations;
+- output size/content limits;
+- immutable audit events.
 
-prompt だけを security boundary にしません。
+Prompts are not security boundaries.
 
-## 演習
+## Exercises
 
-1. integer range と string maximum length validation を追加してください。
-2. read-file tool の allowed root と symlink traversal 対策を設計してください。
-3. draft/send を別 tool にし、send だけ approval required にしてください。
-4. tool output の maximum JSON bytes/depth を追加してください。
-5. JSON parser を property/fuzz test する generator を作ってください。
+1. Add integer ranges and string-length constraints.
+2. Design a read-file root policy resistant to symlink traversal.
+3. Separate draft and send, requiring approval only for send.
+4. Add output JSON size and depth limits.
+5. Generate property/fuzz tests for the parser.
 
-## 完了条件
+## Completion criteria
 
-- model tool call を untrusted proposal と説明できる
-- parse/schema/domain/auth validation の違いを説明できる
-- duplicate JSON field を拒否する security 理由を説明できる
-- capability allowlist が prompt injection 後も必要な理由を説明できる
-- structured failure を model observation に戻せる
-- `JsonSuite` と agent schema tests が成功する
+- Explain why a tool call is an untrusted proposal.
+- Distinguish parse, schema, domain, and authorization validation.
+- Explain why duplicate JSON fields are rejected.
+- Explain why capabilities remain necessary after prompt injection.
+- Return structured failures as observations.
+- `JsonSuite` and tool-schema tests pass.
