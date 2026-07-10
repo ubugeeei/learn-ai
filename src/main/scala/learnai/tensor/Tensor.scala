@@ -388,6 +388,125 @@ final class Tensor private (
         rowIndex += 1
     output
 
+  /** Applies a numerically stable softmax independently to every rank-2 row. */
+  def softmaxRows: Tensor =
+    require(rank == 2, s"softmaxRows requires rank 2, got $shape")
+    val rows = shape(0)
+    val columns = shape(1)
+    require(columns > 0, "softmaxRows requires at least one column")
+    val outputData = new Array[Double](size)
+    var row = 0
+    while row < rows do
+      val offset = row * columns
+      var maximum = currentData(offset)
+      var column = 1
+      while column < columns do
+        maximum = math.max(maximum, currentData(offset + column))
+        column += 1
+      var total = 0.0
+      column = 0
+      while column < columns do
+        val exponential = math.exp(currentData(offset + column) - maximum)
+        outputData(offset + column) = exponential
+        total += exponential
+        column += 1
+      column = 0
+      while column < columns do
+        outputData(offset + column) /= total
+        column += 1
+      row += 1
+
+    val output = Tensor.operation(shape, outputData, "softmaxRows", Vector(this))
+    output.backwardRule = () =>
+      var rowIndex = 0
+      while rowIndex < rows do
+        val offset = rowIndex * columns
+        var weightedGradient = 0.0
+        var columnIndex = 0
+        while columnIndex < columns do
+          weightedGradient +=
+            output.currentGradient(offset + columnIndex) * output.currentData(offset + columnIndex)
+          columnIndex += 1
+        columnIndex = 0
+        while columnIndex < columns do
+          val index = offset + columnIndex
+          val gradient = output.currentData(index) *
+            (output.currentGradient(index) - weightedGradient)
+          accumulateGradient(index, gradient)
+          columnIndex += 1
+        rowIndex += 1
+    output
+
+  /** Replaces the strict upper triangle of a square rank-2 Tensor.
+    *
+    * Backward passes gradients only through the diagonal and lower triangle,
+    * which prevents causal attention from depending on future positions.
+    */
+  def causalMask(maskedValue: Double = -1e9): Tensor =
+    require(rank == 2, s"causalMask requires rank 2, got $shape")
+    require(shape(0) == shape(1), s"causalMask requires a square matrix, got $shape")
+    Numerics.requireFinite(maskedValue, "causal mask value")
+    val length = shape(0)
+    val outputData = currentData.clone()
+    var row = 0
+    while row < length do
+      var column = row + 1
+      while column < length do
+        outputData(row * length + column) = maskedValue
+        column += 1
+      row += 1
+    val output = Tensor.operation(shape, outputData, "causalMask", Vector(this))
+    output.backwardRule = () =>
+      var rowIndex = 0
+      while rowIndex < length do
+        var columnIndex = 0
+        while columnIndex <= rowIndex do
+          val index = rowIndex * length + columnIndex
+          accumulateGradient(index, output.currentGradient(index))
+          columnIndex += 1
+        rowIndex += 1
+    output
+
+  /** Copies a half-open range of columns from a rank-2 Tensor. */
+  def sliceColumns(fromInclusive: Int, untilExclusive: Int): Tensor =
+    require(rank == 2, s"sliceColumns requires rank 2, got $shape")
+    val rows = shape(0)
+    val columns = shape(1)
+    require(
+      fromInclusive >= 0 && fromInclusive < untilExclusive && untilExclusive <= columns,
+      s"invalid column range [$fromInclusive,$untilExclusive) for $columns columns"
+    )
+    val outputColumns = untilExclusive - fromInclusive
+    val outputData = new Array[Double](Math.multiplyExact(rows, outputColumns))
+    var row = 0
+    while row < rows do
+      System.arraycopy(
+        currentData,
+        row * columns + fromInclusive,
+        outputData,
+        row * outputColumns,
+        outputColumns
+      )
+      row += 1
+    val output = Tensor.operation(
+      Shape(rows, outputColumns),
+      outputData,
+      s"sliceColumns($fromInclusive,$untilExclusive)",
+      Vector(this)
+    )
+    output.backwardRule = () =>
+      var rowIndex = 0
+      while rowIndex < rows do
+        var outputColumn = 0
+        while outputColumn < outputColumns do
+          accumulateGradient(
+            rowIndex * columns + fromInclusive + outputColumn,
+            output.currentGradient(rowIndex * outputColumns + outputColumn)
+          )
+          outputColumn += 1
+        rowIndex += 1
+    output
+
   /** Rank-2 matrix multiplication: [m,k] x [k,n] -> [m,n]. */
   def matmul(other: Tensor): Tensor =
     require(rank == 2 && other.rank == 2, s"matmul requires rank 2: $shape x ${other.shape}")
@@ -533,6 +652,61 @@ object Tensor:
 
   def tabulate(shape: Shape)(function: Int => Double): Tensor =
     constant(shape, Array.tabulate(shape.size)(function))
+
+  /** Concatenates rank-2 Tensors along their column axis.
+    *
+    * Every input must have the same row count. Backward slices the upstream
+    * gradient back into the corresponding input column range.
+    */
+  def concatenateColumns(tensors: Vector[Tensor]): Tensor =
+    require(tensors.nonEmpty, "concatenateColumns requires at least one tensor")
+    require(tensors.forall(_.rank == 2), s"all tensors must have rank 2: ${tensors.map(_.shape)}")
+    val rows = tensors.head.shape(0)
+    require(
+      tensors.forall(_.shape(0) == rows),
+      s"all tensors must have $rows rows: ${tensors.map(_.shape)}"
+    )
+    val totalColumns = tensors.iterator.map(_.shape(1)).sum
+    val outputData = new Array[Double](Math.multiplyExact(rows, totalColumns))
+    var row = 0
+    while row < rows do
+      var outputColumn = 0
+      tensors.foreach { tensor =>
+        val columns = tensor.shape(1)
+        System.arraycopy(
+          tensor.currentData,
+          row * columns,
+          outputData,
+          row * totalColumns + outputColumn,
+          columns
+        )
+        outputColumn += columns
+      }
+      row += 1
+
+    val output = operation(
+      Shape(rows, totalColumns),
+      outputData,
+      "concatenateColumns",
+      tensors
+    )
+    output.backwardRule = () =>
+      var inputOffset = 0
+      tensors.foreach { tensor =>
+        val columns = tensor.shape(1)
+        var inputRow = 0
+        while inputRow < rows do
+          var column = 0
+          while column < columns do
+            tensor.accumulateGradient(
+              inputRow * columns + column,
+              output.currentGradient(inputRow * totalColumns + inputOffset + column)
+            )
+            column += 1
+          inputRow += 1
+        inputOffset += columns
+      }
+    output
 
   private def operation(
       shape: Shape,

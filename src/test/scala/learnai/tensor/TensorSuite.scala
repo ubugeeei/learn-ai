@@ -105,6 +105,34 @@ object TensorSuite extends TestSuite:
       Assert.equal(input.gradients, Vector.fill(6)(1.0))
       Assert.equal(row.gradients, Vector(2.0, 2.0, 2.0))
     },
+    test("softmaxRows is stable and its backward is shift-invariant") {
+      val logits = Tensor.parameter(Shape(2, 3), Vector(10000.0, 10001.0, 9999.0, 1.0, 1.0, 1.0), "x")
+      val probabilities = logits.softmaxRows
+      Assert.close(probabilities.rowValues(0).sum, 1.0)
+      Assert.close(probabilities.rowValues(1).sum, 1.0)
+      probabilities.hadamard(
+        Tensor.constant(Shape(2, 3), Vector(1.0, 2.0, 4.0, -1.0, 3.0, 2.0))
+      ).sum.backward()
+      Assert.close(logits.gradients.take(3).sum, 0.0)
+      Assert.close(logits.gradients.drop(3).sum, 0.0)
+    },
+    test("causal mask blocks future gradients") {
+      val scores = Tensor.parameter(Shape(3, 3), Vector.range(0, 9).map(_.toDouble), "scores")
+      scores.causalMask().sum.backward()
+      Assert.equal(
+        scores.gradients,
+        Vector(1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0)
+      )
+    },
+    test("slice and concatenate columns round-trip values and gradients") {
+      val input = Tensor.parameter(Shape(2, 4), Vector.range(0, 8).map(_.toDouble), "input")
+      val joined = Tensor.concatenateColumns(
+        Vector(input.sliceColumns(0, 1), input.sliceColumns(1, 4))
+      )
+      Assert.equal(joined.values, input.values)
+      joined.sum.backward()
+      Assert.equal(input.gradients, Vector.fill(8)(1.0))
+    },
     test("backward requires a scalar output") {
       val tensor = Tensor.fill(Shape(2), 1.0)
       val error = Assert.throws[IllegalArgumentException](tensor.backward())
