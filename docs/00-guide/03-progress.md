@@ -26,6 +26,7 @@ Nix / Scala 3 / dependency-free tests
   -> chat templates and assistant-span SFT with held-out evaluation
   -> implementation-anchored parameter/FLOP/memory accounting
   -> paged KV pool with bounded fragmentation and prefix-sharing forks
+  -> online-softmax tiled attention with exact equivalence oracles
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:

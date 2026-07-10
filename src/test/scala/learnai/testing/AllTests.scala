@@ -28,6 +28,7 @@ import learnai.transformer.AttentionSuite
 import learnai.transformer.GroupedQueryAttentionSuite
 import learnai.transformer.RopeSuite
 import learnai.transformer.SwiGluSuite
+import learnai.transformer.TiledAttentionSuite
 import learnai.transformer.TransformerBlockSuite
 import learnai.training.MiniGptTrainingSuite
 import learnai.training.ResumableTrainingSuite
@@ -75,6 +76,7 @@ object AllTests:
     RopeSuite,
     SwiGluSuite,
     GroupedQueryAttentionSuite,
+    TiledAttentionSuite,
     ModelAccountingSuite,
     MiniGptSuite,
     MiniGptTrainingSuite,
