@@ -21,6 +21,7 @@ Nix / Scala 3 / dependency-free tests
   -> RoPE / SwiGLU / GQA reference layers with equivalence oracles
   -> observable-state RNG / optimizer snapshots / bitwise exact resume
   -> restartable epoch shuffle / sequence packing / masked loss
+  -> LoRA adapters with frozen-base and merge-equivalence oracles
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
