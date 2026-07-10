@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+usage() {
+  cat <<'EOF'
+learn-ai — guided commands for the Scala 3 AI course
+
+Usage:
+  ./learn-ai <command>
+
+Start with:
+  ./learn-ai chat         Train/load local MiniGPT and talk to it in this terminal.
+  ./learn-ai model        Train the smallest Transformer and generate text.
+  ./learn-ai training     Run the train/validation experiment.
+
+Commands:
+  help          Show this explanation.
+  chat          Talk to the locally trained MiniGPT (no API or network).
+  model         Train tiny MiniGPT on one repeated phrase, then generate text.
+  training      Train MiniGPT with batches, validation, scheduling, and metrics.
+  diagnostics   Check MiniGPT gradients, parameter bytes, and local timing.
+  cache         Compare ordinary decoding with KV-cached decoding.
+  quantization  Compress a matrix to int8 and report numerical/byte error.
+  agent         Run deterministic agent outcome, tool, and permission scenarios.
+  planning      Run the task-graph planner with retry and recovery.
+  foundations   Run the introductory Scala values/functions/error-handling lab.
+  xor           Train a small MLP to solve XOR.
+  bigram        Train the simpler pre-Transformer language model.
+  test          Compile the repository and run every automated test.
+  tour          Run model, training, diagnostics, and agent in that order.
+
+Nothing here calls a remote AI API. The chat model, training labs, and
+fake-agent scenarios all run locally on the CPU using the Scala/JDK
+implementation in this repository.
+EOF
+}
+
+require_nix() {
+  if ! command -v nix >/dev/null 2>&1; then
+    cat >&2 <<'EOF'
+Nix was not found on PATH.
+
+Install Nix first, then return to this directory and run:
+  ./learn-ai model
+
+See docs/01-foundations/01-environment.md for the environment explanation.
+EOF
+    exit 1
+  fi
+}
+
+explain() {
+  local title="$1"
+  local purpose="$2"
+  local evidence="$3"
+  local limitation="$4"
+
+  printf '\n=== %s ===\n\n' "$title"
+  printf 'What runs:\n  %s\n\n' "$purpose"
+  printf 'What to inspect:\n  %s\n\n' "$evidence"
+  printf 'What it does not prove:\n  %s\n\n' "$limitation"
+}
+
+run_main() {
+  local main_class="$1"
+  printf 'Underlying command:\n  nix develop -c sbt '\''runMain %s'\''\n\n' "$main_class"
+  nix develop -c sbt "runMain $main_class"
+}
+
+run_chat() {
+  explain \
+    "Interactive local MiniGPT chat" \
+    "On the first run, the repository's MiniGPT is supervised-fine-tuned on seven tiny conversations and cached under target/. Then your terminal input is byte-tokenized, wrapped in the chat template, generated autoregressively, and decoded." \
+    "Start with /examples, then type one learned prompt such as 'hello' or 'attention?'. Inspect input/output token counts and the learned end-of-turn stop reason." \
+    "This 4,968-parameter memorization model has no broad knowledge. It uses only the latest user turn as context and will be unreliable on prompts outside its seven-example corpus."
+  run_main learnai.chat.runLocalChat
+}
+
+run_model() {
+  explain \
+    "Tiny MiniGPT: train and generate" \
+    "A one-layer causal Transformer learns next-token prediction from a repeated 'to be or not to be' corpus, then samples a continuation." \
+    "Initial/final loss should fall sharply; generated text should reproduce parts of the tiny training pattern." \
+    "This does not show broad language ability or generalization. The corpus is deliberately tiny and repetitive."
+  run_main learnai.transformer.trainMiniGpt
+}
+
+run_training() {
+  explain \
+    "MiniGPT training system" \
+    "A byte-level corpus is split into disjoint training/validation regions. MiniGPT trains with batches, microbatch accumulation, AdamW, gradient clipping, and warmup/cosine learning rates." \
+    "Follow validation loss, learning rate, gradient norm, clipping scale, tokens seen, and the canonical experiment ID." \
+    "A falling loss on one synthetic corpus does not establish real-world model quality."
+  run_main learnai.training.runMiniGptTrainingLab
+}
+
+run_diagnostics() {
+  explain \
+    "MiniGPT correctness and local performance diagnostics" \
+    "The model is not trained. Analytical gradients are compared with central differences; parameter payload is counted; repeated forward passes are timed." \
+    "Gradient probes must pass. Inspect maximum error, median, p95, variation, checksum, JVM, OS, and CPU architecture." \
+    "The local timing is not a portable benchmark and does not predict GPU or production throughput."
+  run_main learnai.transformer.runMiniGptDiagnostics
+}
+
+run_cache() {
+  explain \
+    "KV-cache decoding" \
+    "Reference decoding recomputes the prefix while cached decoding retains attention keys/values and evaluates new tokens incrementally." \
+    "Tokens/logits must remain equivalent. Compare token-work counts, cache bytes, rebuilds, and environment-labelled timings." \
+    "This CPU microbenchmark does not reproduce a production serving engine or GPU kernel."
+  run_main learnai.transformer.runKvCacheLab
+}
+
+run_quantization() {
+  explain \
+    "Symmetric int8 quantization" \
+    "Rows of Double weights are scaled and rounded to signed 8-bit integers, reconstructed, and used in matrix-vector multiplication." \
+    "Inspect maximum/mean reconstruction error, output error, and payload byte reduction." \
+    "Weight reconstruction error alone does not establish downstream model quality or inference speed."
+  run_main learnai.quantization.runInt8QuantizationLab
+}
+
+run_agent() {
+  explain \
+    "Deterministic agent evaluation" \
+    "A scripted fake language model exercises direct answers, an allowed read-only lookup, and a denied write through the typed agent runtime." \
+    "Every case should pass. Inspect requested versus physically attempted tools, approval errors, token counts, and terminal status." \
+    "No remote LLM is called, so this tests runtime and policy correctness—not real-model tool-selection quality."
+  run_main learnai.agent.runAgentEvaluationLab
+}
+
+run_planning() {
+  explain \
+    "Task-graph planning and recovery" \
+    "A validated dependency graph schedules bounded worker-agent attempts, retries a failed task, and produces a resumable checkpoint." \
+    "Inspect task order, attempts, dependency outputs, final statuses, usage, and checkpoint contents." \
+    "The workers are deterministic fakes and checkpoint persistence is not a distributed workflow system."
+  run_main learnai.agent.runPlanningAgentLab
+}
+
+run_foundations() {
+  explain \
+    "Scala foundations" \
+    "Small functions demonstrate immutable values, collections, pattern matching, Either-based errors, and an @main entrypoint." \
+    "Read each printed value and connect it to ScalaTour.scala before moving to mathematical code." \
+    "This is a language orientation, not complete Scala or JVM training."
+  run_main learnai.foundations.runScalaTour
+}
+
+run_xor() {
+  explain \
+    "Scalar autodiff and XOR MLP" \
+    "A small multilayer perceptron uses the scalar reverse-mode graph to learn the nonlinear XOR truth table." \
+    "Loss should fall and all four predictions should match their classes." \
+    "Solving four points does not establish generalization or scalable tensor performance."
+  run_main learnai.nn.trainXor
+}
+
+run_bigram() {
+  explain \
+    "Bigram language model" \
+    "A trainable token-to-next-token table learns a deterministic toy cycle and samples from its learned rows." \
+    "Loss should fall and generated IDs should follow the cycle." \
+    "A bigram model sees only the current token; it has no Transformer context or semantic understanding."
+  run_main learnai.lm.trainBigram
+}
+
+run_tests() {
+  explain \
+    "Complete repository verification" \
+    "sbt cleans and compiles production/test Scala, then runs every dependency-free suite." \
+    "The final line must report zero failures. Earlier lines identify the exact suite and invariant." \
+    "Passing tests establishes the covered contracts, not correctness for every possible input or production environment."
+  printf 'Underlying command:\n  nix develop -c sbt check\n\n'
+  nix develop -c sbt check
+}
+
+require_nix
+
+case "${1:-help}" in
+  help|-h|--help) usage ;;
+  chat) run_chat ;;
+  model) run_model ;;
+  training) run_training ;;
+  diagnostics) run_diagnostics ;;
+  cache) run_cache ;;
+  quantization) run_quantization ;;
+  agent) run_agent ;;
+  planning) run_planning ;;
+  foundations) run_foundations ;;
+  xor) run_xor ;;
+  bigram) run_bigram ;;
+  test) run_tests ;;
+  tour)
+    run_model
+    run_training
+    run_diagnostics
+    run_agent
+    ;;
+  *)
+    printf 'Unknown command: %s\n\n' "$1" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

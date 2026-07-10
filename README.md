@@ -48,6 +48,21 @@ component that later chapters reuse. Architectural choices are recorded in the
 
 ## Reproducible environment
 
+For a first run, use the guided wrapper:
+
+```console
+$ ./learn-ai help
+$ ./learn-ai chat
+$ ./learn-ai model
+$ ./learn-ai training
+```
+
+It explains what each lab runs, what output matters, and what the result does
+not prove. See [Running the labs without guessing](docs/00-guide/06-running-the-labs.md)
+for a zero-background explanation of Nix, sbt, `runMain`, and every lab.
+
+The lower-level environment commands are:
+
 ```console
 $ nix develop
 $ sbt check
@@ -68,6 +83,7 @@ math -> autodiff -> neural networks -> tokenization -> language modeling
   -> KV-cached decoding -> inference artifacts
   -> RoPE / SwiGLU / grouped-query attention reference layers
   -> LoRA adapters with frozen-base and merge oracles
+  -> local byte-level chat SFT -> cached MiniGPT -> interactive terminal inference
   -> typed tools -> approval and retry policy -> bounded agent runtime
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
 ```
@@ -82,6 +98,7 @@ $ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
 $ nix develop -c sbt 'runMain learnai.transformer.runMiniGptDiagnostics'
 $ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
+$ nix develop -c sbt 'runMain learnai.chat.runLocalChat'
 ```
 
 Distributed training, serving-system simulation, corpus curation at scale,
