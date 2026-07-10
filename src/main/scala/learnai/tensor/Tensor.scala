@@ -592,6 +592,26 @@ final class Tensor private (
       )
       index += 1
 
+  /** Replaces all values of a trainable leaf from a defensive input sequence.
+    *
+    * This operation is reserved for checkpoint loading. Shape/element count
+    * and finite-value invariants are checked before any element is changed, so
+    * a rejected assignment leaves the parameter untouched.
+    */
+  def assignParameterValues(values: IndexedSeq[Double]): Unit =
+    require(isTrainable, "only trainable leaf tensors may be assigned")
+    require(
+      values.size == size,
+      s"assigned value count ${values.size} does not match shape $shape with size $size"
+    )
+    values.zipWithIndex.foreach { case (value, index) =>
+      Numerics.requireFinite(value, s"assigned parameter '$label' at flat index $index")
+    }
+    var index = 0
+    while index < size do
+      currentData(index) = values(index)
+      index += 1
+
   override def toString: String =
     s"Tensor(shape=$shape, values=${currentData.mkString("[", ", ", "]")}, " +
       s"operation=$operation, label=$label)"

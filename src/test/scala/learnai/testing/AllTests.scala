@@ -20,6 +20,7 @@ import learnai.transformer.AttentionSuite
 import learnai.transformer.TransformerBlockSuite
 import learnai.transformer.MiniGptSuite
 import learnai.lm.SamplingSuite
+import learnai.io.MiniGptCheckpointSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -42,7 +43,8 @@ object AllTests:
     AttentionSuite,
     TransformerBlockSuite,
     MiniGptSuite,
-    SamplingSuite
+    SamplingSuite,
+    MiniGptCheckpointSuite
   )
 
   def main(arguments: Array[String]): Unit =
