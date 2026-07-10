@@ -80,8 +80,10 @@ math -> autodiff -> neural networks -> tokenization -> language modeling
   -> canonical experiment records -> batch training and held-out validation
   -> bitwise exact mid-run resume (RNG, optimizer, scheduler, data cursor)
   -> KV-cached decoding -> inference artifacts
-  -> RoPE / SwiGLU / grouped-query attention reference layers
-  -> LoRA adapters with frozen-base and merge oracles
+  -> paged KV pool / speculative decoding / traced data parallelism
+  -> RoPE / SwiGLU / grouped-query / tiled online-softmax attention
+  -> model accounting anchored to the implementation
+  -> LoRA adapters and chat-template SFT with assistant-span masks
   -> typed tools -> approval and retry policy -> bounded agent runtime
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
 ```
@@ -98,8 +100,8 @@ $ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 
-Distributed training, serving-system simulation, corpus curation at scale,
-the remaining post-training chapters, and production agent adapters remain
+Tensor/pipeline/ZeRO simulation, the serving scheduler, corpus curation at
+scale, preference optimization, and production agent adapters remain
 explicit future milestones. See the [curriculum](docs/00-guide/01-curriculum.md) for exact
 chapter status, the [professional roadmap](docs/00-guide/05-professional-roadmap.md)
 for the complete competency target, and [progress and quality standards](docs/00-guide/03-progress.md)
