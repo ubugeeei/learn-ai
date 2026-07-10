@@ -108,6 +108,57 @@ For every numerical expression ask:
 4. How does error grow with operation count?
 5. Is there a more stable equivalent form?
 
+## Implementation walkthrough
+
+`Numerics.approximatelyEqual` combines absolute and relative reasoning. An
+absolute-only rule fails for large values; a relative-only rule behaves poorly
+near zero. The implementation computes a scale from the larger magnitude and
+accepts a difference bounded by the larger of the absolute tolerance and the
+scaled relative tolerance.
+
+Work one example. Suppose `left = 1_000_000.0`, `right = 1_000_000.01`,
+absolute tolerance `1e-9`, and relative tolerance `1e-8`:
+
+```text
+difference     = 0.01
+relative bound = 1_000_000.01 * 1e-8 = 0.0100000001
+chosen bound   = max(1e-9, 0.0100000001)
+result         = true
+```
+
+For values near zero, the absolute floor prevents division-by-a-tiny-scale
+logic from becoming meaningless. `NaN` is rejected before subtraction because
+every comparison with `NaN` is false. Equal infinities are handled explicitly;
+opposite infinities are not approximately equal.
+
+`compensatedSum` implements Kahan-style error compensation. At each step,
+`value - compensation` restores low-order information lost by the previous
+rounded addition. The new compensation measures the rounding error introduced
+when adding the corrected value. This does not create exact real arithmetic,
+but it substantially improves sums mixing very large and very small terms.
+
+`requireFinite` centralizes the invariant that Tensor data, parameters, and
+updates cannot contain `NaN` or infinity. Returning the validated value makes
+it convenient inside assignments without duplicating a separate check.
+
+## Reading the tests
+
+The classic `0.1 + 0.2` example explains why exact binary equality is the wrong
+oracle. A large-magnitude test prevents an absolute-only implementation. `NaN`
+and infinity cases prevent invalid comparisons from passing accidentally. The
+compensated-sum test orders large and small contributions specifically so naive
+summation loses information; the expected total is derived from the chosen
+terms, not from the compensated implementation.
+
+## Debugging checklist
+
+1. Locate the first non-finite value, not the final operation reporting it.
+2. Print magnitudes before choosing a tolerance.
+3. Check whether subtraction overflowed or involved infinity.
+4. For unstable sums, compare forward, reverse, sorted, and compensated order.
+5. Do not round intermediate ML values for display and feed them back into
+   computation.
+
 ## Exercises
 
 1. Predict and run `1e16 + 1.0 == 1e16`.

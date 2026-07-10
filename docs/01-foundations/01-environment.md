@@ -102,6 +102,69 @@ $ nix develop -c java -version
 The first build requires network access to Maven Central. Check proxy,
 certificate, and repository access, then retry.
 
+## Implementation walkthrough
+
+Open `flake.nix` and read it from the outside inward. `description` is metadata.
+`inputs.nixpkgs.url` names the package collection revision family; the exact
+revision is selected in `flake.lock`. `supportedSystems` is explicit so an
+unsupported machine fails during evaluation rather than producing a partially
+configured shell.
+
+`forEachSystem` imports `nixpkgs` once for each supported platform. The default
+development shell then selects `jdk21` and `sbt` from that same package set:
+
+```nix
+let
+  jdk = pkgs.jdk21;
+in pkgs.mkShell {
+  packages = [ jdk pkgs.sbt ];
+  JAVA_HOME = jdk.home;
+}
+```
+
+The local name `jdk` is important: the package in `PATH` and `JAVA_HOME` cannot
+silently refer to different JDKs. `sbt` reads `project/build.properties`, then
+`build.sbt` fixes Scala `3.3.6`. There are therefore four distinct pins to
+understand:
+
+| Layer | File | Responsibility |
+| --- | --- | --- |
+| package universe | `flake.lock` | exact Nix input revision |
+| JDK and sbt packages | `flake.nix` | native runtime/tool binaries |
+| sbt launcher | `project/build.properties` | build-tool version |
+| Scala compiler | `build.sbt` | source-language version |
+
+Trace one command carefully. `nix develop -c sbt check` evaluates the flake,
+builds or downloads the shell closure, sets environment variables, and then
+executes `sbt check` inside that environment. The `check` alias expands to
+`clean`, `compile`, and `test`; it does not mean `nix flake check`.
+
+## Reading the verification output
+
+Check the first reported Java version before the Scala output. If it is not the
+JDK selected by the flake, the command probably ran outside `nix develop`.
+During compilation, sbt reports how many main and test sources it compiled.
+The final custom test-runner line reports passed, failed, and total cases. A
+cached compilation is normal; `check` begins with `clean` specifically so the
+full verification does not rely on stale class files.
+
+The lockfile test is operational rather than a Scala unit test: deleting
+`flake.lock` makes dependency resolution non-reproducible even if existing
+compiled classes still run. Commit lock changes only when intentionally
+updating the toolchain.
+
+## Debugging checklist
+
+1. If `nix` is missing, verify installation before touching Scala files.
+2. If flake evaluation fails, run `nix develop --show-trace` and read the first
+   project-owned frame.
+3. If Java is wrong, compare `which java`, `java -version`, and `JAVA_HOME`
+   inside the Nix shell.
+4. If sbt cannot resolve Scala, inspect `flake.lock`, network access, and the
+   exact launcher/compiler versions rather than upgrading randomly.
+5. If only tests fail, the environment is working; move to the first failing
+   test instead of rebuilding Nix.
+
 ## Exercises
 
 1. Compare `which java` inside and outside the Nix shell.

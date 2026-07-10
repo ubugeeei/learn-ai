@@ -115,6 +115,60 @@ known only at runtime. Static and dynamic validation are complementary.
 dimensions preserve that distinction. Some reductions, such as maximum or
 mean, remain undefined and must return an error value.
 
+## Implementation walkthrough
+
+`MatrixD` stores `rows`, `columns`, and one row-major array. The flat offset is
+
+```scala
+row * columns + column
+```
+
+so adjacent columns of one row are contiguous. Every accessor validates row and
+column before computing the offset. Construction validates that
+`values.length == rows * columns`; shape and storage cannot disagree afterward.
+
+Trace matrix multiplication with
+
+```text
+A = [[1, 2],       B = [[5, 6],
+     [3, 4]]            [7, 8]]
+```
+
+The result entry `C(1,0)` is row 1 of `A` dotted with column 0 of `B`:
+
+```text
+3*5 + 4*7 = 43
+```
+
+The implementation's loop nesting is `output row`, `output column`, `inner
+index`. The inner loop changes the shared dimension and accumulates exactly the
+products in that dot product. Output storage has `rows * other.columns`
+elements. Compatibility is checked once with `columns == other.rows` before
+allocation.
+
+Transpose allocates a new array and maps `(row,column)` to `(column,row)`. A
+view with strides would avoid copying, but it would complicate this first value
+type and every later operation. `updated` follows the vector pattern: clone,
+modify, return. Zero-sized dimensions are retained even when flat storage is
+empty, because `[0,3]` and `[0,5]` carry different compatibility information.
+
+## Reading the tests
+
+Indexing tests enumerate every entry so a column-major bug cannot hide behind a
+symmetric matrix. Multiplication uses small integer matrices with hand-derived
+answers. The incompatible-shape test checks the public error rather than
+waiting for an index exception. Double transpose is a useful property test.
+Zero-dimension tests catch implementations that infer shape only from values.
+
+## Debugging checklist
+
+1. Write both operand shapes as `[m,k] x [k,n]` before reading values.
+2. Check one incorrect output cell by expanding its exact dot product.
+3. Print flat offsets for the first two rows to find row/column confusion.
+4. If transpose works only for square matrices, test `[2,3]` immediately.
+5. If empty matrices lose shape, inspect constructors that infer dimensions
+   from nested collections.
+
 ## Exercises
 
 1. Give the output shape and multiplications per element for `[2,3] x [3,4]`.

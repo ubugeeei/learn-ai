@@ -124,6 +124,66 @@ mean loss: 1.167
 the last loss is positive
 ```
 
+## Implementation walkthrough
+
+Read `ScalaTour.scala` in declaration order. `object ScalaTour` creates one
+namespace; its methods are pure and therefore easy to call from both tests and
+the `@main` entrypoint.
+
+`square` shows the simplest typed function:
+
+```scala
+def square(value: Double): Double = value * value
+```
+
+The parameter and return annotations form the public contract. The expression
+after `=` is the return value—there is no required `return` statement.
+
+`mean` introduces an error channel:
+
+```scala
+def mean(values: Vector[Double]): Either[String, Double] =
+  if values.isEmpty then Left("mean requires a non-empty collection")
+  else Right(values.sum / values.size.toDouble)
+```
+
+An empty mean is mathematically undefined. Returning `0.0` would manufacture a
+valid-looking number; throwing would make expected invalid input hard to
+compose. `Either[String, Double]` forces the caller to handle `Left` or `Right`.
+`toDouble` is explicit because `size` is an `Int`.
+
+`describeSign` is a three-branch expression. Exactly one string is produced,
+so the compiler can infer the branch result type. `normalizeLabel` demonstrates
+method chaining on an immutable `String`: `trim` and `toLowerCase` each return a
+new value.
+
+Finally, `@main def runScalaTour()` is compiled into a JVM entrypoint. It calls
+the same functions as the tests; the demo does not contain a second
+implementation. When printing `Either`, deliberately observe both `Right` and
+`Left` so the error channel is not abstract.
+
+## Reading the tests
+
+`ScalaTourSuite` separates cases by behavior. The square test uses a value whose
+answer is obvious by hand. The mean tests cover both a normal vector and the
+empty boundary. The sign test enumerates all three branches instead of assuming
+one positive example covers the conditional. The label test uses both outer
+space and mixed case so removing either operation breaks it.
+
+When adding a function, first write one example for every branch and one input
+at each invalid boundary. Registering the suite in `AllTests` is a separate
+step; an unregistered green file is not being executed.
+
+## Debugging checklist
+
+1. For a type error, read the required and found types before adding casts.
+2. For an unhandled `Either`, pattern-match on both `Left` and `Right`.
+3. For an indentation error, align sibling expressions and verify where the
+   enclosing `object` or method ends.
+4. For a main-class error, use the fully qualified name printed by sbt.
+5. For an unexpected mutable result, search for `var` or a mutable collection;
+   the tour functions need neither.
+
 ## Exercises
 
 1. Explain why `square(-3.0)` is positive.

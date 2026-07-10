@@ -123,6 +123,55 @@ u = 0.62 -> index 1
 Equal random seeds produce equal random sequences. Fix seeds for comparison;
 change them only when studying generation diversity.
 
+## Implementation walkthrough
+
+`Categorical.from` treats validation as part of the value constructor. It
+requires non-empty, finite, non-negative probabilities and checks that their
+sum is approximately one. Once constructed, `sample` may assume a valid
+distribution and walk cumulative mass until the random draw is covered.
+
+Stable softmax uses an invariance:
+
+\[
+\operatorname{softmax}(z)=\operatorname{softmax}(z-c)
+\]
+
+Choose `c = max(z)`. For logits `[1000, 1001, 1002]`, direct exponentials
+overflow, but shifted logits `[-2,-1,0]` produce finite exponentials
+approximately `[0.1353,0.3679,1]`. Dividing by their sum yields roughly
+`[0.0900,0.2447,0.6652]`.
+
+The code first finds the maximum, then fills an exponential vector while
+accumulating its total, then scales by `1 / total`. These are separate loops so
+normalization uses one common denominator. Adding the same constant to every
+input must produce the same probabilities; the property test makes the
+stability transformation observable.
+
+Cross entropy for a target index selects `-log(p_target)`. A confident correct
+prediction has loss near zero; assigning tiny probability to the target has a
+large loss. Entropy instead sums `-p log p` over the distribution itself and
+measures uncertainty, not correctness against a label.
+
+Sampling accepts a caller-owned `RandomGenerator`. The distribution owns no
+global RNG, so equal seeds and equal call sequences are reproducible.
+
+## Reading the tests
+
+A one-hot distribution is a deterministic sampling oracle independent of RNG
+implementation. The fair-coin entropy is `log(2)` and is calculable by hand.
+Large logits verify maximum subtraction. Constant-shift invariance detects
+several normalization mistakes. Cross-entropy comparison checks ordering rather
+than relying only on one floating-point literal.
+
+## Debugging checklist
+
+1. Validate logits are finite before softmax.
+2. Confirm maximum subtraction occurs before `exp`.
+3. Check the probability total and every negative entry before sampling.
+4. If seeded samples differ, compare every prior RNG call and filtering order.
+5. If loss is infinite, inspect target range and target probability before
+   changing epsilon values.
+
 ## Exercises
 
 1. Compute `softmax(VectorD(0,0,0))` by hand.

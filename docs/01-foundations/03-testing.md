@@ -121,6 +121,67 @@ find:
 Restore `9.0` afterward. Seeing a test fail clarifies what its passing state
 guarantees.
 
+## Implementation walkthrough
+
+`TestCase` stores a name and a zero-argument function:
+
+```scala
+final case class TestCase(name: String, run: () => Unit)
+```
+
+The `test` helper accepts its body by name. That means the assertion body is not
+executed while the suite object is initialized; it is wrapped in `() => body`
+and runs later under the runner's error handling. Eager execution here would
+throw before `AllTests` could report the suite and case name.
+
+`Assert.equal` is generic because equality is useful for numbers, vectors,
+enums, and domain values. `Assert.close` is deliberately specific to `Double`.
+It checks the tolerance contract, rejects `NaN`, distinguishes unequal
+infinities, and prints the observed difference. This is stricter than
+`math.abs(a-b) <= tolerance`, which accidentally treats some invalid values as
+successful comparisons.
+
+`Assert.throws[E]` obtains the runtime class from `ClassTag`. Its three paths
+are important:
+
+1. no exception: fail because the invalid input was accepted;
+2. expected exception type: return it so the test can inspect its message;
+3. different exception type: fail and preserve diagnostic type/message.
+
+`AllTests` takes the Cartesian traversal of suites and cases, calls `runOne`,
+and counts Boolean results. A failed case is printed immediately, but remaining
+cases still run. Only after the complete report does the runner throw, giving
+sbt a non-zero process status.
+
+## Reading and writing a regression test
+
+Start from a bug statement, not a method name:
+
+> A reused computation-graph node loses one gradient contribution.
+
+Then create the smallest input where correct and buggy implementations differ,
+calculate the answer independently, and name the behavior:
+
+```scala
+test("a reused node accumulates gradient from every path") { ... }
+```
+
+A useful test fails for one specific reason. If it initializes a large model,
+trains randomly, serializes it, and checks one Boolean, the failure gives little
+localization. Keep a focused unit test and add integration separately.
+
+## Debugging checklist
+
+1. Confirm the suite appears in `AllTests` output.
+2. Run the smallest failing case mentally with hand-computable values.
+3. If `Assert.close` fails, print scale, expected error source, and tolerance;
+   do not widen it blindly.
+4. If `Assert.throws` fails with a different exception, move validation closer
+   to the public boundary.
+5. If tests affect one another, search for shared mutation or reused RNG state.
+6. If a timeout test hangs, ensure worker threads are interrupted and executors
+   are shut down in `finally`.
+
 ## Exercises
 
 1. Add one test using `Assert.isTrue`.

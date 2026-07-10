@@ -124,6 +124,58 @@ $ nix develop -c sbt test
 The suite checks values, immutability, shape failures, non-finite input, and
 empty reductions.
 
+## Implementation walkthrough
+
+`VectorD` owns a private `Array[Double]` for efficient indexed loops but exposes
+value semantics. Public construction copies incoming values into owned storage
+and validates each element with `requireFinite`. `toVector` returns another
+copy, so a caller cannot mutate the backing array after construction.
+
+Element-wise operations use `zipMap`. Before allocating output, it calls
+`requireSameSize`; this places the shape error at the vector boundary rather
+than allowing an array index failure halfway through a loop. The output array is
+fresh, so `a + b` cannot change `a` or `b`.
+
+Trace a dot product by hand:
+
+```text
+a = [1, 2, 3]
+b = [4, 5, 6]
+products = [4, 10, 18]
+sum = 32
+```
+
+The implementation generates the products by index and passes them to
+`Numerics.compensatedSum`. Dot product is therefore one scalar reduction, not a
+new public vector allocation. `squaredNorm` reuses `dot(this)` and `norm` takes
+the square root, keeping the mathematical definition visible in code.
+
+`updated` is a useful immutability example: clone the backing array, change the
+clone, validate through the constructor path, and return a new `VectorD`.
+`mean`, `max`, and `argmax` return `Either` on an empty vector because no result
+exists. In contrast, `sum` of an empty vector is the additive identity `0.0`.
+
+## Reading the tests
+
+The addition test also asserts that inputs retain their original values; it
+catches aliasing, not only arithmetic error. Size-mismatch tests ensure failure
+occurs before partial work. The finite-value constructor test protects every
+later operation's invariant. Empty-reduction tests distinguish operations with
+valid identities from undefined selections. Equality/hash tests are implicit
+in many `Assert.equal` calls and rely on array-content comparison, not object
+identity.
+
+## Debugging checklist
+
+1. Print both sizes before investigating arithmetic.
+2. If an input changes, inspect constructor and result-array ownership.
+3. If a dot product is wrong only at large dynamic range, compare naive and
+   compensated sums.
+4. If `argmax` disagrees on ties, document and test the intended first-index
+   policy.
+5. If a non-finite value appears later, verify construction did not use an
+   unsafe internal path.
+
 ## Exercises
 
 1. Compute a Hadamard product by hand.

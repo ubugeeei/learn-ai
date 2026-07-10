@@ -139,6 +139,58 @@ $ nix develop -c sbt 'runMain learnai.math.runGradientLab'
 $ nix develop -c sbt test
 ```
 
+## Implementation walkthrough
+
+`Calculus.derivative` implements the central difference directly:
+
+```scala
+(function(at + step) - function(at - step)) / (2.0 * step)
+```
+
+The public boundary rejects zero, negative, and non-finite steps before calling
+the user function. It also validates both sampled outputs and the final result,
+so a domain error is reported near its source.
+
+For (f(x)=x^2), (x=3), and (h=0.001):
+
+```text
+f(3.001) = 9.006001
+f(2.999) = 8.994001
+difference = 0.012
+divide by 0.002 -> 6
+```
+
+The exact derivative is `2x = 6`. Central difference cancels the leading
+first-order truncation error that a one-sided difference retains.
+
+`gradient` accepts a `VectorD` point. For each coordinate, it creates two
+perturbed vectors with `updated`, evaluates the scalar function, and stores one
+partial derivative. Only one coordinate changes at a time; that is the meaning
+of a partial derivative. This implementation is intentionally expensive—two
+function evaluations per dimension—but independent of autodiff and therefore
+valuable as an oracle.
+
+`directionalDerivative` first requires a non-zero direction, normalizes it, and
+dots it with the gradient. Without normalization, scaling the direction would
+scale the result and the term “direction” would also encode step magnitude.
+
+## Reading the tests
+
+Square and sine compare against analytic derivatives from basic calculus. The
+multidimensional gradient uses a function whose partial derivatives can be
+derived separately. Directional derivative is compared with an independently
+computed gradient dot unit direction. Invalid-step tests ensure the numerical
+reference itself cannot be called with meaningless settings.
+
+## Debugging checklist
+
+1. Compare several powers of ten for `h`; error should first fall and then rise
+   as rounding dominates.
+2. Verify `at + h` and `at - h` are distinct floating-point values.
+3. For a wrong gradient component, print only its two perturbed points.
+4. Check the function domain at both samples.
+5. Treat finite difference as a diagnostic oracle, not a training algorithm.
+
 ## Exercises
 
 1. Differentiate \(3x^2+2x+1\) and compare at `x=2`.
