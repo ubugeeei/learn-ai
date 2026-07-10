@@ -109,3 +109,9 @@ and result count.
 - Explain normalized cosine as dot product.
 - Evaluate retrieval and answer quality separately.
 - `RetrievalSuite` passes.
+
+## Primary sources
+
+- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)
+- [Reflexion](https://arxiv.org/abs/2303.11366)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

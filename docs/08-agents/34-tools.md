@@ -120,3 +120,10 @@ Prompts are not security boundaries.
 - Explain why capabilities remain necessary after prompt injection.
 - Return structured failures as observations.
 - `JsonSuite` and tool-schema tests pass.
+
+## Primary sources
+
+- [MRKL Systems](https://arxiv.org/abs/2205.00445)
+- [Toolformer](https://arxiv.org/abs/2302.04761)
+- [ReAct](https://arxiv.org/abs/2210.03629)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

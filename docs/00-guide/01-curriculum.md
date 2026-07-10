@@ -118,6 +118,16 @@ execute only explicitly granted operations. Completion requires:
 - a threat model covering prompt injection and poisoned tool output;
 - a system card documenting design, limitations, and reproduction steps.
 
+## Part 8 — Read and reproduce primary research
+
+| # | Status | Chapter | Deliverable |
+| --- | --- | --- | --- |
+| 40 | ✅ | Primary paper reading map | Chapter-linked summaries and original sources |
+| 41 | ✅ | Reading note template | Evidence and reproduction worksheet |
+
+**Part deliverable:** connect every major implementation choice to its primary
+source, evidence, simplifications, and reproducible small-scale experiment.
+
 ## Main dependency path
 
 ```text

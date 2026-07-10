@@ -215,3 +215,10 @@ You are done when you can:
 - explain why local timeout does not prove remote rollback;
 - trace one logical call across multiple physical attempts;
 - explain which guarantees require a durable external store.
+
+## Primary evaluation references
+
+- [AgentBench](https://arxiv.org/abs/2308.03688)
+- [WebArena](https://arxiv.org/abs/2307.13854)
+- [SWE-bench](https://arxiv.org/abs/2310.06770)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

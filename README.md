@@ -36,6 +36,8 @@ After completing the curriculum, you should be able to:
 3. Run the verification command in every completed chapter.
 4. Solve exercises before reading or implementing an answer.
 5. Explain each part's deliverable in your own words.
+6. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
+   after each implementation milestone.
 
 The code is cumulative rather than disposable. Each chapter adds a tested
 component that later chapters reuse. Architectural choices are recorded in the

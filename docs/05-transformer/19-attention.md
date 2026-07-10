@@ -162,3 +162,8 @@ memory.
 - Explain why masking occurs before softmax.
 - Trace multi-head split and concatenation.
 - All attention causality and gradient tests pass.
+
+## Primary source
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- [Course reading map and critical summary](../09-papers/40-primary-reading-map.md)

@@ -137,3 +137,9 @@ claims require a warmed repeated benchmark.
 - Explain why weight error and task quality both matter.
 - Distinguish storage reduction from latency improvement.
 - `Int8QuantizationSuite` passes.
+
+## Primary sources
+
+- [GPTQ](https://arxiv.org/abs/2210.17323)
+- [AWQ](https://arxiv.org/abs/2306.00978)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

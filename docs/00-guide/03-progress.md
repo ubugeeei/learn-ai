@@ -13,6 +13,7 @@ Nix / Scala 3 / dependency-free tests
   -> sampling / KV-cached decoding / checkpoint / int8 quantization
   -> strict JSON / typed tools / approval and retry policy / bounded agent
   -> cited retrieval / task-graph planning and checkpoint recovery
+  -> primary-paper reading map and evidence template
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:

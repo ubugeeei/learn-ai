@@ -269,3 +269,10 @@ You are done when you can:
 - trace a task across multiple bounded agent attempts;
 - resume from a dependency-closed checkpoint without repeating completed work;
 - identify which recovery guarantees still require durable storage.
+
+## Primary sources
+
+- [ReAct](https://arxiv.org/abs/2210.03629)
+- [Reflexion](https://arxiv.org/abs/2303.11366)
+- [AgentBench](https://arxiv.org/abs/2308.03688)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

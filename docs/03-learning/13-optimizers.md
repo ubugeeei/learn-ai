@@ -162,3 +162,9 @@ because the random-consumption order changes.
 - Explain why decoupled decay acts at zero gradient.
 - Explain why initialization depends on activation behavior.
 - `OptimizersSuite` passes.
+
+## Primary sources
+
+- [Adam: A Method for Stochastic Optimization](https://arxiv.org/abs/1412.6980)
+- [Decoupled Weight Decay Regularization](https://arxiv.org/abs/1711.05101)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

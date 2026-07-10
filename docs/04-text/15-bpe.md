@@ -129,3 +129,8 @@ collision rules, byte fallback, streaming, and artifact compatibility.
 - Explain why byte-level tokens need not match Unicode boundaries.
 - Explain why tokenizer artifacts and weights must be versioned together.
 - `BpeTokenizerSuite` passes.
+
+## Primary source
+
+- [Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909)
+- [Course reading map and critical summary](../09-papers/40-primary-reading-map.md)

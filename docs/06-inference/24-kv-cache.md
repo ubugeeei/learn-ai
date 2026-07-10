@@ -218,3 +218,11 @@ You are done when you can:
 - prove cached/full-prefix equivalence at attention and model levels;
 - explain why learned absolute positions require a rebuild on window shift;
 - report work counts separately from a qualified timing experiment.
+
+## Primary sources
+
+- [Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150)
+- [GQA: Training Generalized Multi-Query Transformer Models](https://arxiv.org/abs/2305.13245)
+- [FlashAttention](https://arxiv.org/abs/2205.14135)
+- [Speculative Decoding](https://arxiv.org/abs/2211.17192)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

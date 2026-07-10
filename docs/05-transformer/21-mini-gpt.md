@@ -175,3 +175,9 @@ with a different principle.
 - Explain context cropping and position reassignment.
 - Explain why low training loss is not production quality.
 - `MiniGptSuite` and all lower-level suites pass.
+
+## Primary sources
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)

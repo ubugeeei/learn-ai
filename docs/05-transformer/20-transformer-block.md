@@ -144,3 +144,10 @@ time positions incorrectly.
 - Compute block parameter count.
 - Explain why whole-block causality is retested.
 - `TransformerBlockSuite` passes.
+
+## Primary sources
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)
+- [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)
+- [Course reading map and critical summaries](../09-papers/40-primary-reading-map.md)
