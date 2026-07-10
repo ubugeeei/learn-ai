@@ -125,7 +125,7 @@ $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 この実験は、ペイロードのバイト数と再構築誤差を報告します。性能の主張
 には、ウォームアップ済みの繰り返しベンチマークが必要です。
 
-## 実装の解説
+## 実装ウォークスルー
 
 `QuantizedInt8Matrix.quantize` は、行列を 1 行ずつ処理します。絶対値の
 最大値を見つけ、

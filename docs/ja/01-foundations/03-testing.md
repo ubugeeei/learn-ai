@@ -188,7 +188,7 @@ test("a reused node accumulates gradient from every path") { ... }
 3. レジストリからスイートを一つ削除し、実行数の変化を観察してください。
 4. `Assert.close(Double.NaN, Double.NaN)` が失敗する理由を説明してください。
 
-## 完了条件
+## 完了基準
 
 - 既存のテストの中で Arrange・Act・Assert を識別できる。
 - 浮動小数点の比較に許容誤差が必要な理由を説明できる。

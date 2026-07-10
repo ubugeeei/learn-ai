@@ -137,7 +137,7 @@ $ nix develop -c sbt 'runMain learnai.lm.trainBigram'
 ## バイグラムから Transformer へ
 
 バイグラムは、最後のトークンが同じであれば、それより前のコンテキストが
-変わっても同一の予測を返します。Transformer は注意機構 (attention) で
+変わっても同一の予測を返します。Transformer は attention で
 前方の位置を混ぜ合わせ、文脈に応じた隠れベクトルを作ります。次の要素は
 変わらずそのまま残ります。
 

@@ -92,3 +92,10 @@ warm benchmark and recorded environment.
 The core hands-on uses only Scala 3 and JDK APIs. Implement the mechanism first.
 External libraries may later appear in isolated comparison adapters, with their
 cost, hidden behavior, and version pin documented.
+
+## Translations
+
+Japanese translations mirror `docs/` under `docs/ja/` and follow
+`docs/00-guide/07-translation-policy.md`: never coin terminology, prefer
+globally standard English terms as-is, and keep established Japanese
+renderings. Test guards enforce the mirror structure.

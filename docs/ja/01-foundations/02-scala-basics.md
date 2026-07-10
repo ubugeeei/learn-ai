@@ -194,7 +194,7 @@ def mean(values: Vector[Double]): Either[String, Double] =
 4. `minimum` を `Either[String, Double]` として実装してください。
 5. 二つの損失を受け取る純粋な `isImproving` 関数を実装してください。
 
-## 完了条件
+## 完了基準
 
 - ソースの中から、値・関数・引数・戻り値・型を指し示せる。
 - `Vector.map` が入力要素と出力要素をどう対応づけるか説明できる。

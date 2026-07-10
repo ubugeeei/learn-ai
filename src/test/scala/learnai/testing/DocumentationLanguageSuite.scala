@@ -72,6 +72,11 @@ object DocumentationLanguageSuite extends TestSuite:
     val topLevel = Vector(root.resolve("README.md"), root.resolve("CONTRIBUTING.md"))
     val docsRoot = root.resolve("docs")
     val translationRoot = docsRoot.resolve("ja")
+    // The canonical translation policy must quote Japanese renderings in
+    // its glossary, so it is the one canonical file allowed to contain
+    // Japanese script.
+    val glossaryException =
+      docsRoot.resolve("00-guide").resolve("07-translation-policy.md")
     Assert.isTrue(Files.isDirectory(docsRoot), s"documentation directory not found: $docsRoot")
 
     val paths = Files.walk(docsRoot)
@@ -79,7 +84,7 @@ object DocumentationLanguageSuite extends TestSuite:
       topLevel ++ paths.iterator().asScala
         .filter { path =>
           Files.isRegularFile(path) && path.toString.endsWith(".md") &&
-          !path.startsWith(translationRoot)
+          !path.startsWith(translationRoot) && path != glossaryException
         }
         .toVector
         .sortBy(_.toString)
