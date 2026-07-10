@@ -18,6 +18,7 @@ import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
 import learnai.transformer.TransformerBlockSuite
+import learnai.transformer.MiniGptSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -38,7 +39,8 @@ object AllTests:
     BigramLanguageModelSuite,
     LayersSuite,
     AttentionSuite,
-    TransformerBlockSuite
+    TransformerBlockSuite,
+    MiniGptSuite
   )
 
   def main(arguments: Array[String]): Unit =

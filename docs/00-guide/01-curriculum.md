@@ -60,7 +60,7 @@
 | 18 | ✅ | embedding と位置 | token/position embedding |
 | 19 | ✅ | Attention | causal self-attention |
 | 20 | ✅ | Transformer block | RMSNorm、residual、MLP |
-| 21 | ⬜ | MiniGPT | 学習、checkpoint、生成 CLI |
+| 21 | ✅ | MiniGPT | end-to-end 学習と生成 CLI |
 | 22 | ⬜ | 正しさと性能 | gradient check、profile、benchmark |
 
 **Part 成果物:** 小さな GPT を学習し、各 parameter が何のためにあるか説明できる。
