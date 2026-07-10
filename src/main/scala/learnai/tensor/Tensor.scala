@@ -284,6 +284,96 @@ final class Tensor private (
         exampleIndex += 1
     output
 
+  /** Mean cross entropy over only the unmasked rows of rank-2 logits.
+    *
+    * `targetMask(i)` set to false removes example `i` from the loss: it
+    * contributes nothing to the forward mean and receives exactly zero
+    * gradient. This is how packed datasets exclude padding and
+    * cross-document targets from training while keeping fixed-shape
+    * batches. The mean is taken over the *unmasked* count, so masked rows
+    * do not dilute the loss scale.
+    *
+    * All target indices are validated against the class range, masked or
+    * not, so an indexing bug fails loudly instead of hiding behind a mask.
+    * At least one row must remain unmasked; an all-masked example set has
+    * no defined mean.
+    */
+  def crossEntropyMasked(
+      targetIndices: Vector[Int],
+      targetMask: Vector[Boolean]
+  ): Tensor =
+    require(rank == 2, s"crossEntropyMasked requires rank 2 logits, got shape $shape")
+    val examples = shape(0)
+    val classes = shape(1)
+    require(
+      targetIndices.size == examples,
+      s"target count ${targetIndices.size} does not match example count $examples"
+    )
+    require(
+      targetMask.size == examples,
+      s"mask count ${targetMask.size} does not match example count $examples"
+    )
+    targetIndices.zipWithIndex.foreach { case (target, example) =>
+      require(
+        target >= 0 && target < classes,
+        s"target $target for example $example outside [0, $classes)"
+      )
+    }
+    val unmaskedCount = targetMask.count(identity)
+    require(unmaskedCount > 0, "crossEntropyMasked requires at least one unmasked target")
+
+    val probabilities = new Array[Double](size)
+    var totalLoss = 0.0
+    var example = 0
+    while example < examples do
+      if targetMask(example) then
+        val rowOffset = example * classes
+        var maximum = currentData(rowOffset)
+        var column = 1
+        while column < classes do
+          maximum = math.max(maximum, currentData(rowOffset + column))
+          column += 1
+
+        var exponentialSum = 0.0
+        column = 0
+        while column < classes do
+          val exponential = math.exp(currentData(rowOffset + column) - maximum)
+          probabilities(rowOffset + column) = exponential
+          exponentialSum += exponential
+          column += 1
+
+        column = 0
+        while column < classes do
+          probabilities(rowOffset + column) /= exponentialSum
+          column += 1
+        totalLoss += maximum + math.log(exponentialSum) -
+          currentData(rowOffset + targetIndices(example))
+      example += 1
+
+    val output = Tensor.operation(
+      Shape.scalar,
+      Array(totalLoss / unmaskedCount.toDouble),
+      "crossEntropyMasked",
+      Vector(this)
+    )
+    output.backwardRule = () =>
+      val upstreamScale = output.currentGradient(0) / unmaskedCount.toDouble
+      var exampleIndex = 0
+      while exampleIndex < examples do
+        if targetMask(exampleIndex) then
+          val rowOffset = exampleIndex * classes
+          var classIndex = 0
+          while classIndex < classes do
+            val targetAdjustment =
+              if classIndex == targetIndices(exampleIndex) then 1.0 else 0.0
+            accumulateGradient(
+              rowOffset + classIndex,
+              (probabilities(rowOffset + classIndex) - targetAdjustment) * upstreamScale
+            )
+            classIndex += 1
+        exampleIndex += 1
+    output
+
   /** Returns a defensive copy of one row from a rank-2 Tensor. */
   def rowValues(row: Int): Vector[Double] =
     require(rank == 2, s"rowValues requires rank 2, got shape $shape")

@@ -75,6 +75,33 @@ final class MiniGpt private (
     }
     logits(inputs).crossEntropy(targetValues)
 
+  /** Computes mean cross entropy over only the unmasked target positions.
+    *
+    * This is the training loss for packed sequences (Chapter 17b): padding
+    * targets and cross-document targets carry `false` in the mask and
+    * receive no loss and no gradient. At least one position must remain
+    * unmasked.
+    */
+  def lossMasked(
+      inputs: Vector[TokenId],
+      targets: Vector[TokenId],
+      targetMask: Vector[Boolean]
+  ): Tensor =
+    require(inputs.nonEmpty, "MiniGPT loss requires a non-empty sequence")
+    require(
+      inputs.size == targets.size && inputs.size == targetMask.size,
+      s"input/target/mask lengths differ: ${inputs.size}/${targets.size}/${targetMask.size}"
+    )
+    val targetValues = targets.zipWithIndex.map { case (tokenId, index) =>
+      val value = tokenId.value
+      require(
+        value >= 0 && value < config.vocabularySize,
+        s"target token $value at index $index outside [0, ${config.vocabularySize})"
+      )
+      value
+    }
+    logits(inputs).crossEntropyMasked(targetValues, targetMask)
+
   /** Returns the distribution after the final token of a non-empty context.
     *
     * Contexts longer than the configured maximum are cropped from the left.

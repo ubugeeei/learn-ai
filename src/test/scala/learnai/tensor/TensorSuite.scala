@@ -161,5 +161,54 @@ object TensorSuite extends TestSuite:
       val accumulatingError = Assert.throws[IllegalArgumentException](tensor.backwardAccumulating())
       Assert.isTrue(error.getMessage.contains("scalar output"))
       Assert.isTrue(accumulatingError.getMessage.contains("scalar output"))
+    },
+    test("an all-true mask makes masked cross entropy equal the unmasked loss") {
+      val values = Vector(2.0, -1.0, 0.5, 0.0, 3.0, -2.0)
+      val targets = Vector(0, 2)
+      val reference = Tensor.parameter(Shape(2, 3), values, "logits")
+      val masked = Tensor.parameter(Shape(2, 3), values, "logits")
+      val referenceLoss = reference.crossEntropy(targets)
+      val maskedLoss = masked.crossEntropyMasked(targets, Vector(true, true))
+      Assert.equal(maskedLoss.valueAtFlat(0), referenceLoss.valueAtFlat(0))
+      referenceLoss.backward()
+      maskedLoss.backward()
+      Assert.equal(masked.gradients, reference.gradients)
+    },
+    test("masked cross entropy matches gathering the unmasked rows first") {
+      // Independent composition oracle: gatherRows keeps only unmasked rows
+      // and routes gradients back to their sources, so both paths must give
+      // identical values and identical full-tensor gradients.
+      val values = Vector(1.0, -0.5, 2.0, 4.0, 0.0, -1.0, 0.25, 1.5, -2.0)
+      val logitsDirect = Tensor.parameter(Shape(3, 3), values, "logits")
+      val logitsComposed = Tensor.parameter(Shape(3, 3), values, "logits")
+      val targets = Vector(2, 1, 0)
+      val mask = Vector(true, false, true)
+
+      val direct = logitsDirect.crossEntropyMasked(targets, mask)
+      val composed = logitsComposed.gatherRows(Vector(0, 2)).crossEntropy(Vector(2, 0))
+      Assert.close(direct.valueAtFlat(0), composed.valueAtFlat(0), tolerance = 1e-15)
+      direct.backward()
+      composed.backward()
+      logitsDirect.gradients.zip(logitsComposed.gradients).foreach {
+        case (left, right) => Assert.close(left, right, tolerance = 1e-15)
+      }
+      // The masked middle row must receive exactly zero gradient.
+      Assert.isTrue(logitsDirect.gradients.slice(3, 6).forall(_ == 0.0))
+    },
+    test("masked cross entropy validates masks targets and coverage") {
+      val logits = Tensor.parameter(Shape(2, 3), Vector.fill(6)(0.0), "logits")
+      val allMasked = Assert.throws[IllegalArgumentException] {
+        logits.crossEntropyMasked(Vector(0, 1), Vector(false, false))
+      }
+      Assert.isTrue(allMasked.getMessage.contains("unmasked"))
+      val wrongMaskSize = Assert.throws[IllegalArgumentException] {
+        logits.crossEntropyMasked(Vector(0, 1), Vector(true))
+      }
+      Assert.isTrue(wrongMaskSize.getMessage.contains("mask count"))
+      // Even a masked row's target must be a valid class index.
+      val badMaskedTarget = Assert.throws[IllegalArgumentException] {
+        logits.crossEntropyMasked(Vector(0, 3), Vector(true, false))
+      }
+      Assert.isTrue(badMaskedTarget.getMessage.contains("outside"))
     }
   )
