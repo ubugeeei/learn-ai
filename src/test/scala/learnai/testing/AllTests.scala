@@ -20,6 +20,7 @@ import learnai.experiment.ExperimentManifestSuite
 import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
+import learnai.transformer.RopeSuite
 import learnai.transformer.TransformerBlockSuite
 import learnai.training.MiniGptTrainingSuite
 import learnai.transformer.MiniGptSuite
@@ -57,6 +58,7 @@ object AllTests:
     LayersSuite,
     AttentionSuite,
     TransformerBlockSuite,
+    RopeSuite,
     MiniGptSuite,
     MiniGptTrainingSuite,
     SamplingSuite,

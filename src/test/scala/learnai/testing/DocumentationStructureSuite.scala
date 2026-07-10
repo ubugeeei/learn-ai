@@ -84,6 +84,7 @@ object DocumentationStructureSuite extends TestSuite:
       "04-text",
       "05-transformer",
       "06-inference",
+      "07-frontier",
       "08-agents"
     )
     chapterDirectories.flatMap { directory =>
