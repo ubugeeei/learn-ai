@@ -15,24 +15,24 @@ and generation into one language-model pipeline.
 
 An autoregressive model factorizes sequence probability:
 
-\[
+$$
 p(x_1,\ldots,x_T)=\prod_{t=1}^{T}p(x_t\mid x_{<t})
-\]
+$$
 
 A bigram simplifies the entire past to the current token:
 
-\[
+$$
 p(x_{t+1}\mid x_0,\ldots,x_t)
 \approx p(x_{t+1}\mid x_t)
-\]
+$$
 
 It cannot model long context, but it exposes the complete next-token objective.
 
 ## Transition-logit table
 
-For vocabulary size \(V\), store trainable
-\(W\in\mathbb{R}^{V\times V}\). Row \(i\) contains next-token logits after
-current token \(i\).
+For vocabulary size $V$, store trainable
+$W\in\mathbb{R}^{V\times V}$. Row $i$ contains next-token logits after
+current token $i$.
 
 ```text
 W shape: [current token, next token] = [V,V]
@@ -42,23 +42,23 @@ Input IDs `[N]` gather rows into logits `[N,V]`. Repeated IDs read one shared
 row and accumulate all corresponding gradients during backward. Embedding
 lookup uses the same gather/scatter mechanism.
 
-The table contains \(V^2\) parameters. With 50,000 tokens that is 2.5 billion,
+The table contains $V^2$ parameters. With 50,000 tokens that is 2.5 billion,
 showing why language models factor tokens through a lower-dimensional hidden
 space.
 
 ## Fused cross entropy
 
-For logits \(z\) and target class \(t\):
+For logits $z$ and target class $t$:
 
-\[
+$$
 L=\log\sum_j e^{z_j}-z_t
-\]
+$$
 
 Its gradient is:
 
-\[
+$$
 \frac{\partial L}{\partial z_j}=p_j-\mathbb{1}[j=t]
-\]
+$$
 
 `Tensor.crossEntropy` combines stable log-sum-exp and this derivative without
 materializing a one-hot Tensor or a separate softmax graph. It is a small
@@ -66,9 +66,9 @@ example of operation fusion.
 
 Every gradient row sums to zero:
 
-\[
+$$
 \sum_j(p_j-\mathbb{1}[j=t])=1-1=0
-\]
+$$
 
 Tests check that property, large-logit stability, and finite differences.
 
@@ -104,9 +104,9 @@ Training and generation therefore see different input distributions.
 
 ## Temperature
 
-\[
+$$
 p_i=\operatorname{softmax}(z_i/\tau),\quad\tau>0
-\]
+$$
 
 - below 1: concentrate on high logits;
 - equal to 1: unchanged learned distribution;

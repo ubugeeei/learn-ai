@@ -98,13 +98,13 @@ attempt number only as diagnostic metadata.
 
 The runtime retries only when:
 
-\[
+$$
 \text{error.retryable}
 \land
 \text{effect.safeToRetry}
 \land
 \text{attempt} < \text{maximumToolAttempts}
-\]
+$$
 
 The error describes the observed failure. The effect describes the operation.
 Neither fact alone is sufficient.

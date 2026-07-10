@@ -7,43 +7,43 @@ every step. Source: `src/main/scala/learnai/learning/GradientDescent.scala`.
 
 ## Write learning as optimization
 
-Let parameter \(\theta\) control model behavior and loss \(L(\theta)\) measure
+Let parameter $\theta$ control model behavior and loss $L(\theta)$ measure
 error. Training searches for the parameter that minimizes loss:
 
-\[
+$$
 \theta^*=\operatorname*{arg\,min}_{\theta}L(\theta)
-\]
+$$
 
 `min` is the minimum value. `arg min` is the argument that produces it.
 
 The first example moves a parameter toward `3`:
 
-\[
+$$
 L(\theta)=(\theta-3)^2
-\]
+$$
 
-This loss is non-negative and reaches zero only at \(\theta=3\). Its derivative
+This loss is non-negative and reaches zero only at $\theta=3$. Its derivative
 is:
 
-\[
+$$
 \frac{dL}{d\theta}=2(\theta-3)
-\]
+$$
 
 ## Update rule
 
 The gradient points toward increasing loss, so subtract it:
 
-\[
+$$
 \theta_{t+1}=\theta_t-\eta\frac{dL}{d\theta_t}
-\]
+$$
 
 | Symbol | Meaning | Code |
 | --- | --- | --- |
-| \(t\) | step | `step` |
-| \(\theta_t\) | current parameter | `parameter` |
-| \(L\) | loss function | `loss` |
-| \(dL/d\theta_t\) | local gradient | `gradient` |
-| \(\eta\) | learning rate | `learningRate` |
+| $t$ | step | `step` |
+| $\theta_t$ | current parameter | `parameter` |
+| $L$ | loss function | `loss` |
+| $dL/d\theta_t$ | local gradient | `gradient` |
+| $\eta$ | learning rate | `learningRate` |
 
 ```scala
 parameter -= learningRate * gradient
@@ -80,7 +80,7 @@ Inspect more than the final value:
 - too large: overshoot, oscillation, or divergence.
 
 For the quadratic example, distance from the target is multiplied by
-\(1-2\eta\) each step. At `η=0.1` it shrinks by `0.8`; at `η=1` it flips sign
+$1-2\eta$ each step. At `η=0.1` it shrinks by `0.8`; at `η=1` it flips sign
 without shrinking; above `1` it grows.
 
 ## Non-convex loss
@@ -158,7 +158,7 @@ ensure negative steps/rates fail before invoking user functions.
 
 1. Compare learning rates `0.01`, `0.5`, `1.0`, and `1.1`.
 2. Start on both sides of `3` and explain gradient signs.
-3. Minimize \((\theta+2)^2+1\) and predict its optimum.
+3. Minimize $(\theta+2)^2+1$ and predict its optimum.
 4. Print history as CSV and plot it.
 5. Replace the analytic derivative with numerical differentiation.
 

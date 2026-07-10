@@ -105,7 +105,7 @@ independently.
 ## Complexity and production concerns
 
 The reference trainer recounts and replaces the entire corpus for every merge,
-roughly \(O(MN)\) for \(M\) merges and \(N\) corpus tokens. Large-scale
+roughly $O(MN)$ for $M$ merges and $N$ corpus tokens. Large-scale
 training requires incremental counts, indexed occurrences, parallelism, or
 external memory.
 

@@ -8,13 +8,13 @@ wise feed-forward network into a shape-preserving pre-norm block. Source:
 
 ## Block equations
 
-\[
+$$
 H=X+\operatorname{Attention}(\operatorname{RMSNorm}(X))
-\]
+$$
 
-\[
+$$
 Y=H+\operatorname{FFN}(\operatorname{RMSNorm}(H))
-\]
+$$
 
 ```text
 X [T,C]
@@ -30,17 +30,17 @@ Input and output have equal shape, so blocks can be stacked.
 
 Instead of replacing input with a sublayer result:
 
-\[
+$$
 y=x+F(x)
-\]
+$$
 
 Backward becomes:
 
-\[
+$$
 \frac{\partial L}{\partial x}
 =\frac{\partial L}{\partial y}
 \left(I+\frac{\partial F}{\partial x}\right)
-\]
+$$
 
 The identity path carries gradient directly across depth and lets each sublayer
 learn a correction rather than a complete replacement. Both operands of the
@@ -65,33 +65,33 @@ final quality, not with a universal rule.
 Attention mixes information across positions. The FFN transforms each position
 independently with shared parameters:
 
-\[
+$$
 \operatorname{FFN}(x)
 =W_2\operatorname{ReLU}(W_1x+b_1)+b_2
-\]
+$$
 
 ```text
 [T,C] -> Linear -> [T,F] -> ReLU -> Linear -> [T,C]
 ```
 
-Expansion width \(F\) adds nonlinear capacity. Attention chooses where to read;
+Expansion width $F$ adds nonlinear capacity. Attention chooses where to read;
 the FFN transforms the collected information. A later chapter replaces ReLU
 with a modern gated activation.
 
 ## Parameter count
 
-For channels \(C\) and FFN width \(F\):
+For channels $C$ and FFN width $F$:
 
-- Q/K/V/output projections: \(4(C^2+C)\);
-- two RMSNorm scales: \(2C\);
-- FFN expansion: \(CF+F\);
-- FFN projection: \(FC+C\).
+- Q/K/V/output projections: $4(C^2+C)$;
+- two RMSNorm scales: $2C$;
+- FFN expansion: $CF+F$;
+- FFN projection: $FC+C$.
 
 Total:
 
-\[
+$$
 4C^2+2CF+7C+F
-\]
+$$
 
 At large widths, matrix terms dominate biases and normalization scales.
 

@@ -9,11 +9,11 @@ cross entropy, and deterministic-seed sampling. Source:
 ## Probability represents uncertainty
 
 In next-token prediction, every vocabulary token is a possible outcome. A
-categorical distribution assigns probability \(p_i\) to each outcome:
+categorical distribution assigns probability $p_i$ to each outcome:
 
-\[
+$$
 p_i\geq0,\qquad\sum_{i=1}^{V}p_i=1
-\]
+$$
 
 `Categorical.from` rejects empty, negative, or incorrectly normalized input.
 Successful construction establishes an invariant used by sampling and entropy.
@@ -23,95 +23,95 @@ Successful construction establishes an invariant used by sampling and entropy.
 A random variable maps outcomes to numeric values. Its expectation is a
 probability-weighted average:
 
-\[
+$$
 \mathbb{E}[X]=\sum_i p_i x_i
-\]
+$$
 
 Variance is expected squared distance from that mean:
 
-\[
+$$
 \operatorname{Var}(X)=\mathbb{E}[(X-\mathbb{E}[X])^2]
-\]
+$$
 
 Individual samples vary, but a sufficiently large sample mean approaches the
 expectation. Mini-batch gradients rely on the same estimation idea.
 
 ## Models output logits before probabilities
 
-A neural network emits one real-valued score \(z_i\) per token. These **logits**
+A neural network emits one real-valued score $z_i$ per token. These **logits**
 may be negative and need not sum to one. Softmax turns them into probabilities:
 
-\[
+$$
 p_i=\frac{e^{z_i}}{\sum_j e^{z_j}}
-\]
+$$
 
 Exponentials are positive, normalization makes the sum one, and larger logits
 receive larger probability.
 
 ## Stable softmax
 
-`exp(10000)` overflows. Subtracting a constant \(c\) from every logit leaves
+`exp(10000)` overflows. Subtracting a constant $c$ from every logit leaves
 softmax unchanged:
 
-\[
+$$
 \frac{e^{z_i-c}}{\sum_j e^{z_j-c}}
 =\frac{e^{z_i}}{\sum_j e^{z_j}}
-\]
+$$
 
-Choose \(c=\max_jz_j\). The largest exponential becomes `1`, and every other
+Choose $c=\max_jz_j$. The largest exponential becomes `1`, and every other
 one is at most `1`.
 
 Log-sum-exp uses the same transformation:
 
-\[
+$$
 \log\sum_j e^{z_j}
 =m+\log\sum_j e^{z_j-m},\quad m=\max_jz_j
-\]
+$$
 
 ## Information and entropy
 
-The information content of an event with probability \(p\) is:
+The information content of an event with probability $p$ is:
 
-\[
+$$
 I(p)=-\log p
-\]
+$$
 
 A certain event has zero information; rare events contain more. Expected
 information is entropy:
 
-\[
+$$
 H(p)=-\sum_i p_i\log p_i
-\]
+$$
 
 The zero-probability contribution is defined as zero by a limit. A fair coin
-has entropy \(\log2\); a certain coin has zero.
+has entropy $\log2$; a certain coin has zero.
 
 ## Cross entropy as language-model loss
 
-For target distribution \(q\) and model distribution \(p\):
+For target distribution $q$ and model distribution $p$:
 
-\[
+$$
 H(q,p)=-\sum_i q_i\log p_i
-\]
+$$
 
-With a one-hot target at index \(t\):
+With a one-hot target at index $t$:
 
-\[
+$$
 \mathcal L=-\log p_t
-\]
+$$
 
 Expanding softmax gives a stable logits-only form:
 
-\[
+$$
 \mathcal L=\log\sum_j e^{z_j}-z_t
-\]
+$$
 
 A large correct logit drives loss toward zero. Assigning little probability to
 the target produces a large penalty.
 
 ## Sampling
 
-Draw \(u\) uniformly from `[0,1)` and select the first index whose cumulative
+Draw $u$ uniformly from `[0,1)` and select the first index whose cumulative
 probability exceeds it.
 
 ```text
@@ -132,9 +132,9 @@ distribution and walk cumulative mass until the random draw is covered.
 
 Stable softmax uses an invariance:
 
-\[
+$$
 \operatorname{softmax}(z)=\operatorname{softmax}(z-c)
-\]
+$$
 
 Choose `c = max(z)`. For logits `[1000, 1001, 1002]`, direct exponentials
 overflow, but shifted logits `[-2,-1,0]` produce finite exponentials

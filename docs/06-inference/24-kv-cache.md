@@ -25,21 +25,21 @@ self-attention and the difference between logits and sampled token IDs.
 
 For one head at time `t`, causal attention is
 
-\[
+$$
 q_t = x_t W_Q,\qquad
 k_i = x_i W_K,\qquad
 v_i = x_i W_V
-\]
+$$
 
-\[
+$$
 a_{t,i} = \operatorname{softmax}_i
 \left(\frac{q_t k_i^\top}{\sqrt{d_h}}\right),
 \qquad 0 \le i \le t
-\]
+$$
 
-\[
+$$
 o_t = \sum_{i=0}^{t} a_{t,i}v_i
-\]
+$$
 
 Once `k_i` and `v_i` have been computed, their inputs and parameters do not
 change during the request. The next decoding step needs a new `q_t`, `k_t`, and
@@ -147,16 +147,16 @@ make this trade-off configurable rather than accidental.
 Suppose a prompt has `P` tokens and we generate `N` more without reaching
 capacity. The reference path evaluates
 
-\[
+$$
 P + (P+1) + \cdots + (P+N-1)
 = NP + \frac{N(N-1)}{2}
-\]
+$$
 
 token rows. The cached path evaluates
 
-\[
+$$
 P + (N-1)
-\]
+$$
 
 rows: prefill the prompt once, then evaluate each sampled token except the last
 one, whose logits are not needed.

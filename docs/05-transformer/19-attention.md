@@ -13,11 +13,11 @@ future-input gradient from a prefix-only loss.
 
 An initial token representation contains only its token and position. Context
 requires selecting earlier positions based on content. From each hidden vector
-\(x_t\), create:
+$x_t$, create:
 
-\[
+$$
 q_t=x_tW_Q,\qquad k_t=x_tW_K,\qquad v_t=x_tW_V
-\]
+$$
 
 - query: what this position seeks;
 - key: what a position can match;
@@ -27,7 +27,7 @@ Queries and keys choose where to read; values determine what is read.
 
 ## Trace the shapes
 
-For one sequence, time \(T\), and channels \(C\):
+For one sequence, time $T$, and channels $C$:
 
 ```text
 X: [T,C]
@@ -43,28 +43,28 @@ position.
 
 ## Dot-product similarity
 
-\[
+$$
 s_{ij}=q_i\cdot k_j
-\]
+$$
 
 Training can align query and key directions for useful relationships. Dot
 product includes magnitude and therefore is not identical to cosine similarity.
 
-## Why divide by \(\sqrt d\)?
+## Why divide by $\sqrt d$?
 
-For head width \(d\), independent unit-variance channel products make dot-
-product variance grow with \(d\). Large scores saturate softmax and shrink useful
+For head width $d$, independent unit-variance channel products make dot-
+product variance grow with $d$. Large scores saturate softmax and shrink useful
 gradients. Scale them:
 
-\[
+$$
 s_{ij}=\frac{q_i\cdot k_j}{\sqrt d}
-\]
+$$
 
 This keeps initial score scale more stable across head widths.
 
 ## Causal mask
 
-Position \(i\) must not read future position \(j>i\):
+Position $i$ must not read future position $j>i$:
 
 ```text
 query 0: [0,-,-]
@@ -72,12 +72,12 @@ query 1: [0,1,-]
 query 2: [0,1,2]
 ```
 
-\[
+$$
 \tilde s_{ij}=\begin{cases}
 s_{ij}&j\le i\\
 -\infty&j>i
 \end{cases}
-\]
+$$
 
 The implementation uses finite `-1e9` to preserve finite-value invariants. It
 underflows to zero probability after stable softmax. Backward also blocks the
@@ -88,30 +88,30 @@ next input position, creating direct leakage.
 
 ## Row softmax and value aggregation
 
-\[
+$$
 a_{ij}=\frac{e^{\tilde s_{ij}}}{\sum_r e^{\tilde s_{ir}}}
-\]
+$$
 
 Each row is a distribution over allowed keys. Output is a weighted sum:
 
-\[
+$$
 o_i=\sum_j a_{ij}v_j
-\]
+$$
 
-Softmax backward avoids building a Jacobian. For output probabilities \(y_i\)
-and upstream gradient \(g_i\):
+Softmax backward avoids building a Jacobian. For output probabilities $y_i$
+and upstream gradient $g_i$:
 
-\[
+$$
 \frac{\partial L}{\partial x_i}
 =y_i\left(g_i-\sum_jg_jy_j\right)
-\]
+$$
 
 The row gradient sums to zero because adding a constant to all logits changes
 no softmax probability.
 
 ## Multi-head attention
 
-Split channels into \(H\) heads with width \(d=C/H\):
+Split channels into $H$ heads with width $d=C/H$:
 
 ```text
 project Q/K/V: [T,C]
@@ -137,7 +137,7 @@ Each catches a different class of masking defect.
 
 ## Complexity
 
-Attention costs \(O(T^2C)\) time and \(O(T^2)\) weight memory per head/batch.
+Attention costs $O(T^2C)$ time and $O(T^2)$ weight memory per head/batch.
 Doubling context quadruples score elements.
 
 Flash Attention preserves exact attention while tiling and computing softmax
@@ -214,7 +214,7 @@ division and cache overflow cover construction/runtime boundaries.
 
 - Explain Q, K, and V roles and shapes.
 - Interpret both axes of `[T,T]` scores.
-- Explain variance scaling by \(1/\sqrt d\).
+- Explain variance scaling by $1/\sqrt d$.
 - Explain why masking occurs before softmax.
 - Trace multi-head split and concatenation.
 - All attention causality and gradient tests pass.

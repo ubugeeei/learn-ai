@@ -120,10 +120,10 @@ constrain retry behavior specifically.
 `TokenPricing` stores input and output dollars per million tokens as
 `BigDecimal`. Cost is:
 
-\[
+$$
 \text{cost} =
 \frac{n_{in}p_{in} + n_{out}p_{out}}{10^6}
-\]
+$$
 
 Pricing changes over time and differs by provider, model, cache status, batch,
 and service tier. The harness therefore accepts a caller-provided snapshot and
@@ -236,11 +236,11 @@ one bad scenario does not hide later results.
 For 2,000 input tokens at $3 per million and 500 output tokens at $12 per
 million:
 
-\[
+$$
 \frac{2000(3)+500(12)}{1{,}000{,}000}
 =\frac{12{,}000}{1{,}000{,}000}
 =0.012\text{ USD}
-\]
+$$
 
 `BigDecimal` avoids introducing binary floating-point error into this simple
 accounting calculation. The number remains an estimate because usage

@@ -8,16 +8,16 @@ compensated summation. Source:
 
 ## Mathematical reals and computer numbers differ
 
-The real numbers \(\mathbb{R}\) include integers, rational values,
-\(\sqrt{2}\), and \(\pi\), with no gaps on the number line. A computer has
+The real numbers $\mathbb{R}$ include integers, rational values,
+$\sqrt{2}$, and $\pi$, with no gaps on the number line. A computer has
 finite storage. Scala `Double` uses the 64-bit IEEE 754 binary64 format, which
 encodes a sign, exponent, and finite significand.
 
 Conceptually:
 
-\[
+$$
 (-1)^{\text{sign}}\times1.\text{fraction}\times2^{\text{exponent}}
-\]
+$$
 
 Values without a finite binary expansion are rounded. Decimal `0.1` is one of
 them.
@@ -35,18 +35,18 @@ rounding, overflow, and underflow are architectural concerns.
 
 ## Absolute and relative error
 
-For approximation \(a\) and reference \(b\):
+For approximation $a$ and reference $b$:
 
-\[
+$$
 E_{abs}=|a-b|
-\]
+$$
 
-An error of \(10^{-6}\) is huge near \(10^{-8}\) but tiny near \(10^{12}\).
+An error of $10^{-6}$ is huge near $10^{-8}$ but tiny near $10^{12}$.
 Relative error accounts for scale:
 
-\[
+$$
 E_{rel}=\frac{|a-b|}{\max(|a|,|b|)}
-\]
+$$
 
 `approximatelyEqual` accepts the larger of an absolute and scale-relative
 tolerance:
@@ -75,9 +75,9 @@ boundaries so failure occurs near its cause.
 
 Real addition is associative:
 
-\[
+$$
 (a+b)+c=a+(b+c)
-\]
+$$
 
 Finite arithmetic may lose a small addend beside a much larger number. Parallel
 reductions with different operation orders therefore may not be bit-identical.

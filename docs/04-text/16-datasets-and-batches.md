@@ -29,8 +29,8 @@ input:  [t1,t2,t3]
 target: [t2,t3,t4]
 ```
 
-A sequence of length \(N\) and context \(T\) yields
-\(\max(0,N-T)\) full windows.
+A sequence of length $N$ and context $T$ yields
+$\max(0,N-T)$ full windows.
 
 ## Shapes
 
@@ -41,7 +41,7 @@ inputs:  [time]
 targets: [time]
 ```
 
-A batch of \(B\) examples:
+A batch of $B$ examples:
 
 ```text
 inputs:  [batch,time]
@@ -77,9 +77,9 @@ duplicates across partitions.
 
 Computing every example each step is expensive. A batch estimates mean loss:
 
-\[
+$$
 \hat L=\frac{1}{B}\sum_{i\in\text{batch}}L_i
-\]
+$$
 
 - small batch: less memory, more gradient noise;
 - large batch: more stable estimate, more memory and step compute.

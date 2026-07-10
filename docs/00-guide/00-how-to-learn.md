@@ -32,18 +32,18 @@ symbol in this course is connected to its pronunciation, type, shape, and code.
 
 For example, a dot product is written as:
 
-\[
+$$
 y = \boldsymbol{w}\cdot\boldsymbol{x}
   = \sum_{i=1}^{n} w_i x_i
-\]
+$$
 
 | Symbol | Meaning | Type | Code |
 | --- | --- | --- | --- |
-| \(n\) | number of elements | positive integer | `x.size` |
-| \(\boldsymbol{x}\) | input vector | \(\mathbb{R}^n\) | `VectorD` |
-| \(\boldsymbol{w}\) | weight vector | \(\mathbb{R}^n\) | `VectorD` |
-| \(y\) | dot-product result | scalar | `w.dot(x)` |
-| \(\sum\) | sum over a range | operation | a loop or `foldLeft` |
+| $n$ | number of elements | positive integer | `x.size` |
+| $\boldsymbol{x}$ | input vector | $\mathbb{R}^n$ | `VectorD` |
+| $\boldsymbol{w}$ | weight vector | $\mathbb{R}^n$ | `VectorD` |
+| $y$ | dot-product result | scalar | `w.dot(x)` |
+| $\sum$ | sum over a range | operation | a loop or `foldLeft` |
 
 When you see an equation, first write down the input and output types and
 shapes. Shape tracing is one of the most effective Transformer debugging tools.

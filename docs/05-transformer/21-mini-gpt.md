@@ -23,12 +23,12 @@ token IDs [T]
 
 | Field | Meaning |
 | --- | --- |
-| `vocabularySize` \(V\) | tokenizer categories |
-| `maximumContextLength` \(T_{max}\) | position table and input limit |
-| `channels` \(C\) | hidden width per token |
-| `headCount` \(H\) | attention heads dividing \(C\) |
-| `hiddenChannels` \(F\) | FFN expansion width |
-| `layerCount` \(L\) | Transformer depth |
+| `vocabularySize` $V$ | tokenizer categories |
+| `maximumContextLength` $T_{max}$ | position table and input limit |
+| `channels` $C$ | hidden width per token |
+| `headCount` $H$ | attention heads dividing $C$ |
+| `hiddenChannels` $F$ | FFN expansion width |
+| `layerCount` $L$ | Transformer depth |
 
 Config, tokenizer, and checkpoint form one compatibility contract.
 
@@ -37,24 +37,24 @@ Config, tokenizer, and checkpoint form one compatibility contract.
 Pre-norm blocks leave the final residual stream outside a post-sublayer norm.
 Normalize before vocabulary projection:
 
-\[
+$$
 H_{final}=\operatorname{RMSNorm}(H_L)
-\]
+$$
 
 The presence and type of final normalization are checkpoint architecture.
 
 ## Weight tying
 
-The token table is \(E\in\mathbb{R}^{V\times C}\). Instead of allocating a
+The token table is $E\in\mathbb{R}^{V\times C}$. Instead of allocating a
 separate output matrix, use its transpose:
 
-\[
+$$
 Z=H_{final}E^{\mathsf T}
-\]
+$$
 
 Benefits:
 
-- removes another \(CV\) parameters;
+- removes another $CV$ parameters;
 - shares input and output token space;
 - lets embedding weights receive gradients from lookup and logits paths.
 

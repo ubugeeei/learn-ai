@@ -74,13 +74,13 @@ The same container transformation idea later applies to batches and tensors.
 
 ## Represent an undefined mean
 
-For \(n\) values:
+For $n$ values:
 
-\[
+$$
 \operatorname{mean}(x)=\frac{1}{n}\sum_{i=1}^{n}x_i
-\]
+$$
 
-An empty collection has \(n=0\), so its mean is undefined. Returning only a
+An empty collection has $n=0$, so its mean is undefined. Returning only a
 `Double` cannot represent that failure. Use `Either`:
 
 ```scala

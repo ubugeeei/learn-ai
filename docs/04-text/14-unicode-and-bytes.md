@@ -85,9 +85,9 @@ the next token, but raw tokens and errors must remain observable.
 
 For valid text:
 
-\[
+$$
 \operatorname{decode}(\operatorname{encode}(text))=text
-\]
+$$
 
 Test ASCII, several scripts, emoji, combining marks, newlines, and the empty
 string. This tokenizer performs no normalization, so it preserves original

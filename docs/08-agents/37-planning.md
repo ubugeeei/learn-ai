@@ -48,11 +48,11 @@ Keeping control state explicit provides:
 Let every task be a vertex `v` and every dependency be an edge `u -> v`.
 Task `v` is ready only when every predecessor has succeeded:
 
-\[
+$$
 \operatorname{ready}(v)
 = \bigwedge_{u \in \operatorname{deps}(v)}
   \operatorname{status}(u)=\text{Succeeded}
-\]
+$$
 
 The constructor rejects:
 

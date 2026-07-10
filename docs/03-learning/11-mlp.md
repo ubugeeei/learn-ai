@@ -10,18 +10,18 @@ perceptron, MSE loss, and SGD, then train XOR.
 
 ## One neuron
 
-For input \(\boldsymbol{x}\), weights \(\boldsymbol{w}\), and bias \(b\):
+For input $\boldsymbol{x}$, weights $\boldsymbol{w}$, and bias $b$:
 
-\[
+$$
 z=\boldsymbol{w}\cdot\boldsymbol{x}+b
 =\sum_i w_i x_i+b
-\]
+$$
 
-Then apply activation \(\phi\):
+Then apply activation $\phi$:
 
-\[
+$$
 y=\phi(z)
-\]
+$$
 
 ```scala
 val weightedInputs = weights.zip(inputs).map { case (weight, input) =>
@@ -36,19 +36,19 @@ Weights and bias are trainable leaves. Inputs and intermediates are not.
 
 Composing linear functions remains linear:
 
-\[
+$$
 \boldsymbol{W}_2(\boldsymbol{W}_1\boldsymbol{x}+\boldsymbol{b}_1)+\boldsymbol{b}_2
 =(\boldsymbol{W}_2\boldsymbol{W}_1)\boldsymbol{x}
 +(\boldsymbol{W}_2\boldsymbol{b}_1+\boldsymbol{b}_2)
-\]
+$$
 
 Without a nonlinear activation, depth adds no nonlinear decision boundary.
 
 | Activation | Equation | Property |
 | --- | --- | --- |
-| Linear | \(x\) | output scores and regression |
-| Tanh | \(\tanh x\) | smooth range `[-1,1]` |
-| ReLU | \(\max(0,x)\) | simple, constant positive-side derivative |
+| Linear | $x$ | output scores and regression |
+| Tanh | $\tanh x$ | smooth range `[-1,1]` |
+| ReLU | $\max(0,x)$ | simple, constant positive-side derivative |
 
 Modern Transformer feed-forward layers often use GELU or SwiGLU, but the need
 for nonlinearity is the same.
@@ -57,11 +57,11 @@ for nonlinearity is the same.
 
 A layer evaluates multiple neurons in parallel:
 
-\[
+$$
 \boldsymbol{y}=\phi(\boldsymbol{W}\boldsymbol{x}+\boldsymbol{b})
-\]
+$$
 
-For input width \(n\) and output width \(m\), weights have shape `[m,n]` and
+For input width $n$ and output width $m$, weights have shape `[m,n]` and
 bias has shape `[m]`.
 
 The XOR model is:
@@ -89,9 +89,9 @@ combines them.
 
 ## Mean squared error
 
-\[
+$$
 L=\frac{1}{N}\sum_{i=1}^{N}(\hat y_i-y_i)^2
-\]
+$$
 
 The language model later uses cross entropy, but the training-loop structure is
 unchanged.
@@ -120,12 +120,12 @@ symmetric. Seeded random initialization gives them distinct roles.
 
 Xavier uniform uses:
 
-\[
+$$
 w\sim U\left(
 -\sqrt{\frac{6}{n_{in}+n_{out}}},
 \sqrt{\frac{6}{n_{in}+n_{out}}}
 \right)
-\]
+$$
 
 It aims to keep activation scale from vanishing or exploding across layers.
 
@@ -144,9 +144,9 @@ require low loss and the correct sign for all four examples.
 checks input width, pairs each input with one weight, multiplies the `Value`
 nodes, sums them with the bias, then applies the configured activation:
 
-\[
+$$
 y=\phi\left(b+\sum_i w_i x_i\right)
-\]
+$$
 
 For inputs `[2,-1]`, weights `[0.5,3]`, and bias `1`, the pre-activation is
 `1 + 0.5*2 + 3*(-1) = -1`. With tanh the output is about `-0.7616`. Keeping the

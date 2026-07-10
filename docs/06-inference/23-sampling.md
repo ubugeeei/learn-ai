@@ -27,18 +27,18 @@ Policy and seed are part of generation reproducibility.
 
 ## Greedy decoding
 
-\[
+$$
 x_{t+1}=\operatorname*{arg\,max}_i z_i
-\]
+$$
 
 Greedy output is deterministic but can become repetitive or choose a locally
 likely poor continuation. Top-k with `k=1` is equivalent to greedy decoding.
 
 ## Temperature
 
-\[
+$$
 p_i=\operatorname{softmax}(z_i/\tau),\quad\tau>0
-\]
+$$
 
 - low temperature enlarges logit differences and lowers entropy;
 - `1` preserves the model distribution;
@@ -49,15 +49,15 @@ dividing by zero.
 
 ## Top-k
 
-Keep the \(k\) highest-probability tokens, set the others to zero, and
+Keep the $k$ highest-probability tokens, set the others to zero, and
 renormalize:
 
-\[
+$$
 \tilde p_i=\begin{cases}
 p_i/Z&i\in K\\
 0&\text{otherwise}
 \end{cases}
-\]
+$$
 
 It gives a fixed candidate count regardless of confidence. If `k` exceeds
 vocabulary size, all tokens remain. Equal probabilities use lower token ID as a
@@ -66,7 +66,7 @@ deterministic tie-breaker.
 ## Nucleus top-p
 
 Sort by probability and retain the smallest prefix whose cumulative probability
-reaches threshold \(p\):
+reaches threshold $p$:
 
 ```text
 probabilities: [0.60,0.25,0.10,0.05]

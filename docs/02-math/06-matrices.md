@@ -7,9 +7,9 @@ and matrix multiplication. Source: `src/main/scala/learnai/math/MatrixD.scala`.
 
 ## A matrix has two axes
 
-An \(m\)-by-\(n\) matrix is:
+An $m$-by-$n$ matrix is:
 
-\[
+$$
 \boldsymbol{A}=
 \begin{bmatrix}
 a_{11}&\cdots&a_{1n}\\
@@ -17,7 +17,7 @@ a_{11}&\cdots&a_{1n}\\
 a_{m1}&\cdots&a_{mn}
 \end{bmatrix}
 \in\mathbb{R}^{m\times n}
-\]
+$$
 
 Its shape is `[m,n]`. In Scala, those dimensions are `matrix.rows` and
 `matrix.columns`.
@@ -52,15 +52,15 @@ two-dimensional meaning.
 
 Transpose exchanges rows and columns:
 
-\[
+$$
 (\boldsymbol{A}^{\mathsf T})_{ij}=A_{ji}
-\]
+$$
 
 Shape changes `[m,n] -> [n,m]`, and transposing twice returns the original:
 
-\[
+$$
 (\boldsymbol{A}^{\mathsf T})^{\mathsf T}=\boldsymbol{A}
-\]
+$$
 
 Such always-true relationships are useful property tests.
 
@@ -68,10 +68,10 @@ Such always-true relationships are useful property tests.
 
 For `A [m,n]` and `x [n]`:
 
-\[
+$$
 \boldsymbol{y}=\boldsymbol{A}\boldsymbol{x},\qquad
 y_i=\sum_{j=1}^{n}A_{ij}x_j
-\]
+$$
 
 ```text
 [m,n] x [n] -> [m]
@@ -85,10 +85,10 @@ output neuron's weights.
 
 For `A [m,k]` and `B [k,n]`:
 
-\[
+$$
 \boldsymbol{C}=\boldsymbol{A}\boldsymbol{B},\qquad
 C_{ij}=\sum_{r=1}^{k}A_{ir}B_{rj}
-\]
+$$
 
 ```text
 [m,k] x [k,n] -> [m,n]
@@ -97,7 +97,7 @@ C_{ij}=\sum_{r=1}^{k}A_{ir}B_{rj}
 ```
 
 Each output element is a dot product between a row of the left matrix and a
-column of the right. The simple algorithm costs \(O(mkn)\) time and \(O(mn)\)
+column of the right. The simple algorithm costs $O(mkn)$ time and $O(mn)$
 output memory. Optimized libraries use blocking, vector instructions, threads,
 and GPUs but compute the same equation.
 

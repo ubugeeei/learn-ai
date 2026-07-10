@@ -24,32 +24,32 @@ know the computation graph.
 
 ## SGD
 
-\[
+$$
 \theta_t=\theta_{t-1}-\eta g_t
-\]
+$$
 
-Here \(g_t\) is commonly a mini-batch gradient estimate. SGD stores no
+Here $g_t$ is commonly a mini-batch gradient estimate. SGD stores no
 per-parameter state, making it memory-efficient and a useful baseline.
 
 ## Global gradient norm
 
 Treat all parameter gradients as one long vector:
 
-\[
+$$
 \lVert g\rVert_2
 =\sqrt{\sum_p\sum_i g_{p,i}^2}
-\]
+$$
 
 It gives one model-wide signal for exploding gradients. Compare it carefully
 across model sizes, but track it over time within one model.
 
 ## Gradient clipping
 
-If the norm exceeds maximum \(c\), multiply all gradients by one scale:
+If the norm exceeds maximum $c$, multiply all gradients by one scale:
 
-\[
+$$
 \tilde g=g\min\left(1,\frac{c}{\lVert g\rVert_2}\right)
-\]
+$$
 
 For gradient `[3,4]`, norm is `5`; limit `1` yields `[0.6,0.8]`. Direction is
 preserved while magnitude is bounded.
@@ -61,35 +61,35 @@ the fraction of clipped steps alongside loss and activations.
 
 An exponential moving average emphasizes persistent directions:
 
-\[
+$$
 m_t=\beta m_{t-1}+(1-\beta)g_t
-\]
+$$
 
 Adam tracks this first moment and a second moment of squared gradients.
 
 ## Adam
 
-\[
+$$
 m_t=\beta_1m_{t-1}+(1-\beta_1)g_t
-\]
+$$
 
-\[
+$$
 v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2
-\]
+$$
 
 Zero initialization biases early estimates toward zero, so correct them:
 
-\[
+$$
 \hat m_t=\frac{m_t}{1-\beta_1^t},\qquad
 \hat v_t=\frac{v_t}{1-\beta_2^t}
-\]
+$$
 
 Then update:
 
-\[
+$$
 \theta_t=\theta_{t-1}
 -\eta\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}
-\]
+$$
 
 Adaptive state costs two extra values per parameter.
 
@@ -97,16 +97,16 @@ Adaptive state costs two extra values per parameter.
 
 Weight decay shrinks parameters:
 
-\[
+$$
 \theta\leftarrow(1-\eta\lambda)\theta
-\]
+$$
 
 AdamW separates this from the adaptive gradient update:
 
-\[
+$$
 \theta_t=(1-\eta\lambda)\theta_{t-1}
 -\eta\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}
-\]
+$$
 
 Decay acts even when gradient is zero. Production models often exclude biases
 and normalization scales through parameter groups.
@@ -116,17 +116,17 @@ and normalization scales through parameter groups.
 Deep networks can amplify or erase activation and gradient scales. Xavier
 uniform uses:
 
-\[
+$$
 w\sim U\left[-\sqrt{\frac{6}{n_{in}+n_{out}}},
 \sqrt{\frac{6}{n_{in}+n_{out}}}\right]
-\]
+$$
 
 He uniform for ReLU uses fan-in:
 
-\[
+$$
 w\sim U\left[-\sqrt{\frac{6}{n_{in}}},
 \sqrt{\frac{6}{n_{in}}}\right]
-\]
+$$
 
 Initialization should be selected by measuring layer activation and gradient
 statistics, not by memorizing one formula.

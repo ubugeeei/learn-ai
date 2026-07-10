@@ -42,8 +42,39 @@ object DocumentationStructureSuite extends TestSuite:
         problems.isEmpty,
         s"implemented documentation lost required depth:\n${problems.mkString("\n")}"
       )
+    },
+    test("Markdown math uses GitHub-compatible delimiters") {
+      val root = Path.of("").toAbsolutePath.normalize()
+      val legacyDelimiters = Vector("\\(", "\\)", "\\[", "\\]")
+      val problems = markdownFiles(root).flatMap { path =>
+        Files
+          .readAllLines(path, StandardCharsets.UTF_8)
+          .asScala
+          .zipWithIndex
+          .flatMap { case (line, index) =>
+            legacyDelimiters
+              .filter(line.contains)
+              .map(delimiter => s"${root.relativize(path)}:${index + 1}: legacy '$delimiter' delimiter")
+          }
+      }
+
+      Assert.isTrue(
+        problems.isEmpty,
+        s"Markdown math must use dollar delimiters for GitHub rendering:\n${problems.mkString("\n")}"
+      )
     }
   )
+
+  private def markdownFiles(root: Path): Vector[Path] =
+    val docsRoot = root.resolve("docs")
+    Assert.isTrue(Files.isDirectory(docsRoot), s"documentation directory not found: $docsRoot")
+    val files = Files.walk(docsRoot)
+    try
+      files.iterator().asScala
+        .filter(file => Files.isRegularFile(file) && file.toString.endsWith(".md"))
+        .toVector
+        .sortBy(_.toString)
+    finally files.close()
 
   private def implementedChapters(root: Path): Vector[Path] =
     val chapterDirectories = Vector(

@@ -9,7 +9,7 @@ on the Tensor autodiff engine. Source:
 ## From discrete IDs to continuous vectors
 
 A token ID is a category label. ID `100` is not ten times ID `10`. An embedding
-table \(E\in\mathbb{R}^{V\times C}\) maps each token to a \(C\)-dimensional
+table $E\in\mathbb{R}^{V\times C}$ maps each token to a $C$-dimensional
 vector:
 
 ```text
@@ -18,9 +18,9 @@ embedding table: [vocabulary,channels]
 output:          [time,channels]
 ```
 
-\[
+$$
 \boldsymbol{x}_t=E[\text{tokenId}_t]
-\]
+$$
 
 Initial vectors have no inherent semantic meaning. Next-token gradients move
 them into configurations useful for prediction.
@@ -43,9 +43,9 @@ This is parameter sharing in its simplest form.
 Without a positional signal, self-attention operations cannot distinguish all
 reorderings. Add learned position vectors:
 
-\[
+$$
 \boldsymbol{h}_t^{(0)}=E[x_t]+P[t]
-\]
+$$
 
 ```text
 token embeddings:    [time,channels]
@@ -61,9 +61,9 @@ inputs. RoPE later introduces position by rotating query and key channels.
 
 Apply the same affine transform to every time row:
 
-\[
+$$
 Y=XW+b
-\]
+$$
 
 ```text
 X: [time,inputChannels]
@@ -82,49 +82,49 @@ Residual additions can change hidden-state scale across depth. Extreme scales
 can saturate softmax, damage gradient flow, and worsen numerical behavior.
 
 RMSNorm does not subtract the mean. It divides by root mean square and applies
-a learned per-channel scale \(g_i\):
+a learned per-channel scale $g_i$:
 
-\[
+$$
 \operatorname{RMS}(x)=
 \sqrt{\frac{1}{C}\sum_i x_i^2+\epsilon}
-\]
+$$
 
-\[
+$$
 y_i=g_i\frac{x_i}{\operatorname{RMS}(x)}
-\]
+$$
 
-Every `[channels]` row is normalized independently. \(\epsilon\) prevents
+Every `[channels]` row is normalized independently. $\epsilon$ prevents
 division by zero.
 
 ## RMSNorm backward
 
-Let \(r=\operatorname{RMS}(x)\) and let \(g_i\) denote upstream gradient after
+Let $r=\operatorname{RMS}(x)$ and let $g_i$ denote upstream gradient after
 scale. Then:
 
-\[
+$$
 \frac{\partial L}{\partial x_i}
 =\frac{g_i}{r}
 -\frac{x_i}{Cr^3}\sum_j g_jx_j
-\]
+$$
 
 Scale gradients sum over rows:
 
-\[
+$$
 \frac{\partial L}{\partial \gamma_i}
 =\sum_{row}\frac{\partial L}{\partial y_{row,i}}
 \frac{x_{row,i}}{r_{row}}
-\]
+$$
 
 Tests compare input gradients with finite differences.
 
 ## Parameter count
 
-For vocabulary \(V\), context \(T\), and channels \(C\):
+For vocabulary $V$, context $T$, and channels $C$:
 
-- token embedding: \(VC\);
-- position embedding: \(TC\);
-- linear layer: \(C_{in}C_{out}+C_{out}\);
-- RMSNorm: \(C\).
+- token embedding: $VC$;
+- position embedding: $TC$;
+- linear layer: $C_{in}C_{out}+C_{out}$;
+- RMSNorm: $C$.
 
 Token embedding often dominates at large vocabularies. Weight tying reuses its
 transpose as the output classifier.

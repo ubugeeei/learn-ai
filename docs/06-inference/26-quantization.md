@@ -22,22 +22,22 @@ Measure the actual bottleneck.
 
 ## Symmetric int8
 
-For one row, let \(a=\max_i|w_i|\):
+For one row, let $a=\max_i|w_i|$:
 
-\[
+$$
 s=\frac{a}{127}
-\]
+$$
 
-\[
+$$
 q_i=\operatorname{clamp}
 \left(\operatorname{round}(w_i/s),-127,127\right)
-\]
+$$
 
 Reconstruct with:
 
-\[
+$$
 \hat w_i=sq_i
-\]
+$$
 
 Code `-128` remains unused so positive and negative ranges are symmetric. The
 zero point is zero. An all-zero row uses scale `1`; all codes remain zero.
@@ -60,19 +60,19 @@ systems also use per-group scaling and smaller scale dtypes.
 Nearest rounding without clipping has code error at most `0.5`, so approximate
 absolute reconstruction error is:
 
-\[
+$$
 |w_i-\hat w_i|\leq s/2
-\]
+$$
 
 Scale comes from the row maximum, so source weights fit the representable
 range. Clamping remains defensive against finite arithmetic effects.
 
 ## Quantized matrix-vector multiplication
 
-\[
+$$
 y_r=\sum_c w_{rc}x_c
 \approx s_r\sum_c q_{rc}x_c
-\]
+$$
 
 The row scale can be applied after accumulation. The teaching implementation
 keeps input and accumulator as `Double` so the experiment isolates weight
@@ -95,8 +95,8 @@ token logits may be especially sensitive.
 
 For matrix `R x C`:
 
-- Double payload: \(8RC\) bytes;
-- per-row int8 payload: \(RC+8R\) bytes in this implementation.
+- Double payload: $8RC$ bytes;
+- per-row int8 payload: $RC+8R$ bytes in this implementation.
 
 Object headers, alignment, packing, scale dtype, and kernel workspace also
 matter in real measurements.
@@ -125,9 +125,9 @@ claims require a warmed repeated benchmark.
 `QuantizedInt8Matrix.quantize` processes one matrix row at a time. It finds the
 largest absolute value and chooses
 
-\[
+$$
 s_r = \max_j |w_{rj}| / 127
-\]
+$$
 
 For an all-zero row it uses a valid non-zero scale so dequantization and matvec
 never divide by zero. Each weight is divided by the row scale, rounded to the

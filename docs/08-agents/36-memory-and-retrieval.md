@@ -39,8 +39,8 @@ parent-child retrieval.
 
 ## Overlap
 
-Overlap preserves context around boundaries. For chunk size \(C\) and overlap
-\(O\), step size is \(C-O\). More overlap may improve recall but increases index
+Overlap preserves context around boundaries. For chunk size $C$ and overlap
+$O$, step size is $C-O$. More overlap may improve recall but increases index
 size and duplicate results.
 
 ## Hashing embedding baseline
@@ -48,9 +48,9 @@ size and duplicate results.
 The teaching embedder lowercases tokens, hashes them into fixed buckets, uses a
 sign bit, and L2-normalizes:
 
-\[
+$$
 \hat v=v/\lVert v\rVert_2
-\]
+$$
 
 It captures exact-token overlap but not semantic synonymy or word order. Hash
 collisions are unavoidable; signed hashing reduces systematic positive bias.
@@ -62,9 +62,9 @@ evaluation before introducing an external neural embedding model.
 
 Normalized query and document vectors make cosine similarity a dot product:
 
-\[
+$$
 \cos(q,d)=\hat q\cdot\hat d
-\]
+$$
 
 Results sort by descending score and then chunk ID for deterministic ties. An
 exact scan is a useful oracle before adding an approximate nearest-neighbor

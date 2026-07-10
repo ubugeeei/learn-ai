@@ -9,9 +9,9 @@ reverse traversal. Source: `src/main/scala/learnai/autodiff/Value.scala`.
 
 Consider:
 
-\[
+$$
 x=2,\quad y=-3,\quad z=xy+x^2
-\]
+$$
 
 Normal evaluation may keep only results. Automatic differentiation records
 operations as nodes and dependencies as edges:
@@ -41,14 +41,14 @@ all parameter gradients in one reverse traversal.
 
 ## Local derivative times upstream gradient
 
-For \(c=f(a,b)\), if \(\partial L/\partial c\) arrives from above:
+For $c=f(a,b)$, if $\partial L/\partial c$ arrives from above:
 
-\[
+$$
 \frac{\partial L}{\partial a}
 =\frac{\partial L}{\partial c}\frac{\partial c}{\partial a}
-\]
+$$
 
-For multiplication \(c=ab\), local derivatives are \(b\) and \(a\):
+For multiplication $c=ab$, local derivatives are $b$ and $a$:
 
 ```scala
 output.backwardRule = () =>
@@ -61,11 +61,11 @@ derivative.
 
 ## Accumulate rather than overwrite
 
-In \(z=x^2+x\), `x` reaches the output through two paths:
+In $z=x^2+x$, `x` reaches the output through two paths:
 
-\[
+$$
 \frac{dz}{dx}=2x+1
-\]
+$$
 
 One path contributes `2x`, the other contributes `1`. Overwriting loses a path,
 so gradients must accumulate. Parameter sharing, residual connections, and
@@ -83,27 +83,27 @@ backward order: loss   -> intermediates -> leaves
 
 Shared nodes are tracked by object identity. The root gradient is seeded with:
 
-\[
+$$
 \frac{\partial L}{\partial L}=1
-\]
+$$
 
 ## Local rules
 
 | Forward | Local derivative |
 | --- | --- |
-| \(a+b\) | \(1,1\) |
-| \(ab\) | \(b,a\) |
-| \(a^r\) | \(ra^{r-1}\) |
-| \(e^a\) | \(e^a\) |
-| \(\log a\) | \(1/a\) |
-| \(\tanh a\) | \(1-\tanh^2a\) |
-| \(\operatorname{ReLU}(a)\) | `1` for `a>0`, else `0` |
+| $a+b$ | $1,1$ |
+| $ab$ | $b,a$ |
+| $a^r$ | $ra^{r-1}$ |
+| $e^a$ | $e^a$ |
+| $\log a$ | $1/a$ |
+| $\tanh a$ | $1-\tanh^2a$ |
+| $\operatorname{ReLU}(a)$ | `1` for `a>0`, else `0` |
 
 Subtraction and division are composed from existing operations:
 
-\[
+$$
 a-b=a+(-1)b,\qquad a/b=ab^{-1}
-\]
+$$
 
 ## Parameter updates and graph lifetime
 
@@ -197,7 +197,7 @@ cleared. Domain tests for `log` catch invalid forward values before backward.
 
 ## Exercises
 
-1. Differentiate \((x+2)^3\) by hand and with `Value`.
+1. Differentiate $(x+2)^3$ by hand and with `Value`.
 2. Compose sigmoid from `exp` and arithmetic.
 3. Add `sin` and check it numerically.
 4. Replace gradient accumulation with assignment and observe the shared-node

@@ -56,9 +56,9 @@ Many real values have no finite binary representation.
 
 Compare an absolute difference with a justified tolerance:
 
-\[
+$$
 |\text{actual}-\text{expected}|\leq\text{tolerance}
-\]
+$$
 
 ```scala
 Assert.close(actual, expected, tolerance = 1e-9)

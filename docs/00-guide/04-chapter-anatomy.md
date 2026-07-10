@@ -57,12 +57,28 @@ Every equation must connect to executable names.
 
 | Mathematics | Scala | Meaning |
 | --- | --- | --- |
-| (X\in\mathbb{R}^{T\times C}) | `input: Tensor` | one hidden row per token |
-| (W_Q\in\mathbb{R}^{C\times C}) | `queryProjection.weight` | query parameters |
-| (Q=XW_Q) | `queryProjection(input)` | projected queries |
+| $X\in\mathbb{R}^{T\times C}$ | `input: Tensor` | one hidden row per token |
+| $W_Q\in\mathbb{R}^{C\times C}$ | `queryProjection.weight` | query parameters |
+| $Q=XW_Q$ | `queryProjection(input)` | projected queries |
 
 State preconditions and output shapes before explaining the algorithm. Shapes
 are part of correctness, not optional commentary.
+
+### Math delimiters rendered by GitHub
+
+The repository targets GitHub Markdown. Delimit inline mathematics with one
+dollar sign on each side, such as `$x_i$`. Put display mathematics between
+double-dollar lines:
+
+```markdown
+$$
+y = Wx + b
+$$
+```
+
+Do not use backslash-parenthesis or backslash-bracket delimiters. Although
+LaTeX engines recognize them, GitHub may display them as literal text instead
+of passing the expression to its math renderer.
 
 ### 4. Source map
 

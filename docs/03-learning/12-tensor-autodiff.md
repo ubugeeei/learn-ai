@@ -32,9 +32,9 @@ systems execute those rules as CPU or GPU kernels.
 - rank 2: matrix, shape `[m,n]`;
 - rank 3: often `[batch,time,channels]`.
 
-\[
+$$
 \operatorname{size}([d_0,\ldots,d_{r-1}])=\prod_i d_i
-\]
+$$
 
 The scalar shape has no dimensions, but the empty product is one.
 
@@ -42,9 +42,9 @@ The scalar shape has no dimensions, but the empty product is one.
 
 Shape `[2,3,4]` has row-major strides `[12,4,1]`:
 
-\[
+$$
 \operatorname{offset}([i,j,k])=12i+4j+k
-\]
+$$
 
 Coordinate `[1,2,3]` maps to offset `23`. The final axis is contiguous in
 memory. `Shape` computes dimensions, strides, and size once for every Tensor.
@@ -64,25 +64,25 @@ semantics explicitly.
 
 ## Element-wise backward
 
-For \(C=A\odot B\):
+For $C=A\odot B$:
 
-\[
+$$
 \frac{\partial L}{\partial A_i}
-=\frac{\partial L}{\partial C_i}B_i,qquad
+=\frac{\partial L}{\partial C_i}B_i,\qquad
 \frac{\partial L}{\partial B_i}
 =\frac{\partial L}{\partial C_i}A_i
-\]
+$$
 
 This is scalar multiplication's rule applied at every index. Shared Tensor
 paths still require gradient accumulation.
 
 ## Reduction backward
 
-For \(s=\sum_i x_i\):
+For $s=\sum_i x_i$:
 
-\[
+$$
 \frac{\partial s}{\partial x_i}=1
-\]
+$$
 
 The scalar upstream gradient is copied to every input element. Mean composes sum
 with division by element count.
@@ -101,22 +101,22 @@ For `C = A B`:
 A [m,k] x B [k,n] -> C [m,n]
 ```
 
-\[
+$$
 \frac{\partial L}{\partial A}
 =\frac{\partial L}{\partial C}B^{\mathsf T}
-\]
+$$
 
-\[
+$$
 \frac{\partial L}{\partial B}
 =A^{\mathsf T}\frac{\partial L}{\partial C}
-\]
+$$
 
 The implementation distributes each output gradient to every inner-index
 product that contributed during forward.
 
 ## Gradient checking
 
-Tests perturb individual matrix elements by \(+h\) and \(-h\), then compare
+Tests perturb individual matrix elements by $+h$ and $-h$, then compare
 finite differences with `matmul -> pow -> mean` backward. For larger tensors,
 check all elements on tiny shapes and sampled elements on realistic shapes.
 
