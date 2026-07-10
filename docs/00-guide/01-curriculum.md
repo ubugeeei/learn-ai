@@ -116,7 +116,7 @@ speed-memory tradeoffs.
 | 30a | ⬜ | Deduplication | exact/approximate matches and precision/recall |
 | 30b | ⬜ | Filters and provenance | quality, PII, policy, licenses, lineage |
 | 30c | ⬜ | Mixtures and contamination | sampling weights, ablations, eval overlap |
-| 31a | ⬜ | SFT and chat templates | masks, data validation, held-out evaluation |
+| 31a | ✅ | SFT and chat templates | masks, data validation, held-out evaluation |
 | 31b | ✅ | LoRA | frozen base, low-rank gradients, merge equivalence |
 | 31c | ⬜ | Reward modeling | preference pairs, calibration, disagreement |
 | 31d | ⬜ | DPO | reference-policy log-ratio objective |

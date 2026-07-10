@@ -23,6 +23,7 @@ Nix / Scala 3 / dependency-free tests
   -> restartable epoch shuffle / sequence packing / masked loss
   -> LoRA adapters with frozen-base and merge-equivalence oracles
   -> persisted training bundles with experiment-identity refusal
+  -> chat templates and assistant-span SFT with held-out evaluation
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
@@ -42,7 +43,7 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 3. corpus manifests, streaming shards, provenance, and deduplication;
 4. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
 5. serving scheduler and paged KV cache;
-6. SFT and chat templates before reward/preference/policy optimization;
+6. reward modeling, DPO, and policy optimization on the SFT base;
 7. model/safety evaluation and release evidence;
 8. provider adapters plus durable agent/tool state;
 9. model, systems, agent, and research capstones.

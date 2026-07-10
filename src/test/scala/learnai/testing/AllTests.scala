@@ -20,6 +20,7 @@ import learnai.diagnostics.BenchmarkSuite
 import learnai.diagnostics.GradientCheckSuite
 import learnai.experiment.ExperimentManifestSuite
 import learnai.finetune.LoraSuite
+import learnai.finetune.SftSuite
 import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
@@ -75,6 +76,7 @@ object AllTests:
     MiniGptSuite,
     MiniGptTrainingSuite,
     ResumableTrainingSuite,
+    SftSuite,
     LoraSuite,
     SamplingSuite,
     MiniGptCheckpointSuite,
