@@ -97,7 +97,7 @@ shape-safe code.
 | 27d | ⬜ | ZeRO and recovery | state partitioning and coordinated checkpoints |
 | 27e | ⬜ | Serving scheduler | prefill/decode, continuous batching, overload |
 | 27f | ✅ | Paged KV and prefix reuse | allocation, fragmentation, eviction |
-| 27g | ⬜ | Speculative decoding | distribution-preserving draft verification |
+| 27g | ✅ | Speculative decoding | distribution-preserving draft verification |
 
 **Part deliverable:** explain training/inference differences and measure
 speed-memory tradeoffs.

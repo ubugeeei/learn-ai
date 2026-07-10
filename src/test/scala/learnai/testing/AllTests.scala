@@ -45,6 +45,7 @@ import learnai.agent.PlanningSuite
 import learnai.agent.EvaluationSuite
 import learnai.retrieval.RetrievalSuite
 import learnai.serving.PagedKvCacheSuite
+import learnai.serving.SpeculativeDecodingSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -90,6 +91,7 @@ object AllTests:
     TrainingBundleSuite,
     Int8QuantizationSuite,
     PagedKvCacheSuite,
+    SpeculativeDecodingSuite,
     JsonSuite,
     AgentRuntimeSuite,
     PlanningSuite,

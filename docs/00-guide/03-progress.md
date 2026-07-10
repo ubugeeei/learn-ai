@@ -28,6 +28,7 @@ Nix / Scala 3 / dependency-free tests
   -> paged KV pool with bounded fragmentation and prefix-sharing forks
   -> online-softmax tiled attention with exact equivalence oracles
   -> data-parallel replicas with bitwise identity and traced collectives
+  -> speculative decoding with an executable distribution-preservation proof
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
