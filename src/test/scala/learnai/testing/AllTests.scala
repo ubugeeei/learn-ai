@@ -11,6 +11,7 @@ import learnai.autodiff.ValueSuite
 import learnai.nn.ScalarNetworkSuite
 import learnai.tensor.TensorSuite
 import learnai.optim.OptimizersSuite
+import learnai.text.Utf8Suite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -24,7 +25,8 @@ object AllTests:
     ValueSuite,
     ScalarNetworkSuite,
     TensorSuite,
-    OptimizersSuite
+    OptimizersSuite,
+    Utf8Suite
   )
 
   def main(arguments: Array[String]): Unit =
