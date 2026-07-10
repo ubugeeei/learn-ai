@@ -40,9 +40,27 @@ AI エージェントをゼロから学ぶハンズオンです。
 
 ## 現在の実装範囲
 
-このリポジトリは段階的に育てます。章の状態はカリキュラムの凡例で確認できます。
-未実装の章にも、前提関係と到達基準を先に定義し、学習経路が途中で分岐しないように
-しています。
+現在は、環境構築から MiniGPT の end-to-end 学習、checkpoint、int8 量子化、tool 実行型 agent、
+引用付き retrieval までが実行可能です。実装済みの各章には本文、Scala code、境界/異常系を含む
+test があります。
+
+```console
+$ nix develop -c sbt check
+$ nix develop -c sbt 'runMain learnai.nn.trainXor'
+$ nix develop -c sbt 'runMain learnai.lm.trainBigram'
+$ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
+$ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
+```
+
+KV cache、分散学習、現代的 block、post-training、agent planning/evaluation は次の実装 milestone です。
+章単位の正確な状態と依存順は[カリキュラム](docs/00-guide/01-curriculum.md)、完成基準と次の作業は
+[進捗と実装規約](docs/00-guide/03-progress.md)で確認できます。未実装の章にも到達基準を先に定義し、
+学習経路が途中で分岐しないようにしています。
+
+## 開発規約
+
+公開 API の Scaladoc、数式と shape の対応、正常/境界/異常/property/gradient test を実装と同じ
+commit に含めます。詳しくは [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
 ## ライセンス
 
