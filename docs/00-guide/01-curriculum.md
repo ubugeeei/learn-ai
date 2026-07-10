@@ -94,9 +94,9 @@
 
 | # | 状態 | 章 | 成果物 |
 | --- | --- | --- | --- |
-| 33 | ⬜ | model API 境界 | provider に依存しない typed protocol |
-| 34 | ⬜ | tool calling | schema、validation、実行、結果の観測 |
-| 35 | ⬜ | agent loop | stop 条件を持つ再現可能な loop |
+| 33 | ✅ | model API 境界 | provider に依存しない typed protocol |
+| 34 | ✅ | tool calling | schema、validation、実行、結果の観測 |
+| 35 | ✅ | agent loop | stop 条件を持つ再現可能な loop |
 | 36 | ⬜ | memory と検索 | chunk、embedding、vector search、引用 |
 | 37 | ⬜ | planning | state machine、task graph、recovery |
 | 38 | ⬜ | reliability | timeout、retry、idempotency、権限境界 |

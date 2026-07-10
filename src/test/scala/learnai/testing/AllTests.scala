@@ -23,6 +23,7 @@ import learnai.lm.SamplingSuite
 import learnai.io.MiniGptCheckpointSuite
 import learnai.quantization.Int8QuantizationSuite
 import learnai.json.JsonSuite
+import learnai.agent.AgentRuntimeSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -48,7 +49,8 @@ object AllTests:
     SamplingSuite,
     MiniGptCheckpointSuite,
     Int8QuantizationSuite,
-    JsonSuite
+    JsonSuite,
+    AgentRuntimeSuite
   )
 
   def main(arguments: Array[String]): Unit =
