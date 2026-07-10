@@ -14,6 +14,7 @@ import learnai.optim.OptimizersSuite
 import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
 import learnai.data.CausalDatasetSuite
+import learnai.data.ShuffleSuite
 import learnai.diagnostics.BenchmarkSuite
 import learnai.diagnostics.GradientCheckSuite
 import learnai.experiment.ExperimentManifestSuite
@@ -59,6 +60,7 @@ object AllTests:
     Utf8Suite,
     BpeTokenizerSuite,
     CausalDatasetSuite,
+    ShuffleSuite,
     BigramLanguageModelSuite,
     LayersSuite,
     AttentionSuite,
