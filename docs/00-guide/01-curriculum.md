@@ -106,7 +106,7 @@ speed-memory tradeoffs.
 | # | Status | Chapter | Deliverable |
 | --- | --- | --- | --- |
 | 28a | ✅ | RoPE | rotary pairs, cache position, context tests |
-| 28b | ⬜ | SwiGLU | gated FFN with parameter-matched ablation |
+| 28b | ✅ | SwiGLU | gated FFN with parameter-matched ablation |
 | 28c | ⬜ | GQA/MQA | query/KV head ownership and cache bytes |
 | 28d | ⬜ | Mixture of experts | routing, capacity, load balance, dropped tokens |
 | 28e | ⬜ | IO-aware attention | online softmax reference and tiled simulation |
