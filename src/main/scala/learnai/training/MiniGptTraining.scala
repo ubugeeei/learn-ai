@@ -278,7 +278,7 @@ object MiniGptTraining:
     }
     weightedLoss / examples.toDouble
 
-  private[training] def validateDatasets(
+  private[learnai] def validateDatasets(
       model: MiniGpt,
       training: CausalDataset,
       validation: CausalDataset

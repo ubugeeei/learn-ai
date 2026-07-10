@@ -18,6 +18,7 @@ import learnai.data.CausalDatasetSuite
 import learnai.data.PackingSuite
 import learnai.data.ShuffleSuite
 import learnai.diagnostics.BenchmarkSuite
+import learnai.distributed.DataParallelSuite
 import learnai.diagnostics.GradientCheckSuite
 import learnai.experiment.ExperimentManifestSuite
 import learnai.finetune.LoraSuite
@@ -81,6 +82,7 @@ object AllTests:
     MiniGptSuite,
     MiniGptTrainingSuite,
     ResumableTrainingSuite,
+    DataParallelSuite,
     SftSuite,
     LoraSuite,
     SamplingSuite,

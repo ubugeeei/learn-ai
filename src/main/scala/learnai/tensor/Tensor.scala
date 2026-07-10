@@ -698,6 +698,28 @@ final class Tensor private (
       )
       index += 1
 
+  /** Replaces the stored gradients of a trainable leaf.
+    *
+    * Reserved for the distributed-training simulation (Chapter 27a), which
+    * reduces per-replica gradients *outside* the graph and writes the
+    * agreed result back before an optimizer step. All values are validated
+    * before any element changes, so a rejected assignment leaves the
+    * gradients untouched.
+    */
+  def assignGradients(values: IndexedSeq[Double]): Unit =
+    require(isTrainable, "only trainable leaf tensors may receive gradients")
+    require(
+      values.size == size,
+      s"assigned gradient count ${values.size} does not match shape $shape with size $size"
+    )
+    values.zipWithIndex.foreach { case (value, index) =>
+      Numerics.requireFinite(value, s"assigned gradient for '$label' at flat index $index")
+    }
+    var index = 0
+    while index < size do
+      currentGradient(index) = values(index)
+      index += 1
+
   /** Replaces all values of a trainable leaf from a defensive input sequence.
     *
     * This operation is reserved for checkpoint loading. Shape/element count

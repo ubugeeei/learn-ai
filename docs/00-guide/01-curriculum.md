@@ -91,7 +91,7 @@ shape-safe code.
 | 24 | ✅ | KV cache | Cached/reference equivalence and timing |
 | 25 | ✅ | Model format | Versioned, checksummed safe loader |
 | 26 | ✅ | Quantization | Symmetric int8 and measured error |
-| 27a | ⬜ | Collectives and data parallelism | replica equivalence and byte traces |
+| 27a | ✅ | Collectives and data parallelism | replica equivalence and byte traces |
 | 27b | ⬜ | Tensor parallelism | row/column partitions and collectives |
 | 27c | ⬜ | Pipeline parallelism | stages, microbatches, bubbles, schedules |
 | 27d | ⬜ | ZeRO and recovery | state partitioning and coordinated checkpoints |

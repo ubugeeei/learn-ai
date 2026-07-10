@@ -27,6 +27,7 @@ Nix / Scala 3 / dependency-free tests
   -> implementation-anchored parameter/FLOP/memory accounting
   -> paged KV pool with bounded fragmentation and prefix-sharing forks
   -> online-softmax tiled attention with exact equivalence oracles
+  -> data-parallel replicas with bitwise identity and traced collectives
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
@@ -45,7 +46,7 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
    deterministic estimators;
 2. RoPE/SwiGLU/GQA integration ablations inside MiniGPT training runs;
 3. corpus manifests, streaming shards, provenance, and deduplication;
-4. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
+4. tensor/pipeline/ZeRO simulation on top of the Chapter 27a collectives;
 5. serving scheduler (prefill/decode, continuous batching) on the paged pool;
 6. reward modeling, DPO, and policy optimization on the SFT base;
 7. model/safety evaluation and release evidence;
