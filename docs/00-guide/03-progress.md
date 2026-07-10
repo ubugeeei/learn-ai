@@ -18,6 +18,7 @@ Nix / Scala 3 / dependency-free tests
   -> cited retrieval / task-graph planning and checkpoint recovery
   -> deterministic agent outcome/trajectory/cost evaluation
   -> primary-paper reading map and evidence template
+  -> RoPE / SwiGLU / GQA reference layers with equivalence oracles
 ```
 
 The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
@@ -34,7 +35,7 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 
 1. exact model/optimizer/scheduler/data/random-state resume;
 2. JVM profiling plus deterministic FLOP/work/memory estimators;
-3. RoPE, SwiGLU, and GQA as separate reference/ablation chapters;
+3. RoPE/SwiGLU/GQA integration ablations inside MiniGPT training runs;
 4. streaming shards, provenance, packing, shuffle, and deduplication;
 5. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
 6. serving scheduler and paged KV cache;
