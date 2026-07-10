@@ -25,7 +25,7 @@
 | 04 | ✅ | 数、関数、誤差 | `Double` の性質を測る実験 |
 | 05 | ✅ | ベクトル | immutable な `VectorD` |
 | 06 | ✅ | 行列と shape | `MatrixD` と行列積 |
-| 07 | ⬜ | 確率と情報量 | 分布、期待値、entropy、cross entropy |
+| 07 | ✅ | 確率と情報量 | 分布、期待値、entropy、cross entropy |
 | 08 | ⬜ | 微分と連鎖律 | 数値微分と手計算の比較 |
 
 **Part 成果物:** 線形代数と確率の式を、shape を保つコードへ変換できる。

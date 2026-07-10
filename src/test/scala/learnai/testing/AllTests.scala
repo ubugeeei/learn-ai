@@ -4,13 +4,15 @@ import learnai.foundations.ScalaTourSuite
 import learnai.math.NumericsSuite
 import learnai.math.VectorDSuite
 import learnai.math.MatrixDSuite
+import learnai.math.ProbabilitySuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
     ScalaTourSuite,
     NumericsSuite,
     VectorDSuite,
-    MatrixDSuite
+    MatrixDSuite,
+    ProbabilitySuite
   )
 
   def main(arguments: Array[String]): Unit =
