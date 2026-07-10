@@ -33,11 +33,13 @@ After completing the curriculum, you should be able to:
 
 1. Read [How to learn](docs/00-guide/00-how-to-learn.md).
 2. Read the [complete chapter anatomy](docs/00-guide/04-chapter-anatomy.md).
-3. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
-4. Run the verification command in every completed chapter.
-5. Solve exercises before reading or implementing an answer.
-6. Explain each part's deliverable in your own words.
-7. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
+3. Read the [professional competency roadmap](docs/00-guide/05-professional-roadmap.md)
+   so the small reference implementations are not mistaken for the finish line.
+4. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
+5. Run the verification command in every completed chapter.
+6. Solve exercises before reading or implementing an answer.
+7. Explain each part's deliverable in your own words.
+8. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
    after each implementation milestone.
 
 The code is cumulative rather than disposable. Each chapter adds a tested
@@ -59,7 +61,8 @@ The runnable path currently reaches:
 
 ```text
 math -> autodiff -> neural networks -> tokenization -> language modeling
-  -> causal Transformer -> MiniGPT -> KV-cached decoding -> inference artifacts
+  -> causal Transformer -> MiniGPT -> gradient/benchmark diagnostics
+  -> KV-cached decoding -> inference artifacts
   -> typed tools -> approval and retry policy -> bounded agent runtime
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
 ```
@@ -71,12 +74,15 @@ $ nix develop -c sbt check
 $ nix develop -c sbt 'runMain learnai.nn.trainXor'
 $ nix develop -c sbt 'runMain learnai.lm.trainBigram'
 $ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
+$ nix develop -c sbt 'runMain learnai.transformer.runMiniGptDiagnostics'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 
-Distributed training, modern blocks, post-training, agent planning, and
-evaluation remain explicit future milestones. See the [curriculum](docs/00-guide/01-curriculum.md)
-for exact chapter status and [progress and quality standards](docs/00-guide/03-progress.md)
+Experiment-grade training/resume, modern decoder components, distributed
+training, serving, post-training, and production agent adapters remain explicit
+future milestones. See the [curriculum](docs/00-guide/01-curriculum.md) for exact
+chapter status, the [professional roadmap](docs/00-guide/05-professional-roadmap.md)
+for the complete competency target, and [progress and quality standards](docs/00-guide/03-progress.md)
 for the definition of done.
 
 ## Contribution standards

@@ -32,11 +32,12 @@ read.
 | 13 | Adam; AdamW |
 | 15 | Subword units with BPE |
 | 19–21 | Attention Is All You Need; RMSNorm; GPT-3 |
-| 24–26 | Multi-query attention; FlashAttention; GPTQ |
+| 22 | FlashAttention method/evidence; OpenJDK JMH implementation guidance |
+| 24–26 | Multi-query attention; speculative decoding; GPTQ; AWQ |
 | 28–30 | RoPE; GQA; SwiGLU; scaling laws; Chinchilla; deduplication |
 | 31–32 | InstructGPT; LoRA; DPO |
 | 34–39 | RAG; ReAct; Toolformer; AgentBench; WebArena; SWE-bench |
-| Capstone | OLMo; Llama 3; DeepSeek-V3; GPT-4 technical report |
+| Capstone | OLMo; Llama 3; DeepSeek-V3; Qwen3; GPT-4 technical report |
 
 ---
 
@@ -469,6 +470,19 @@ These are case studies in disclosure and system integration, not a leaderboard.
   compression, scaling, distributed execution, and post-training.
 - **Read critically:** Reproduction needs data, kernels, cluster behavior,
   optimization, and evaluation—not architecture equations alone.
+
+### Qwen3 Technical Report
+
+[Yang et al., 2025](https://arxiv.org/abs/2505.09388)
+
+- **Contribution:** Reports a multilingual family spanning dense and MoE
+  models, post-training for both thinking and non-thinking behavior, and an
+  inference-time thinking-budget interface.
+- **Connection:** It is a capstone case study connecting sparse architecture,
+  distillation, post-training, agent evaluation, and accuracy/latency budgets.
+- **Read critically:** Family-wide benchmark results do not isolate the effect
+  of one architectural or post-training choice; inspect model-specific setup,
+  evaluation conditions, and ablations.
 
 ## How to compare papers without a false synthesis
 
