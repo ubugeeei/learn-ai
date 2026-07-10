@@ -61,9 +61,13 @@ The runnable path currently reaches:
 
 ```text
 math -> autodiff -> neural networks -> tokenization -> language modeling
+  -> shuffled/packed datasets with loss masks
   -> causal Transformer -> MiniGPT -> gradient/benchmark diagnostics
   -> canonical experiment records -> batch training and held-out validation
+  -> bitwise exact mid-run resume (RNG, optimizer, scheduler, data cursor)
   -> KV-cached decoding -> inference artifacts
+  -> RoPE / SwiGLU / grouped-query attention reference layers
+  -> LoRA adapters with frozen-base and merge oracles
   -> typed tools -> approval and retry policy -> bounded agent runtime
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
 ```
@@ -80,9 +84,9 @@ $ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 
-Experiment-grade training/resume, modern decoder components, distributed
-training, serving, post-training, and production agent adapters remain explicit
-future milestones. See the [curriculum](docs/00-guide/01-curriculum.md) for exact
+Distributed training, serving-system simulation, corpus curation at scale,
+the remaining post-training chapters, and production agent adapters remain
+explicit future milestones. See the [curriculum](docs/00-guide/01-curriculum.md) for exact
 chapter status, the [professional roadmap](docs/00-guide/05-professional-roadmap.md)
 for the complete competency target, and [progress and quality standards](docs/00-guide/03-progress.md)
 for the definition of done.
