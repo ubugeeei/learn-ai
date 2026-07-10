@@ -102,7 +102,7 @@ about quality, compute, data, and operational tradeoffs.
 | 36 | ✅ | Memory and retrieval | Chunks, embeddings, vector search, citations |
 | 37 | ✅ | Planning | State machine, task graph, recovery |
 | 38 | ✅ | Reliability | Timeout, retry, idempotency, permissions |
-| 39 | ⬜ | Evaluation | Trajectory, fake model, quality/cost metrics |
+| 39 | ✅ | Evaluation | Trajectory, fake model, quality/cost metrics |
 
 **Part deliverable:** build an agent runtime whose external actions are bounded,
 auditable, and recoverable.

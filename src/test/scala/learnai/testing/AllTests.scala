@@ -25,6 +25,7 @@ import learnai.quantization.Int8QuantizationSuite
 import learnai.json.JsonSuite
 import learnai.agent.AgentRuntimeSuite
 import learnai.agent.PlanningSuite
+import learnai.agent.EvaluationSuite
 import learnai.retrieval.RetrievalSuite
 
 object AllTests:
@@ -55,6 +56,7 @@ object AllTests:
     JsonSuite,
     AgentRuntimeSuite,
     PlanningSuite,
+    EvaluationSuite,
     RetrievalSuite
   )
 

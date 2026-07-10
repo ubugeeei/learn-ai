@@ -13,6 +13,7 @@ Nix / Scala 3 / dependency-free tests
   -> sampling / KV-cached decoding / checkpoint / int8 quantization
   -> strict JSON / typed tools / approval and retry policy / bounded agent
   -> cited retrieval / task-graph planning and checkpoint recovery
+  -> deterministic agent outcome/trajectory/cost evaluation
   -> primary-paper reading map and evidence template
 ```
 
@@ -35,7 +36,7 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 5. small-scale SFT, reward modeling, and DPO;
 6. model/safety evaluation harness and model card;
 7. durable plan and tool-call state;
-8. trajectory/cost/safety eval and capstone.
+8. grounded-agent capstone and system card.
 
 A chapter is not marked complete for prose alone. It requires a reference
 implementation, an independent oracle, failure tests, and an experiment.
