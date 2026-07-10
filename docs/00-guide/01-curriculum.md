@@ -76,8 +76,8 @@ shape-safe code.
 | 20 | ✅ | Transformer block | RMSNorm, residuals, feed-forward network |
 | 21 | ✅ | MiniGPT | End-to-end training and generation CLI |
 | 22 | ✅ | Correctness and performance | Gradient checks, parameter inventory, benchmark evidence |
-| 22a | ⬜ | Experiment records | Typed configuration, run identity, immutable metadata |
-| 22b | ⬜ | Training system | train/validation, schedules, accumulation, telemetry |
+| 22a | ✅ | Experiment records | canonical configuration identity, corpus hash, runtime manifest |
+| 22b | ✅ | Training system | train/validation, schedules, accumulation, telemetry |
 | 22c | ⬜ | Exact resume | model, optimizer, scheduler, data cursor, random state |
 
 **Part deliverable:** train a small GPT and explain every parameter.

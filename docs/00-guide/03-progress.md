@@ -11,6 +11,8 @@ Nix / Scala 3 / dependency-free tests
   -> embeddings / RMSNorm / causal attention / Transformer
   -> MiniGPT training and generation
   -> parameter inventory / sampled gradient checks / benchmark evidence
+  -> canonical experiment identity / batch training / held-out validation
+  -> microbatch accumulation / warmup-cosine schedule / gradient telemetry
   -> sampling / KV-cached decoding / checkpoint / int8 quantization
   -> strict JSON / typed tools / approval and retry policy / bounded agent
   -> cited retrieval / task-graph planning and checkpoint recovery
@@ -30,18 +32,16 @@ The status table in `01-curriculum.md` is authoritative. A ✅ chapter means:
 
 ## Next milestones
 
-1. typed experiment configuration and immutable run records;
-2. train/validation loops, schedules, accumulation, and telemetry;
-3. exact model/optimizer/scheduler/data/random-state resume;
-4. JVM profiling plus deterministic FLOP/work/memory estimators;
-5. RoPE, SwiGLU, and GQA as separate reference/ablation chapters;
-6. streaming shards, provenance, packing, shuffle, and deduplication;
-7. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
-8. serving scheduler and paged KV cache;
-9. SFT and LoRA before reward/preference/policy optimization;
-10. model/safety evaluation and release evidence;
-11. provider adapters plus durable agent/tool state;
-12. model, systems, agent, and research capstones.
+1. exact model/optimizer/scheduler/data/random-state resume;
+2. JVM profiling plus deterministic FLOP/work/memory estimators;
+3. RoPE, SwiGLU, and GQA as separate reference/ablation chapters;
+4. streaming shards, provenance, packing, shuffle, and deduplication;
+5. collectives and data parallelism before tensor/pipeline/ZeRO simulation;
+6. serving scheduler and paged KV cache;
+7. SFT and LoRA before reward/preference/policy optimization;
+8. model/safety evaluation and release evidence;
+9. provider adapters plus durable agent/tool state;
+10. model, systems, agent, and research capstones.
 
 A chapter is not marked complete for prose alone. It requires a reference
 implementation, an independent oracle, failure tests, and an experiment.

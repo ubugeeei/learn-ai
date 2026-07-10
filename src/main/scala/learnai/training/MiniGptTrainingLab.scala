@@ -1,6 +1,10 @@
 package learnai.training
 
 import learnai.data.CausalDataset
+import learnai.diagnostics.RuntimeFingerprint
+import learnai.experiment.CorpusFingerprint
+import learnai.experiment.ExperimentManifest
+import learnai.experiment.ExperimentSpecification
 import learnai.text.ByteTokenizer
 import learnai.transformer.MiniGpt
 import learnai.transformer.MiniGptConfig
@@ -36,8 +40,27 @@ import learnai.transformer.MiniGptConfig
     ),
     optimizer = AdamWTrainingConfig(weightDecay = 0.0, maximumGradientNorm = Some(1.0))
   )
+  val manifest = ExperimentManifest(
+    ExperimentSpecification(
+      name = "byte-level-mini-gpt-training-lab",
+      modelSeed = 123L,
+      model = model.config,
+      training = config,
+      corpus = CorpusFingerprint.fromText(
+        "repeated-shakespeare-fragment",
+        corpus,
+        tokenCount = tokens.size.toLong,
+        trainingExamples = split.training.size.toLong,
+        validationExamples = split.validation.size.toLong
+      ),
+      codeRevision = sys.props.getOrElse("learnai.codeRevision", "unrecorded"),
+      environmentRevision = sys.props.getOrElse("learnai.environmentRevision", "unrecorded")
+    ),
+    RuntimeFingerprint.current
+  )
   val run = MiniGptTraining.train(model, split, config)
 
+  println(s"experiment ID:      ${manifest.experimentId}")
   println(s"training examples:   ${split.training.size}")
   println(s"validation examples: ${split.validation.size}")
   println(f"initial validation:  ${run.initialValidationLoss}%.6f")

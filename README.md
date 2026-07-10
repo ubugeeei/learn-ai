@@ -62,6 +62,7 @@ The runnable path currently reaches:
 ```text
 math -> autodiff -> neural networks -> tokenization -> language modeling
   -> causal Transformer -> MiniGPT -> gradient/benchmark diagnostics
+  -> canonical experiment records -> batch training and held-out validation
   -> KV-cached decoding -> inference artifacts
   -> typed tools -> approval and retry policy -> bounded agent runtime
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
@@ -75,6 +76,7 @@ $ nix develop -c sbt 'runMain learnai.nn.trainXor'
 $ nix develop -c sbt 'runMain learnai.lm.trainBigram'
 $ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
 $ nix develop -c sbt 'runMain learnai.transformer.runMiniGptDiagnostics'
+$ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 ```
 

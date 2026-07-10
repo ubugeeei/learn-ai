@@ -16,6 +16,7 @@ import learnai.text.BpeTokenizerSuite
 import learnai.data.CausalDatasetSuite
 import learnai.diagnostics.BenchmarkSuite
 import learnai.diagnostics.GradientCheckSuite
+import learnai.experiment.ExperimentManifestSuite
 import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
@@ -37,6 +38,7 @@ object AllTests:
     DocumentationStructureSuite,
     BenchmarkSuite,
     GradientCheckSuite,
+    ExperimentManifestSuite,
     ScalaTourSuite,
     NumericsSuite,
     VectorDSuite,
