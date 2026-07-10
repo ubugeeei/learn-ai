@@ -129,6 +129,61 @@ This educational engine eagerly allocates a same-size gradient for every node.
 Production systems avoid gradients in inference, reuse buffers, and use
 activation checkpointing.
 
+## Implementation walkthrough
+
+`Shape` is constructed before `Tensor`. It validates non-negative dimensions,
+computes total size with checked multiplication, and precomputes row-major
+strides. Both `offset` and `coordinates` validate their input; they are inverse
+operations over valid coordinates.
+
+`Tensor` then owns a shape, data array, equally sized gradient array, operation
+label, parent vector, and backward closure. Public constructors distinguish
+constants from trainable parameters. Operation constructors remain private so
+callers cannot forge a graph node whose backward rule is missing.
+
+Trace `[1,2] + [3,4]`. Addition validates equal shapes, allocates `[4,6]`, and
+creates a node with both inputs as parents. During backward, each upstream
+element is added to the corresponding gradient in both parents. Hadamard
+multiplication uses the same flat loop but multiplies upstream by the opposite
+operand value.
+
+Matmul makes indexing more explicit. For output `(i,j)`, the forward inner loop
+reads `A(i,k)` and `B(k,j)`. During backward the same output gradient `g(i,j)`
+contributes:
+
+```text
+A.grad(i,k) += g(i,j) * B(k,j)
+B.grad(k,j) += g(i,j) * A(i,k)
+```
+
+Looping over output cells and the shared index is a literal implementation of
+the matrix-gradient equations. `reshape` copies flat order and sends gradients
+back by the same flat index. `transpose2D` must invert its row/column mapping.
+
+Backward again uses identity-based topological ordering. This engine eagerly
+allocates gradients even for inference constants; the later cached path
+deliberately detaches cached arrays because it is forward-only.
+
+## Reading the tests
+
+Shape tests use hand-derived offsets. Shared tensor paths catch missing
+accumulation. Matmul backward has both exact small examples and finite-
+difference element checks. Reshape/transpose tests verify gradient routing, not
+only values. Explicit broadcasting rejection catches accidental acceptance of
+ambiguous gradient-reduction rules. Cross-entropy and RMSNorm receive their own
+numerical checks because they contain fused formulas.
+
+## Debugging checklist
+
+1. Write every operand and result shape before inspecting values.
+2. Check a single flat index and its coordinates in both directions.
+3. For backward errors, isolate one output element and one upstream gradient.
+4. Confirm shared parents accumulate rather than overwrite.
+5. If a finite-difference check fails, reduce the tensor to the smallest shape
+   that still exercises the operation.
+6. Distinguish a value-layout bug from a gradient-layout bug by testing forward
+   first.
+
 ## Exercises
 
 1. Compute strides and final offset for `[2,3,4,5]`.

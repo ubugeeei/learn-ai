@@ -114,6 +114,50 @@ Tests verify:
 Data defects can look like model defects, and leakage can produce a decreasing
 loss with invalid evaluation. Test data pipelines as rigorously as model code.
 
+## Implementation walkthrough
+
+`CausalDataset.fromTokens` slides a window of `contextLength + 1` over one token
+sequence. The first `contextLength` IDs are inputs and the same window shifted
+one position is the target:
+
+```text
+tokens:  [10, 11, 12, 13]
+context: 3
+input:   [10, 11, 12]
+target:  [11, 12, 13]
+```
+
+For `N` tokens and context `T`, there are `max(0, N-T)` full examples. The last
+valid start is `N-T-1`. Writing this count first prevents the most common
+off-by-one bug.
+
+`sampleBatch` accepts a caller RNG and chooses example indices with replacement.
+With replacement keeps calls simple and defines behavior when requested batch
+size exceeds dataset size. Empty datasets return `Left` because no valid index
+exists. `sequentialBatches` instead slices declaration order and explicitly
+chooses whether to retain a short final batch.
+
+`contiguousSplit` divides the original token stream before constructing
+windows. Splitting already-created examples would allow a validation example's
+input or target to overlap training tokens near the boundary. The split owns
+two independent datasets and reports the token boundary.
+
+## Reading the tests
+
+One tiny sequence enumerates exact aligned windows. A sequence no longer than
+context verifies the zero-example boundary. Split tests inspect source ranges
+to ensure no window crosses. Equal RNG seeds must choose equal batches. Empty
+sampling checks the `Either` error, and sequential batching covers both
+`dropLast` modes.
+
+## Debugging checklist
+
+1. Write `N`, `T`, and expected `N-T` examples before looping.
+2. Print input/target pairs for the first and last start indices.
+3. Split tokens before window construction.
+4. If seeded batches differ, compare RNG ownership and prior calls.
+5. Decide and test whether sampling is with or without replacement.
+
 ## Exercises
 
 1. List the first and final windows for length 10 and context 4.

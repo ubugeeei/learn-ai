@@ -144,6 +144,62 @@ Flash Attention preserves exact attention while tiling and computing softmax
 online so the full score matrix need not be materialized in high-bandwidth
 memory.
 
+## Implementation walkthrough
+
+`CausalSelfAttention.forwardWithWeights` begins with shape and non-empty-time
+validation. It applies four dense layers shared across positions: query, key,
+value, and final output projections. Q, K, and V all have shape `[T,C]`.
+
+For each head, `from` and `until` select one contiguous channel slice of width
+`D = C/H`. The head calculation is:
+
+```scala
+val scores = headQuery.matmul(headKey.transpose2D).scale(scale)
+val weights = scores.causalMask().softmaxRows
+val headOutput = weights.matmul(headValue)
+```
+
+Trace shapes rather than memorizing code:
+
+```text
+Qh [T,D] x Kh^T [D,T] -> scores [T,T]
+weights [T,T] x Vh [T,D] -> head output [T,D]
+H head outputs concatenated -> [T,C]
+output projection -> [T,C]
+```
+
+The causal mask replaces entries where key position `j > i` before softmax.
+Its backward passes gradients only through allowed cells. Softmax is row-wise
+because each query position needs one distribution over key positions.
+
+`Tensor.concatenateColumns` restores original channel order. Concatenating rows
+instead would produce a plausible element count with the wrong semantics. The
+output projection mixes information across heads after concatenation.
+
+The cached method implements the same equation for one query row. It appends
+current key/value first, computes per-head scores against cache positions,
+subtracts the maximum, normalizes, writes weighted head channels, and applies
+the same output projection. It intentionally detaches cached arrays from
+autodiff because generation is forward-only.
+
+## Reading the tests
+
+Row sums and exact future zeros verify mask/softmax order. Changing future input
+while comparing an earlier output tests causality without inspecting weights.
+The prefix-only loss gradient test is stronger: future input gradients must be
+exactly zero. Head split tests use a width divisible by three. Cached attention
+is compared at every prefix against the independent full path. Invalid head
+division and cache overflow cover construction/runtime boundaries.
+
+## Debugging checklist
+
+1. Write `[T,C]`, `[T,D]`, and `[T,T]` beside every intermediate.
+2. Inspect one attention row before combining heads.
+3. Verify masking precedes softmax and uses key index greater than query index.
+4. Check every row sum and future cell.
+5. If cached/full results differ, compare projected Q, appended K/V, score
+   order, position length, and output projection in that order.
+
 ## Exercises
 
 1. Write the causal mask for `T=4`.

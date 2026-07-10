@@ -102,6 +102,58 @@ reaching a theoretical minimum.
 Repeatedly adapting to test results leaks test information into development and
 overstates generalization.
 
+## Implementation walkthrough
+
+`GradientDescent.minimize` receives an initial scalar, a loss function, its
+derivative, a learning rate, and a step count. The derivative is injected rather
+than hidden inside the optimizer, which keeps the update rule independent of
+the objective.
+
+At every iteration the method evaluates loss and gradient at the same current
+parameter, records a `DescentObservation`, and only then updates:
+
+```text
+observe (step, parameter, loss, gradient)
+parameter = parameter - learningRate * gradient
+```
+
+Recording before the update matters. If loss were recorded after updating but
+gradient before, one row would describe two different points and the learning
+curve would be misleading.
+
+For (L(w)=(w-3)^2), (w_0=0), and learning rate `0.25`:
+
+```text
+gradient at 0 = 2(0-3) = -6
+w1 = 0 - 0.25*(-6) = 1.5
+loss falls from 9 to 2.25
+```
+
+The negative gradient points uphill at this point, so subtracting it moves
+toward `3`. With learning rate `1`, the sequence oscillates between `0` and `6`;
+with a rate larger than `1`, magnitude grows. This is why the learning rate is
+part of the algorithm, not a cosmetic option.
+
+The code validates step count, learning rate, initial value, and every computed
+loss/gradient/update. A non-finite value stops at the first invalid iteration
+instead of contaminating the remaining trajectory.
+
+## Reading the tests
+
+The convex quadratic gives a hand-known optimum and monotonic-loss expectation
+for the chosen rate. A zero-step test verifies that only the initial observation
+is returned; it catches off-by-one loop errors. Invalid hyperparameter tests
+ensure negative steps/rates fail before invoking user functions.
+
+## Debugging checklist
+
+1. Print parameter, loss, and gradient from the same observation.
+2. Check whether subtracting the gradient moves toward the hand-known optimum.
+3. Reduce the problem to a quadratic before debugging a neural network.
+4. If loss oscillates, compare learning rate with curvature; do not blame
+   randomness in a deterministic objective.
+5. Locate the first non-finite update and inspect its gradient magnitude.
+
 ## Exercises
 
 1. Compare learning rates `0.01`, `0.5`, `1.0`, and `1.1`.

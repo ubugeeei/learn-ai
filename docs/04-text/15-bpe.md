@@ -112,6 +112,53 @@ external memory.
 Production designs also specify normalization, pre-tokenization, special-token
 collision rules, byte fallback, streaming, and artifact compatibility.
 
+## Implementation walkthrough
+
+Training begins with one token per UTF-8 byte. For every iteration,
+`BpeTrainer` counts adjacent token pairs over each corpus item independently.
+It selects the highest frequency; ties use pair token IDs so equal-frequency
+corpora produce the same merge table on every JVM.
+
+For `banana`, initial byte-symbol text is `b a n a n a`. Adjacent counts are:
+
+```text
+(b,a): 1
+(a,n): 2
+(n,a): 2
+```
+
+The deterministic tie rule chooses one of `(a,n)` and `(n,a)` by ID order. The
+chosen pair is replaced left-to-right with a new token ID. Non-overlapping
+replacement matters: merging `(a,a)` in `aaa` can produce only one merged token
+plus one `a`, not two overlapping results.
+
+Each `BpeMerge` stores left, right, and result IDs. `fromMerges` validates that
+new results are topologically ordered: both inputs must already exist. Decode
+expands learned tokens recursively back to base bytes, then uses strict UTF-8
+decoding. Encode applies learned merges in table order, matching the training
+vocabulary construction.
+
+The vocabulary starts at 256 base byte IDs. Training stops when it reaches the
+target, no pair remains, or the corpus is too short. An empty or one-token item
+contributes no pair rather than causing a special case later.
+
+## Reading the tests
+
+Unicode round trips verify that merges operate on bytes without losing text.
+Repeated `banana` proves frequent pairs reduce token count. Equal-frequency
+training repeated twice detects nondeterministic map iteration. A corpus with
+no pairs checks early termination. Invalid token IDs and out-of-order merge
+tables verify artifact validation, not just training.
+
+## Debugging checklist
+
+1. Print the byte-token sequence before the first merge.
+2. Count pairs separately per corpus item; never cross document boundaries.
+3. Specify tie ordering explicitly.
+4. Verify replacement is left-to-right and non-overlapping.
+5. On decode failure, expand one learned ID recursively and inspect final bytes.
+6. Version the merge table with any model that consumes its IDs.
+
 ## Exercises
 
 1. Count all pairs in `banana` and predict the first merge.

@@ -129,6 +129,60 @@ For vocabulary \(V\), context \(T\), and channels \(C\):
 Token embedding often dominates at large vocabularies. Weight tying reuses its
 transpose as the output classifier.
 
+## Implementation walkthrough
+
+`Embedding` owns a trainable weight `Tensor` with shape `[entries, channels]`.
+`apply(indices)` first validates every integer against `0 <= id < entries`, then
+delegates to `gatherRows`. The output shape is `[indices.size, channels]`.
+Repeated IDs deliberately select the same source row, so backward accumulates
+all contributions into one embedding vector.
+
+Consider a table with three rows and two channels:
+
+```text
+E = [[1, 0],
+     [0, 1],
+     [2, 3]]
+ids = [2, 0, 2]
+output = [[2,3], [1,0], [2,3]]
+```
+
+If the loss sends gradients `[a,b]` and `[c,d]` to the two appearances of ID
+`2`, row two receives `[a+c,b+d]`. This is parameter sharing, not accidental
+aliasing.
+
+`TokenPositionEmbedding` owns separate token and position tables whose channel
+counts must match. For a sequence of length `T`, it gathers token rows by token
+ID and position rows by `0 until T`, then adds equal-shaped tensors. The cached
+inference method `at(tokenId, position)` performs the same operation for one
+explicit position.
+
+`Linear.apply` checks `[rows,inputChannels]`, computes matmul with weight
+`[inputChannels,outputChannels]`, and calls `addRowVector` for bias. The named
+broadcast operation is important: bias backward must sum contributions across
+all rows.
+
+`RmsNorm.apply` delegates to the fused Tensor operation with one learned scale
+per channel. Its epsilon protects the inverse root when a row is all zero.
+
+## Reading the tests
+
+Lookup tests use explicit tables so expected rows are independent of random
+initialization. Repeated-token position tests show that equal token IDs can
+produce different combined vectors. Linear tests calculate affine outputs by
+hand. RMSNorm checks row mean-square and uses finite differences for both input
+and scale gradients. Range and context-limit tests ensure errors occur before
+gathering.
+
+## Debugging checklist
+
+1. Separate token IDs, position IDs, token rows, and position rows.
+2. Check table/output shapes before values.
+3. If repeated IDs have wrong gradients, inspect `gatherRows` accumulation.
+4. If bias gradients are wrong, verify reduction across rows.
+5. If RMSNorm produces large values, inspect row mean square and epsilon before
+   the learned scale.
+
 ## Exercises
 
 1. Compute parameter count and fp16 bytes for `V=50,000`, `C=4,096`.

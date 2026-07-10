@@ -138,6 +138,49 @@ by mixing earlier positions with attention. The following remain unchanged:
 - backward and optimizer;
 - autoregressive generation.
 
+## Implementation walkthrough
+
+`BigramLanguageModel` owns one trainable matrix with shape `[V,V]`. Row `i`
+contains logits for the next token after input token `i`. Applying the model is
+therefore an embedding-style row gather, not a matrix multiplication.
+
+For vocabulary `{A,B,C}`, suppose the desired cycle is `A->B`, `B->C`,
+`C->A`. Training pairs are the three corresponding row/target selections. Cross
+entropy increases the target column logit in each selected row and decreases
+competitors. No hidden state exists, so two equal current tokens always produce
+the same next-token distribution regardless of earlier history.
+
+`loss` validates input/target lengths and ranges, gathers transition rows, and
+calls Tensor cross entropy. Backward accumulates gradients if an input token
+appears multiple times because `gatherRows` routes repeated selections into the
+same matrix row.
+
+Generation begins with a validated start token. Each step selects the last
+generated ID, converts its row logits to a stable softmax distribution, samples
+with the caller RNG, and appends. The returned vector includes the start token;
+requesting zero new tokens returns exactly that one validated token.
+
+`BigramTrainer` rebuilds the loss graph every step and updates the single
+parameter through AdamW. This small model is the first complete path from token
+IDs through loss, backward, optimizer, and seeded generation.
+
+## Reading the tests
+
+Logit lookup checks exact output shape and rows. The three-token cycle has a
+known learnable optimum and verifies large loss reduction plus dominant target
+probabilities. Equal generation seeds test RNG ownership. Zero-length
+generation catches loop boundaries. Invalid IDs and temperatures fail before
+indexing or softmax.
+
+## Debugging checklist
+
+1. Interpret a failing prediction as one row and one target column.
+2. Verify targets are shifted exactly one position.
+3. Check repeated input IDs accumulate into one row gradient.
+4. If loss falls but generation looks repetitive, remember bigram context is
+   exactly one token.
+5. Compare logits, probabilities, and sampled ID as separate stages.
+
 ## Exercises
 
 1. Count parameters for a vocabulary of 3.

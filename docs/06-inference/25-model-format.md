@@ -120,6 +120,55 @@ model structure. Safetensors follows the same data-not-code principle.
 - atomic replacement of an existing file;
 - invalid assignment leaves old values unchanged.
 
+## Implementation walkthrough
+
+`MiniGptCheckpoint.save` first converts config and every parameter into a
+deterministic payload. Parameter order comes from `model.parameters`; labels,
+shapes, and values are written so load can reject structurally incompatible
+data rather than assigning by coincidence.
+
+The outer file has a magic identifier, format version, payload length, payload,
+and checksum. Integers use an explicit byte order. Strings and vectors are
+length-prefixed, so the reader never searches for delimiter bytes inside binary
+data.
+
+Saving writes to a temporary sibling file, flushes/closes it, then replaces the
+destination atomically. A crash before replacement leaves the prior checkpoint
+intact; direct overwrite could leave a truncated file that appears current.
+
+Loading reverses the trust boundary in defensive order:
+
+```text
+read bounded bytes
+  -> validate magic/version/declared length
+  -> verify checksum
+  -> parse config and metadata
+  -> construct a model with required shapes
+  -> validate all parameter records
+  -> assign only after complete validation
+```
+
+`assignParameterValues` validates count and finiteness for the whole input
+before mutating any element. This all-or-nothing property prevents a late bad
+value from leaving a half-loaded parameter.
+
+## Reading the tests
+
+Save/load compares config, labels, parameters, and logits—not just file bytes.
+One corrupted byte must fail checksum before parsing. Truncation must return an
+error rather than a partial model. Replacing an existing path verifies atomic
+workflow. Tensor assignment explicitly tests that rejected input leaves prior
+values unchanged.
+
+## Debugging checklist
+
+1. Inspect magic, version, and declared payload length before model fields.
+2. Verify checksum on raw payload bytes before decoding values.
+3. Compare parameter label and shape at the first mismatch.
+4. Never partially assign while still validating later records.
+5. Reproduce writes on a temporary path and inspect atomic-move support.
+6. Treat every size from the file as untrusted and bounded.
+
 ## Exercises
 
 1. Inspect magic and version in a hex viewer.

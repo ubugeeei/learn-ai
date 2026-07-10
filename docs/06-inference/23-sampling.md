@@ -99,6 +99,48 @@ Exact tasks may prefer greedy or low temperature. Creative tasks may benefit
 from moderate entropy. High-impact tool actions still require schemas and
 policy gates regardless of decoding.
 
+## Implementation walkthrough
+
+`Sampling.distribution` applies policy in a fixed order: temperature, softmax,
+top-k, renormalization, top-p, final renormalization. Changing order changes the
+distribution, so the order is part of the public behavior.
+
+For logits `[3,2,1,0]`, top-k `2` retains token IDs `0` and `1`. Probabilities
+for other IDs become zero and the survivors are renormalized. Top-p instead
+sorts probability/index pairs descending, accumulates until the threshold is
+reached, and keeps the smallest prefix that crosses it. At least one token is
+always retained, even for a very small threshold.
+
+Temperature divides logits before softmax. Values below one magnify differences
+and lower entropy; values above one flatten them. Temperature must be finite and
+positive—zero is not a supported shorthand for greedy decoding. Use top-k one
+for deterministic greedy behavior.
+
+Tie ordering uses smaller token ID. Without this secondary key, equal
+probabilities could be ordered by collection implementation details and fixed-
+seed sampling would drift. `normalize` requires positive remaining mass and
+scales by its sum.
+
+`Sampling.sample` owns no random state. It receives a `RandomGenerator`, builds
+the filtered `Categorical`, and asks it for one ID. Reproducibility therefore
+depends on both policy and prior RNG calls.
+
+## Reading the tests
+
+Top-k one has a deterministic argmax oracle. Top-k larger than vocabulary tests
+clamping. A constructed probability vector gives a hand-known nucleus. Entropy
+comparison verifies temperature direction. Equal-logit ties verify ID ordering.
+Equal seeds verify the complete filtered sampling path. Invalid policy values
+fail at `SamplingConfig` construction.
+
+## Debugging checklist
+
+1. Print logits after temperature but before softmax.
+2. Print retained IDs and mass after each filter.
+3. Renormalize after removing tokens.
+4. Specify deterministic tie ordering.
+5. If seeded samples drift, compare policy order and RNG call count.
+
 ## Exercises
 
 1. Compute probabilities and entropy for logits `[0,1,2]` at several

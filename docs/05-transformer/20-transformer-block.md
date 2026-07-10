@@ -126,6 +126,53 @@ Whether dropout helps depends on data and model scale and must be measured.
 Attention causality alone is insufficient if another block component mixes
 time positions incorrectly.
 
+## Implementation walkthrough
+
+`FeedForward` owns `expansion: Linear(C,F)` and
+`projection: Linear(F,C)`. It validates the final channel axis, applies
+expansion, ReLU, and projection. The same two layers process every time row;
+there is no interaction across positions in the FFN.
+
+`TransformerBlock.apply` mirrors the two pre-norm equations without hidden
+mutation:
+
+```scala
+val afterAttention = input + attention(attentionNorm(input))
+afterAttention + feedForward(feedForwardNorm(afterAttention))
+```
+
+The first residual must add attention output to the original `input`, not to
+the normalized input. The second norm must read `afterAttention`, because the
+attention branch has already updated the residual stream. These distinctions
+are easy to lose in a long expression and are why the intermediate has a name.
+
+All tensors preserve `[T,C]` around residual additions. Only internal attention
+and FFN shapes change. `parameters` follows forward ownership order: attention
+norm, four attention projections, FFN norm, expansion, projection. Stable order
+is required by checkpoint serialization and optimizer state.
+
+`forwardCached` differs only in the attention call and the required input time
+dimension of one. RMSNorm and FFN are position-wise, so they need no cache. One
+layer-specific KV cache is passed to attention; sharing it between blocks would
+mix projections from different parameter sets.
+
+## Reading the tests
+
+Shape preservation catches residual/FFN-width mistakes. Parameter count is
+calculated component by component, so missing bias/norm parameters fail. A
+scalar output is backpropagated to input and every parameter, verifying graph
+connectivity. Whole-block causality catches any future mixing outside
+attention. Invalid hidden width fails during construction.
+
+## Debugging checklist
+
+1. Name the residual stream before and after each branch.
+2. Verify norm input and residual addend are not accidentally the same tensor.
+3. Check branch output is `[T,C]` before addition.
+4. If a parameter has zero gradient, trace whether its branch output reaches
+   the scalar loss.
+5. If causality fails, test attention and FFN row independence separately.
+
 ## Exercises
 
 1. Count parameters for `C=768`, `F=3072`.

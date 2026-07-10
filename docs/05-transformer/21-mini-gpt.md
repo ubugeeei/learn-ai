@@ -156,6 +156,74 @@ Still missing:
 Later chapters scale or refine the same computation rather than replacing it
 with a different principle.
 
+## Implementation walkthrough
+
+`MiniGpt.random` is the ownership root. One `SplittableRandom` initializes token
+and position embeddings, each Transformer block in index order, and the final
+RMSNorm. Labels include ownership paths such as `blocks.0.attention.query`; the
+checkpoint loader later uses stable parameter order and labels as structural
+evidence.
+
+`logits` is intentionally short because earlier types own their invariants:
+
+```scala
+val embedded = embeddings(tokenIds)
+val hidden = blocks.foldLeft(embedded)((current, block) => block(current))
+val normalized = finalNorm(hidden)
+normalized.matmul(embeddings.tokens.weight.transpose2D)
+```
+
+Trace a concrete configuration `V=5`, `T=3`, `C=4`, `L=1`:
+
+```text
+token IDs                 [3]
+embedding                 [3,4]
+one block                 [3,4]
+final norm                [3,4]
+token table transpose     [4,5]
+logits                    [3,5]
+targets                   [3]
+cross entropy             scalar
+```
+
+`loss` validates target length and every target vocabulary ID before calling
+`logits`. `Tensor.crossEntropy` then fuses stable log-sum-exp forward and
+`(softmax-oneHot)/T` backward. Fusing avoids building a large one-hot graph but
+keeps the exact derivative documented in Tensor.
+
+`parameters` concatenates embeddings, all block parameters, and final norm.
+The output head adds no parameter because it reuses the token table transpose.
+The `distinct` test ensures this shared Tensor is returned once.
+
+`MiniGptTrainer.trainSequence` creates AdamW once so moments persist across
+steps, but constructs loss anew each iteration. It records loss before
+backward/update, matching Chapter 9's trajectory convention. Gradient clipping
+is enabled at norm one.
+
+Reference generation crops context, runs `logits`, selects the final row,
+softmaxes after temperature scaling, samples, and appends. It is deliberately
+simple enough to serve as the correctness oracle for cached generation.
+
+## Reading the tests
+
+Logit shape and finite values verify the full forward path. Parameter count is
+derived from embeddings, four attention projections, two norms, two FFN
+projections, and final norm. Training uses a fixed sequence and checks a strong
+loss decrease. Future-token replacement tests prefix causality at model level.
+Equal seeds verify generation reproducibility. Cached/full tests compare every
+position and context-rebuild behavior. Boundary tests cover invalid config,
+context, target, and empty prompt.
+
+## Debugging checklist
+
+1. Trace shapes from IDs to logits with the actual config values.
+2. Verify target IDs are the one-token-shifted sequence.
+3. Inspect loss, global gradient norm, and one parameter update separately.
+4. If training loss is flat, confirm every owned parameter reaches `parameters`.
+5. If generation differs with equal seeds, compare context crop, logits row,
+   probability filter, and RNG call count.
+6. Never use generated text quality as the first forward-correctness test.
+
 ## Exercises
 
 1. Compute the config's full parameter count.

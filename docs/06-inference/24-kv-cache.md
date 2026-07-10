@@ -185,7 +185,54 @@ This is a transparent educational microbenchmark, not a replacement for JMH.
 Do not copy its timing into a general performance claim. Re-run it on the
 target hardware and retain the full environment output.
 
-## 9. Failure modes to test
+## 9. Implementation walkthrough
+
+`AttentionKeyValueCache` allocates two fixed arrays of
+`capacity * channels`. `currentLength` is the only logical-size mutation.
+Appending validates `[1,C]` key/value tensors and remaining capacity, copies one
+row at offset `currentLength * channels`, then increments length. Clearing sets
+length to zero without reallocating or erasing bytes; inaccessible old rows are
+overwritten by later appends.
+
+`MiniGptInferenceSession` creates exactly one cache per block. `append` embeds
+the token at `currentLength`, folds the one-row tensor through blocks paired
+with their caches, applies final norm and tied projection, then increments the
+session length and work counter. Length increments only after all blocks
+succeed, so every layer cache and the session remain aligned.
+
+`generateCached` has a subtle loop boundary. Prefill computes logits after the
+last prompt token. Each iteration samples from those logits. The sampled final
+token does not need another forward pass when no further token will be sampled;
+this is why cached work is `P + (N-1)` rather than `P + N`.
+
+When capacity remains, the sampled token is appended once. At capacity, the
+code forms the retained window and calls `rebuild`, which clears layer caches
+but intentionally preserves cumulative work counters. Reference work is counted
+independently from actual session evaluations.
+
+The benchmark constructs one fixed model and equal-seed workloads, checks token
+equality before timing, warms both paths, measures repeated runs, and prints a
+checksum. Environment detection records JVM, OS, and CPU. This is still a
+microbenchmark; it does not control JVM compilation as rigorously as JMH.
+
+## 10. Reading the tests
+
+Attention-level equivalence isolates cache indexing from block/model behavior.
+Model-level prefix comparison catches position and layer ownership errors.
+Generation across capacity verifies rebuild semantics. A deterministic work-
+count test asserts `9` reference rows versus `4` cached rows for a small case;
+it is not a timing assertion. Overflow/reset tests define mutation boundaries.
+
+## 11. Debugging checklist
+
+1. Assert all layer cache lengths equal session length after every token.
+2. Compare one layer's projected key/value row before attention.
+3. Compare cached scores with the final row of full-prefix scores.
+4. Verify current K/V is appended before attending.
+5. On window shift, compare absolute position IDs and rebuild from zero.
+6. Separate token-work counts, cache payload, and wall-clock measurement.
+
+## 12. Failure modes to test
 
 - zero or negative cache dimensions;
 - append after fixed capacity;

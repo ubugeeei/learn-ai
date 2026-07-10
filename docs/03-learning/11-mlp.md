@@ -138,6 +138,53 @@ $ nix develop -c sbt 'runMain learnai.nn.trainXor'
 The fixed seed makes the initialization and learning curve reproducible. Tests
 require low loss and the correct sign for all four examples.
 
+## Implementation walkthrough
+
+`Neuron.apply` is the first place where parameters, data, and autodiff meet. It
+checks input width, pairs each input with one weight, multiplies the `Value`
+nodes, sums them with the bias, then applies the configured activation:
+
+\[
+y=\phi\left(b+\sum_i w_i x_i\right)
+\]
+
+For inputs `[2,-1]`, weights `[0.5,3]`, and bias `1`, the pre-activation is
+`1 + 0.5*2 + 3*(-1) = -1`. With tanh the output is about `-0.7616`. Keeping the
+pre-activation calculation explicit makes it possible to compare one neuron
+with a calculator before stacking layers.
+
+`Layer` owns a vector of neurons and maps the same input vector through each.
+`MultiLayerPerceptron` folds one vector through successive layers. Parameter
+enumeration follows the same ownership tree and returns weights then biases in
+stable order; the optimizer and deterministic tests depend on that order.
+
+Random construction accepts one caller-owned `SplittableRandom`. It does not
+create a new seed per neuron. Equal top-level seeds therefore consume values in
+the same deterministic sequence and produce equal models.
+
+XOR cannot be separated by one linear boundary. The hidden layer learns
+nonlinear features; the output combines them. Training iterates the four points,
+builds a fresh scalar graph, computes mean squared error, calls backward, and
+updates every parameter. The small dataset is intentionally overfit so every
+prediction can be inspected.
+
+## Reading the tests
+
+The neuron test uses explicit weights and a hand-computable affine value.
+Equal-seed construction verifies RNG ownership. The XOR integration test checks
+both a large loss reduction and all four classifications; loss alone could fall
+while one point remains wrong. Wrong-width input must fail at the first neuron
+instead of producing a partial dot product.
+
+## Debugging checklist
+
+1. Verify one affine neuron before a full layer.
+2. Print pre-activation and activation separately.
+3. Confirm every parameter appears exactly once in `parameters`.
+4. If equal seeds differ, compare random consumption order.
+5. If XOR stalls, inspect all four predictions, gradient magnitudes, activation
+   saturation, and graph rebuilding before changing architecture.
+
 ## Exercises
 
 1. Recompute the 17 parameters.

@@ -103,6 +103,46 @@ Runtime representation is `Int`, but the API has a distinct semantic type.
 Lengths and offsets are less likely to be passed accidentally, and construction
 rejects negative IDs.
 
+## Implementation walkthrough
+
+`Utf8.encodeBytes` delegates character-to-byte conversion to the JDK's UTF-8
+implementation, then maps signed JVM bytes into unsigned integers with
+`byte & 0xff`. This is why base token IDs occupy exactly `0..255` even though
+Java `Byte` ranges from `-128..127`.
+
+`decodeBytes` reverses the conversion only after validating every integer is in
+the byte range. A `CharsetDecoder` is configured to report malformed and
+unmappable input instead of inserting the replacement character. Silent
+replacement would make `decode(encode(text))` look successful while corrupting
+invalid token sequences.
+
+Work one example. ASCII `A` becomes one byte `0x41`. The euro sign becomes
+three bytes `E2 82 AC`; the rocket emoji becomes four bytes `F0 9F 9A 80`.
+Visible-character count, Unicode code-point count, UTF-16 code-unit count, and
+UTF-8 byte count are therefore different quantities.
+
+`ByteTokenizer.encode` maps each unsigned byte to `TokenId` and optionally adds
+begin/end special IDs outside `0..255`. Decode either skips known specials or
+rejects them, depending on the explicit flag. `TokenId` prevents negative IDs
+at construction but vocabulary-specific upper bounds remain the model or
+tokenizer's responsibility.
+
+## Reading the tests
+
+Round trips include ASCII, accented Latin text, and emoji so one-byte-only code
+cannot pass. Explicit byte counts exercise one-, three-, and four-byte cases.
+A lone continuation byte is a compact malformed UTF-8 oracle. Special-token
+tests cover both skip and strict behavior. Negative ID rejection protects every
+downstream embedding lookup.
+
+## Debugging checklist
+
+1. Print bytes as unsigned hexadecimal, not signed decimal.
+2. Distinguish UTF-16 `String.length` from Unicode code points and UTF-8 bytes.
+3. Configure decoder error actions before decoding untrusted bytes.
+4. If round trip fails, compare raw bytes before tokenizer IDs.
+5. Keep special-token IDs outside the byte vocabulary and version their meaning.
+
 ## Exercises
 
 1. Encode your name and print each byte in hexadecimal.

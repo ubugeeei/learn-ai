@@ -120,6 +120,51 @@ $ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
 The experiment reports payload bytes and reconstruction error. Performance
 claims require a warmed repeated benchmark.
 
+## Implementation walkthrough
+
+`QuantizedInt8Matrix.quantize` processes one matrix row at a time. It finds the
+largest absolute value and chooses
+
+\[
+s_r = \max_j |w_{rj}| / 127
+\]
+
+For an all-zero row it uses a valid non-zero scale so dequantization and matvec
+never divide by zero. Each weight is divided by the row scale, rounded to the
+nearest integer, and clamped to `[-127,127]`. The implementation avoids `-128`
+to keep symmetric positive/negative range.
+
+For row `[-2,-1,0,1,2]`, scale is `2/127`. Codes are approximately
+`[-127,-64,0,64,127]`; reconstructed `64*(2/127)` is about `1.0079`. The error
+comes from rounding to the nearest grid point.
+
+The quantized object owns byte-like integer payload and one `Double` scale per
+row. `storageBytes` counts payload plus scale data explicitly. `matvec` does not
+materialize a full dequantized matrix: it multiplies each code by the row scale
+inside the dot product. This saves storage but the Scala loop is not a packed
+SIMD int8 kernel.
+
+`QuantizationMetrics.compare` checks equal shape, then reports maximum absolute
+error, mean absolute error, and root mean squared error. These describe weight
+reconstruction, not language-model quality.
+
+## Reading the tests
+
+All-zero rows define the scale boundary. Row extrema must map to symmetric
+limits. The half-scale error bound comes from nearest-grid rounding and is an
+independent mathematical oracle. Quantized matvec is compared with `MatrixD`
+reference. Exact reconstruction gives zero metrics. Storage tests choose a row
+wide enough that scale metadata does not erase payload savings.
+
+## Debugging checklist
+
+1. Print row maximum, scale, raw quotient, rounded code, and reconstruction.
+2. Handle the zero row before division.
+3. Verify clamping and symmetric range.
+4. Separate weight error, output error, task quality, storage, and latency.
+5. Do not claim faster inference without a packed kernel benchmark on target
+   hardware.
+
 ## Exercises
 
 1. Quantize row `[-2,-1,0,1,2]` by hand.

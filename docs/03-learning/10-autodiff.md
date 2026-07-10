@@ -140,6 +140,61 @@ Hand derivation, finite differences, and autodiff are three independent views.
 
 The Tensor engine groups many scalars into one operation node.
 
+## Implementation walkthrough
+
+`Value` separates two kinds of nodes. `Value.parameter` creates a trainable
+leaf whose data may change during optimization. `Value.constant` creates a
+non-trainable leaf. Every arithmetic method computes forward data immediately,
+creates an operation node with parent references, and installs a closure that
+knows how to send an upstream gradient to those parents.
+
+Trace `z = x * y + x.pow(2)` with `x=2`, `y=-3`:
+
+```text
+m = x*y   = -6
+p = x^2   = 4
+z = m+p   = -2
+```
+
+Backward begins by discovering nodes with a depth-first traversal. An
+`IdentityHashMap` is used because two distinct nodes may have equal data and
+labels but must remain separate graph vertices. The topological order contains
+each object once. Gradients are cleared, `z.gradient` is seeded to one, and
+closures run in reverse order.
+
+The addition closure sends `1 * upstream` to both `m` and `p`. Multiplication
+sends `y * upstream` to `x` and `x * upstream` to `y`. Power sends
+`2*x * upstream` to `x`. The two contributions to `x` accumulate:
+
+```text
+from x*y: y = -3
+from x^2: 2*x = 4
+total dz/dx = 1
+dz/dy = x = 2
+```
+
+`applyGradient` is restricted to trainable leaves. Updating operation nodes
+would break the relationship between their stored data and parents. Graph data
+is a forward-time snapshot, so training builds a new graph after every update.
+
+## Reading the tests
+
+The product/sum test checks local rules with hand arithmetic. The reused-node
+test is the minimal detector for assignment instead of accumulation. A
+composite function is checked with central differences, an implementation
+independent of the graph. A second `backward()` call verifies old gradients are
+cleared. Domain tests for `log` catch invalid forward values before backward.
+
+## Debugging checklist
+
+1. Draw the graph and mark shared object identities.
+2. Print topological order and confirm every node appears once.
+3. Seed only the scalar root with gradient one.
+4. If a shared-node gradient is too small, search for assignment instead of
+   accumulation.
+5. If finite differences disagree, compare one local rule at a time.
+6. Rebuild the graph after parameter updates.
+
 ## Exercises
 
 1. Differentiate \((x+2)^3\) by hand and with `Value`.
