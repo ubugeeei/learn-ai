@@ -47,7 +47,7 @@
 | # | 状態 | 章 | 成果物 |
 | --- | --- | --- | --- |
 | 14 | ✅ | Unicode と byte | UTF-8 tokenizer |
-| 15 | ⬜ | BPE | train/encode/decode 可能な tokenizer |
+| 15 | ✅ | BPE | train/encode/decode 可能な tokenizer |
 | 16 | ⬜ | dataset と batch | causal language modeling dataset |
 | 17 | ⬜ | bigram 言語モデル | 次 token 予測と文章生成 |
 

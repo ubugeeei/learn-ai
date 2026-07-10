@@ -12,6 +12,7 @@ import learnai.nn.ScalarNetworkSuite
 import learnai.tensor.TensorSuite
 import learnai.optim.OptimizersSuite
 import learnai.text.Utf8Suite
+import learnai.text.BpeTokenizerSuite
 
 object AllTests:
   private val suites: Vector[TestSuite] = Vector(
@@ -26,7 +27,8 @@ object AllTests:
     ScalarNetworkSuite,
     TensorSuite,
     OptimizersSuite,
-    Utf8Suite
+    Utf8Suite,
+    BpeTokenizerSuite
   )
 
   def main(arguments: Array[String]): Unit =
