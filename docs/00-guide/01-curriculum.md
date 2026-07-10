@@ -78,7 +78,7 @@ shape-safe code.
 | 22 | ✅ | Correctness and performance | Gradient checks, parameter inventory, benchmark evidence |
 | 22a | ✅ | Experiment records | canonical configuration identity, corpus hash, runtime manifest |
 | 22b | ✅ | Training system | train/validation, schedules, accumulation, telemetry |
-| 22c | ⬜ | Exact resume | model, optimizer, scheduler, data cursor, random state |
+| 22c | ✅ | Exact resume | model, optimizer, scheduler, data cursor, random state |
 
 **Part deliverable:** train a small GPT and explain every parameter.
 

@@ -158,10 +158,10 @@ object MiniGptTraining:
     * subsequent validation runs occur at the configured interval and always on
     * the final update. The returned model is left with cleared gradients.
     *
-    * This chapter does not yet implement resumable random/optimizer state.
-    * Re-running from update zero with the same model initialization, data,
-    * configuration, and seed is deterministic; resuming mid-run is Chapter
-    * 22c's separate contract.
+    * This loop is deterministic for a fixed seed but not resumable, because
+    * `SplittableRandom` hides its state. Mid-run checkpointing with exact
+    * continuation is Chapter 22c's contract, implemented by
+    * [[ResumableMiniGptTraining]].
     */
   def train(
       model: MiniGpt,
@@ -278,7 +278,7 @@ object MiniGptTraining:
     }
     weightedLoss / examples.toDouble
 
-  private def validateDatasets(
+  private[training] def validateDatasets(
       model: MiniGpt,
       training: CausalDataset,
       validation: CausalDataset

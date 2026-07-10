@@ -25,6 +25,7 @@ import learnai.transformer.RopeSuite
 import learnai.transformer.SwiGluSuite
 import learnai.transformer.TransformerBlockSuite
 import learnai.training.MiniGptTrainingSuite
+import learnai.training.ResumableTrainingSuite
 import learnai.transformer.MiniGptSuite
 import learnai.lm.SamplingSuite
 import learnai.io.MiniGptCheckpointSuite
@@ -67,6 +68,7 @@ object AllTests:
     GroupedQueryAttentionSuite,
     MiniGptSuite,
     MiniGptTrainingSuite,
+    ResumableTrainingSuite,
     SamplingSuite,
     MiniGptCheckpointSuite,
     Int8QuantizationSuite,
