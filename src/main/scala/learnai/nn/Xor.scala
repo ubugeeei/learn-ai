@@ -1,9 +1,12 @@
 package learnai.nn
 
+/** One two-dimensional XOR input and its signed target label. */
 final case class LabeledPoint(inputs: Vector[Double], target: Double)
 
+/** Trained XOR model plus the loss observed before every parameter update. */
 final case class XorTrainingResult(model: MultiLayerPerceptron, lossHistory: Vector[Double])
 
+/** Deterministic end-to-end fixture proving that a nonlinear MLP can fit XOR. */
 object Xor:
   val dataset: Vector[LabeledPoint] = Vector(
     LabeledPoint(Vector(-1.0, -1.0), -1.0),

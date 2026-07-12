@@ -52,6 +52,7 @@ object AllTests:
   private val suites: Vector[TestSuite] = Vector(
     DocumentationLanguageSuite,
     DocumentationStructureSuite,
+    RepositoryCoverageSuite,
     BenchmarkSuite,
     GradientCheckSuite,
     ExperimentManifestSuite,

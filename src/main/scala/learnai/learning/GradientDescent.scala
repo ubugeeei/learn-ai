@@ -2,8 +2,10 @@ package learnai.learning
 
 import learnai.math.Numerics
 
+/** One immutable point in an optimization trace, recorded before its update. */
 final case class DescentObservation(step: Int, parameter: Double, loss: Double, gradient: Double)
 
+/** Reference scalar gradient descent with explicit validation and a complete trace. */
 object GradientDescent:
   def minimize(
       loss: Double => Double,

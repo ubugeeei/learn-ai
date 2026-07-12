@@ -35,15 +35,16 @@ After completing the curriculum, you should be able to:
 ## Start here
 
 1. Read the [visual map and minimum glossary](docs/00-guide/09-visual-map-and-glossary.md).
-2. Read [How to learn](docs/00-guide/00-how-to-learn.md).
-3. Read the [complete chapter anatomy](docs/00-guide/04-chapter-anatomy.md).
-4. Read the [professional competency roadmap](docs/00-guide/05-professional-roadmap.md)
+2. Check the [coverage audit](docs/00-guide/10-coverage-audit.md) for complete and incomplete scope.
+3. Read [How to learn](docs/00-guide/00-how-to-learn.md).
+4. Read the [complete chapter anatomy](docs/00-guide/04-chapter-anatomy.md).
+5. Read the [professional competency roadmap](docs/00-guide/05-professional-roadmap.md)
    so the small reference implementations are not mistaken for the finish line.
-5. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
-6. Run the verification command in every completed chapter.
-7. Solve exercises before reading or implementing an answer.
-8. Explain each part's deliverable in your own words.
-9. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
+6. Follow the [curriculum](docs/00-guide/01-curriculum.md) in order.
+7. Run the verification command in every completed chapter.
+8. Solve exercises before reading or implementing an answer.
+9. Explain each part's deliverable in your own words.
+10. Use the [primary paper reading map](docs/09-papers/40-primary-reading-map.md)
    after each implementation milestone.
 
 The code is cumulative rather than disposable. Each chapter adds a tested

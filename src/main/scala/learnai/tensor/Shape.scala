@@ -1,5 +1,11 @@
 package learnai.tensor
 
+/**
+ * Immutable tensor dimensions with checked row-major coordinate conversion.
+ *
+ * Zero-sized dimensions are valid. Construction rejects negative dimensions and integer overflow
+ * while computing total size and strides.
+ */
 final class Shape private (
     val dimensions: Vector[Int],
     private val strides: Vector[Int],

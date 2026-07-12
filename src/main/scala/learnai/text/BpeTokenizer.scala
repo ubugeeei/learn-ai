@@ -2,8 +2,10 @@ package learnai.text
 
 import scala.collection.mutable
 
+/** One ordered BPE rule replacing an adjacent token pair with a newer token. */
 final case class BpeMerge(left: TokenId, right: TokenId, result: TokenId)
 
+/** Deterministic byte-level BPE tokenizer whose merge order is part of its format. */
 final class BpeTokenizer private (
     val merges: Vector[BpeMerge],
     private val tokenBytes: Vector[Vector[Int]]
@@ -68,6 +70,7 @@ object BpeTokenizer:
         index += 1
     replaced.result()
 
+/** Learns frequent adjacent byte-token pairs with deterministic tie breaking. */
 object BpeTrainer:
   def train(corpus: Vector[String], targetVocabularySize: Int): BpeTokenizer =
     require(

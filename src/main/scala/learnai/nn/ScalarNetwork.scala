@@ -4,6 +4,7 @@ import java.util.SplittableRandom
 
 import learnai.autodiff.Value
 
+/** Scalar activation choices supported by the introductory neural network. */
 enum Activation:
   case Linear
   case Tanh
@@ -14,6 +15,7 @@ enum Activation:
     case Tanh   => value.tanh
     case Relu   => value.relu
 
+/** One fully connected scalar neuron owning trainable weights and bias. */
 final class Neuron private[nn] (
     val weights: Vector[Value],
     val bias: Value,
@@ -31,6 +33,7 @@ final class Neuron private[nn] (
 
   def parameters: Vector[Value] = weights :+ bias
 
+/** Fixed-width collection of neurons evaluated against the same input vector. */
 final class Layer private (val inputSize: Int, val outputSize: Int, val neurons: Vector[Neuron]):
   def apply(inputs: Vector[Value]): Vector[Value] =
     require(
@@ -64,6 +67,7 @@ object Layer:
     }
     new Layer(inputSize, outputSize, neurons)
 
+/** Feed-forward scalar network whose parameters participate in reverse-mode autodiff. */
 final class MultiLayerPerceptron private (val layers: Vector[Layer]):
   val inputSize: Int  = layers.head.inputSize
   val outputSize: Int = layers.last.outputSize
@@ -105,6 +109,7 @@ object MultiLayerPerceptron:
     }.toVector
     new MultiLayerPerceptron(layers)
 
+/** Independently named supervised objectives for scalar network examples. */
 object Loss:
   def meanSquaredError(predictions: Vector[Value], targets: Vector[Double]): Value =
     require(predictions.nonEmpty, "mean squared error requires predictions")
@@ -117,6 +122,7 @@ object Loss:
     }
     Value.sum(squaredErrors) / squaredErrors.size.toDouble
 
+/** Minimal stochastic-gradient update over trainable scalar leaves. */
 object Sgd:
   def step(parameters: Vector[Value], learningRate: Double): Unit =
     require(parameters.forall(_.isTrainable), "SGD accepts only trainable values")

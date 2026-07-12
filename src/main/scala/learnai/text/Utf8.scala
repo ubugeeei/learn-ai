@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
+/** Non-negative integer identifier whose representation stays allocation-free. */
 opaque type TokenId = Int
 
 object TokenId:
@@ -13,6 +14,7 @@ object TokenId:
 
   extension (tokenId: TokenId) def value: Int = tokenId
 
+/** Strict UTF-8 conversion that reports malformed input instead of replacement. */
 object Utf8:
   def encodeBytes(text: String): Vector[Int] = text.getBytes(StandardCharsets.UTF_8).iterator
     .map(byte => byte & 0xff).toVector
@@ -31,6 +33,7 @@ object Utf8:
         case error: java.nio.charset.CharacterCodingException =>
           Left(s"invalid UTF-8 byte sequence: ${error.getMessage}")
 
+/** Reversible byte tokenizer with explicit begin/end special tokens. */
 object ByteTokenizer:
   val ByteVocabularySize: Int = 256
   val BeginOfText: TokenId    = TokenId(256)
