@@ -33,6 +33,8 @@ Commands:
   jvm           Inspect JVM capacity, bounded work, and atomic file publication.
   linear-algebra Inspect rank, eigen residuals, conditioning, and low-rank structure.
   statistics    Estimate uncertainty and probability calibration.
+  tensor-execution Inspect broadcasting, batches, views, and graph lifetime.
+  precision     Compare FP16, BF16, accumulation, and dynamic loss scaling.
   xor           Train a small MLP to solve XOR.
   bigram        Train the simpler pre-Transformer language model.
   test          Compile the repository and run every automated test.
@@ -198,6 +200,24 @@ run_statistics() {
   run_main statistics
 }
 
+run_tensor_execution() {
+  explain \
+    "Tensor execution model" \
+    "Explicit plans map broadcast coordinates, isolate batched matrix products, share backing storage through strided views, and account retained graph bytes." \
+    "Inspect broadcast input offsets, transposed logical order, and activation bytes before release." \
+    "The reference batch operation is forward-only and the immutable view/accounting model is not an optimized tensor runtime."
+  run_main tensor-execution
+}
+
+run_precision() {
+  explain \
+    "Precision engineering" \
+    "Values round through FP32, FP16, and BF16; reductions expose cancellation; dynamic loss scaling unscales finite gradients and skips overflowed updates." \
+    "Compare local precision versus range, FP32 versus FP64 accumulation, and the explicit scaler state transition." \
+    "Format simulation on Double tensors does not provide accelerator kernels, lower Tensor memory, or mixed-precision convergence evidence."
+  run_main precision
+}
+
 run_xor() {
   explain \
     "Scalar autodiff and XOR MLP" \
@@ -244,6 +264,8 @@ case "${1:-help}" in
   jvm) run_jvm ;;
   linear-algebra) run_linear_algebra ;;
   statistics) run_statistics ;;
+  tensor-execution) run_tensor_execution ;;
+  precision) run_precision ;;
   xor) run_xor ;;
   bigram) run_bigram ;;
   test) run_tests ;;

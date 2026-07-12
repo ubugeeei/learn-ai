@@ -49,8 +49,8 @@ shape-safe code.
 | 11 | ✅ | Neurons and MLPs | Network that solves XOR |
 | 12 | ✅ | Tensor autodiff | Explicit Tensor without broadcasting |
 | 13 | ✅ | Optimizers and initialization | SGD, AdamW, clipping |
-| 13a | ⬜ | Tensor execution model | broadcasting, batches, views, graph lifetime |
-| 13b | ⬜ | Precision engineering | float formats, accumulation, loss scaling |
+| 13a | ✅ | Tensor execution model | broadcasting, batches, views, graph lifetime |
+| 13b | ✅ | Precision engineering | float formats, accumulation, loss scaling |
 
 **Part deliverable:** implement and explain forward, loss, backward, and update.
 

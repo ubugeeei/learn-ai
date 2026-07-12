@@ -12,10 +12,12 @@ import learnai.math.runGradientLab
 import learnai.math.runLinearAlgebraLab
 import learnai.math.runStatisticsLab
 import learnai.nn.trainXor
+import learnai.numerics.runPrecisionLab
 import learnai.quantization.runInt8QuantizationLab
 import learnai.training.runMiniGptTrainingLab
 import learnai.training.TrainingCommand
 import learnai.training.TrainingWorkflow
+import learnai.tensor.runTensorExecutionLab
 import learnai.transformer.runKvCacheLab
 import learnai.transformer.runMiniGptDiagnostics
 import learnai.transformer.trainMiniGpt
@@ -43,6 +45,11 @@ object Main:
       "rounding error and stable numerical operations",
       () => runFloatingPointLab()
     ),
+    Lesson(
+      "precision",
+      "compare FP16, BF16, accumulation, and dynamic loss scaling",
+      () => runPrecisionLab()
+    ),
     Lesson("calculus", "finite differences and analytical gradients", () => runGradientLab()),
     Lesson(
       "linear-algebra",
@@ -60,6 +67,11 @@ object Main:
       () => runGradientDescentLab()
     ),
     Lesson("xor", "train a scalar-autodiff multilayer perceptron", () => trainXor()),
+    Lesson(
+      "tensor-execution",
+      "inspect broadcasting, batched matmul, views, and graph lifetime",
+      () => runTensorExecutionLab()
+    ),
     Lesson("bigram", "train and sample a bigram language model", () => trainBigram()),
     Lesson("model", "train and sample the smallest causal Transformer", () => trainMiniGpt()),
     Lesson(

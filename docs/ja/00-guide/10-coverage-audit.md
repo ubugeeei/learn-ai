@@ -3,7 +3,7 @@
 ## 結論
 
 このリポジトリは、宣言したカリキュラム全体については**まだ網羅的ではありません**。
-2026-07-12 時点で、77項目中55項目（71%）が実装済み、22項目（29%）が計画中です。
+2026-07-12 時点で、77項目中57項目（74%）が実装済み、20項目（26%）が計画中です。
 
 ただし「実装済み」は単にソースファイルがあるという意味ではありません。本文、実装、
 コロケーションされた宣言的テスト、実行または観察経路、限界の説明がそろうことを要求
@@ -14,11 +14,11 @@
 | 証拠 | 現在値 | 意味 |
 | --- | ---: | --- |
 | カリキュラム項目 | 77 | このコース自身が掲げる学習範囲 |
-| 実装済み | 55 | 章・コード・検証経路が存在する項目 |
-| 計画中 | 22 | 説明または実装が未完成の項目 |
-| production Scala | 約9,200行 | 標準ライブラリ中心の実装 |
-| 宣言的テスト | 351 case | 正常・境界・失敗・数値propertyの証拠 |
-| 英語正典 | 約70,000語 | 日本語版の翻訳元 |
+| 実装済み | 57 | 章・コード・検証経路が存在する項目 |
+| 計画中 | 20 | 説明または実装が未完成の項目 |
+| production Scala | 約16,000行 | 標準ライブラリ中心の実装 |
+| 宣言的テスト | 383 case | 正常・境界・失敗・数値propertyの証拠 |
+| 英語正典 | 約80,000語 | 日本語版の翻訳元 |
 
 行数は品質を証明しません。抜けを隠さないための規模の参考値です。
 
@@ -44,11 +44,10 @@ flowchart LR
 6. 実行結果が証明することと証明しないことを分ける。
 7. 小規模な教材実装とproduction systemの差を明記する。
 
-## まだ網羅していない22項目
+## まだ網羅していない20項目
 
 | 領域 | 未実装項目 | 網羅に必要な成果物 |
 | --- | --- | --- |
-| tensor | execution model、精度engineering | broadcast/view/batch、float形式/loss scaling |
 | data | corpus manifest/shard | provenance、bounded streaming、shard resume |
 | 分散/serving | tensor/pipeline parallel、ZeRO、scheduler | partition、schedule、coordinated recovery、overload test |
 | architecture | MoE | routing、capacity、load balance、drop test |
@@ -62,17 +61,17 @@ flowchart LR
 
 ## 現在の保証と保証しないこと
 
-現在の55項目については、最小機構をコードから再構築し、failure pathをtestで観察する
-学習経路を目標にしています。`sbt check` はformat、compile、351 case、英日対応、章構造、
+現在の57項目については、最小機構をコードから再構築し、failure pathをtestで観察する
+学習経路を目標にしています。`sbt check` はformat、compile、383 case、英日対応、章構造、
 実装/testのコロケーション、Scaladocのfile-level存在を検証します。
 
 これは次を保証しません。
 
 - GPU clusterでfrontier modelを訓練できること
 - production SLA、security certification、法令適合
-- 22の計画項目が完成していること
+- 20の計画項目が完成していること
 - testされていないすべての入力で正しいこと
 
-したがって、正確な評価は「現在の✅範囲は証拠付きで広いが、カリキュラム全体は71%」
+したがって、正確な評価は「現在の✅範囲は証拠付きで広いが、カリキュラム全体は74%」
 です。進捗率は[カリキュラム](01-curriculum.md)を正典とし、この監査と自動testが誇張を
 防ぎます。

@@ -9,12 +9,14 @@ import learnai.math.VectorDSuite
 import learnai.math.MatrixDSuite
 import learnai.math.LinearAlgebraSuite
 import learnai.math.StatisticsSuite
+import learnai.numerics.PrecisionEngineeringSuite
 import learnai.math.ProbabilitySuite
 import learnai.math.CalculusSuite
 import learnai.learning.GradientDescentSuite
 import learnai.autodiff.ValueSuite
 import learnai.nn.ScalarNetworkSuite
 import learnai.tensor.TensorSuite
+import learnai.tensor.TensorExecutionSuite
 import learnai.optim.OptimizersSuite
 import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
@@ -73,12 +75,14 @@ object AllTests:
     MatrixDSuite,
     LinearAlgebraSuite,
     StatisticsSuite,
+    PrecisionEngineeringSuite,
     ProbabilitySuite,
     CalculusSuite,
     GradientDescentSuite,
     ValueSuite,
     ScalarNetworkSuite,
     TensorSuite,
+    TensorExecutionSuite,
     OptimizersSuite,
     SplitMix64Suite,
     Utf8Suite,
