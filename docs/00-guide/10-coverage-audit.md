@@ -3,7 +3,7 @@
 ## Conclusion
 
 This repository is **not yet comprehensive across its declared curriculum**.
-As of 2026-07-12, 57 of 77 items (74%) are implemented and 20 (26%) are planned.
+As of 2026-07-12, 58 of 77 items (75%) are implemented and 19 (25%) are planned.
 
 Implemented does not merely mean that a source file exists. It requires prose,
 implementation, colocated declarative tests, a runnable or observable path, and
@@ -15,10 +15,10 @@ of that evidence.
 | Evidence | Current value | Meaning |
 | --- | ---: | --- |
 | Curriculum items | 77 | learning scope claimed by this course |
-| Implemented | 57 | chapter, code, and verification path exist |
-| Planned | 20 | explanation or implementation remains incomplete |
+| Implemented | 58 | chapter, code, and verification path exist |
+| Planned | 19 | explanation or implementation remains incomplete |
 | Production Scala | about 16,000 lines | standard-library-centered implementation |
-| Declarative tests | 383 cases | success, boundary, failure, and numerical properties |
+| Declarative tests | 390 cases | success, boundary, failure, and numerical properties |
 | Canonical English prose | about 80,000 words | source mirrored by Japanese translations |
 
 Line count is not a quality proof. It only makes the scale visible without
@@ -46,11 +46,10 @@ A ✅ item requires:
 6. separation of what an observation proves and does not prove;
 7. explicit differences between the small implementation and production systems.
 
-## The 20 areas not yet covered
+## The 19 areas not yet covered
 
 | Area | Missing items | Required artifacts |
 | --- | --- | --- |
-| Data | corpus manifests/shards | provenance, bounded streaming, resumable shards |
 | Distributed/serving | tensor/pipeline parallel, ZeRO, scheduler | partitioning, schedules, recovery, overload tests |
 | Architecture | MoE | routing, capacity, balancing, dropped-token tests |
 | Scaling/data quality | scaling laws, dedup, filters, mixtures | uncertainty, precision/recall, lineage, eval overlap |
@@ -63,15 +62,15 @@ tests, a chapter, and an executable observation.
 
 ## Current guarantees and non-guarantees
 
-For 57 items, the target is a path that lets a learner reconstruct the minimal
+For 58 items, the target is a path that lets a learner reconstruct the minimal
 mechanism and observe failure paths. `sbt check` verifies formatting, compilation,
-383 cases, translation pairing, chapter structure, implementation/test
+390 cases, translation pairing, chapter structure, implementation/test
 colocation, and file-level Scaladoc presence.
 
 It does not guarantee frontier-scale GPU training, production SLAs, security or
-legal certification, completion of the 20 planned areas, or correctness for all
+legal certification, completion of the 19 planned areas, or correctness for all
 untested inputs.
 
 The accurate assessment is: the current ✅ scope is broad and evidence-backed,
-while the declared curriculum is 74% complete. The [curriculum](01-curriculum.md)
+while the declared curriculum is 75% complete. The [curriculum](01-curriculum.md)
 is canonical, and this audit plus automated checks prevents inflated claims.

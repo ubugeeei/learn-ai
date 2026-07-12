@@ -62,7 +62,7 @@ shape-safe code.
 | 15 | ✅ | Byte pair encoding | Trainable BPE encode/decode |
 | 16 | ✅ | Datasets and batches | Causal language-model dataset |
 | 17 | ✅ | Bigram language model | Next-token training and generation |
-| 17a | ⬜ | Corpus manifests and shards | provenance, hashes, bounded streaming reads |
+| 17a | ✅ | Corpus manifests and shards | provenance, hashes, bounded streaming reads |
 | 17b | ✅ | Shuffle and sequence packing | deterministic restart and loss masks |
 
 **Part deliverable:** convert raw text into examples and sample continuations.

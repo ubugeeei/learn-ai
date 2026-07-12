@@ -17,7 +17,7 @@ object TensorExecutionSuite extends TestSuite:
       )
     },
     test("broadcast backward reduces replicated axes to original shapes") {
-      val plan = Assert.right(BroadcastPlan.between(Shape(2, 1), Shape(1, 3)))
+      val plan     = Assert.right(BroadcastPlan.between(Shape(2, 1), Shape(1, 3)))
       val upstream = Vector(1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
       Assert.equal(plan.reduceGradient(upstream, forLeft = true), Vector(6.0, 15.0))
       Assert.equal(plan.reduceGradient(upstream, forLeft = false), Vector(5.0, 7.0, 9.0))
@@ -27,16 +27,16 @@ object TensorExecutionSuite extends TestSuite:
       Assert.isTrue(result.left.exists(_.contains("axis 1")))
     },
     test("transpose is a metadata view and materializes logical order") {
-      val backing = Vector(1, 2, 3, 4, 5, 6).map(_.toDouble)
-      val original = StridedView.contiguous(backing, Shape(2, 3))
+      val backing    = Vector(1, 2, 3, 4, 5, 6).map(_.toDouble)
+      val original   = StridedView.contiguous(backing, Shape(2, 3))
       val transposed = original.transpose(0, 1)
       Assert.isTrue(transposed.backing eq original.backing)
       Assert.equal(transposed.shape, Shape(3, 2))
       Assert.equal(transposed.materialize, Vector(1, 4, 2, 5, 3, 6).map(_.toDouble))
     },
     test("batched matmul keeps batches isolated") {
-      val left = Tensor.constant(Shape(2, 1, 2), Vector(1, 2, 10, 20).map(_.toDouble))
-      val right = Tensor.constant(Shape(2, 2, 1), Vector(3, 4, 5, 6).map(_.toDouble))
+      val left   = Tensor.constant(Shape(2, 1, 2), Vector(1, 2, 10, 20).map(_.toDouble))
+      val right  = Tensor.constant(Shape(2, 2, 1), Vector(3, 4, 5, 6).map(_.toDouble))
       val output = BatchedMatmul(left, right)
       Assert.equal(output.shape, Shape(2, 1, 1))
       Assert.equal(output.values, Vector(11.0, 170.0))

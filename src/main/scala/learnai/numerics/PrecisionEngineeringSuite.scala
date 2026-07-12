@@ -17,7 +17,7 @@ object PrecisionEngineeringSuite extends TestSuite:
       )
     },
     test("float16 has more local precision while bfloat16 has more range") {
-      val nearOne = 1.001
+      val nearOne   = 1.001
       val fp16Error = math.abs(FloatFormat.Float16.round(nearOne) - nearOne)
       val bf16Error = math.abs(FloatFormat.BFloat16.round(nearOne) - nearOne)
       Assert.isTrue(fp16Error < bf16Error)
@@ -26,7 +26,7 @@ object PrecisionEngineeringSuite extends TestSuite:
     },
     test("bfloat16 uses round-to-nearest-even at discarded-bit ties") {
       val even = java.lang.Float.intBitsToFloat(0x3f808000)
-      val odd = java.lang.Float.intBitsToFloat(0x3f818000)
+      val odd  = java.lang.Float.intBitsToFloat(0x3f818000)
       Assert.equal(BFloat16Codec.bits(even) & 0xffff, 0x3f80)
       Assert.equal(BFloat16Codec.bits(odd) & 0xffff, 0x3f82)
     },
@@ -36,7 +36,7 @@ object PrecisionEngineeringSuite extends TestSuite:
       Assert.equal(Accumulation.float64(values), 1.0)
     },
     test("finite scaled gradients unscale before the optimizer and eventually grow") {
-      val first = DynamicLossScaler(1024, growthInterval = 2).unscale(Vector(1024, -2048))
+      val first  = DynamicLossScaler(1024, growthInterval = 2).unscale(Vector(1024, -2048))
       Assert.equal(first.gradients, Vector(1.0, -2.0))
       Assert.isTrue(!first.skipped)
       Assert.equal(first.next.scale, 1024.0)

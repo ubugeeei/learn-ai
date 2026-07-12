@@ -22,6 +22,7 @@ import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
 import learnai.text.Gpt2TokenizerSuite
 import learnai.data.CausalDatasetSuite
+import learnai.data.CorpusShardsSuite
 import learnai.data.PackingSuite
 import learnai.data.ShuffleSuite
 import learnai.diagnostics.BenchmarkSuite
@@ -89,6 +90,7 @@ object AllTests:
     BpeTokenizerSuite,
     Gpt2TokenizerSuite,
     CausalDatasetSuite,
+    CorpusShardsSuite,
     ShuffleSuite,
     PackingSuite,
     BigramLanguageModelSuite,

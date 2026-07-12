@@ -12,21 +12,21 @@ enum FloatFormat:
   /** Rounds a Double through the selected finite-width storage representation. */
   def round(value: Double): Double = this match
     case Float32  => value.toFloat.toDouble
-    case Float16  => java.lang.Float.float16ToFloat(java.lang.Float.floatToFloat16(value.toFloat)).toDouble
+    case Float16  => java.lang.Float.float16ToFloat(java.lang.Float.floatToFloat16(value.toFloat))
+        .toDouble
     case BFloat16 => BFloat16Codec.round(value.toFloat).toDouble
 
 /** IEEE-like bfloat16 conversion using round-to-nearest-even on the discarded low 16 bits. */
 object BFloat16Codec:
   def bits(value: Float): Short =
-    val raw = java.lang.Float.floatToRawIntBits(value)
+    val raw      = java.lang.Float.floatToRawIntBits(value)
     val exponent = raw & 0x7f800000
     if exponent == 0x7f800000 then (raw >>> 16).toShort
     else
       val roundingBias = 0x7fff + ((raw >>> 16) & 1)
       ((raw + roundingBias) >>> 16).toShort
 
-  def fromBits(value: Short): Float =
-    java.lang.Float.intBitsToFloat((value.toInt & 0xffff) << 16)
+  def fromBits(value: Short): Float = java.lang.Float.intBitsToFloat((value.toInt & 0xffff) << 16)
 
   def round(value: Float): Float = fromBits(bits(value))
 
@@ -68,24 +68,32 @@ final case class DynamicLossScaler(
   /** Returns unscaled gradients and the next scaler, or skips the update on NaN/Infinity. */
   def unscale(gradients: Vector[Double]): LossScaleResult =
     if gradients.exists(!_.isFinite) then
-      LossScaleResult(Vector.empty, copy(scale = math.max(scale * backoffFactor, 1.0), finiteSteps = 0), skipped = true)
+      LossScaleResult(
+        Vector.empty,
+        copy(scale = math.max(scale * backoffFactor, 1.0), finiteSteps = 0),
+        skipped = true
+      )
     else
       val nextFiniteSteps = finiteSteps + 1
-      val grow = nextFiniteSteps == growthInterval
-      val next = copy(
+      val grow            = nextFiniteSteps == growthInterval
+      val next            = copy(
         scale = if grow then scale * growthFactor else scale,
         finiteSteps = if grow then 0 else nextFiniteSteps
       )
       LossScaleResult(gradients.map(_ / scale), next, skipped = false)
 
-final case class LossScaleResult(gradients: Vector[Double], next: DynamicLossScaler, skipped: Boolean)
+final case class LossScaleResult(
+    gradients: Vector[Double],
+    next: DynamicLossScaler,
+    skipped: Boolean
+)
 
 /** Prints storage, accumulation, and loss-scaling differences on hand-sized values. */
 def runPrecisionLab(): Unit =
-  val value = 1.0001
+  val value        = 1.0001
   FloatFormat.values.foreach(format => println(f"$format%-8s ${format.round(value)}%.8f"))
   val cancellation = Vector(100000000.0, 1.0, -100000000.0)
   println(s"naive float32 sum: ${Accumulation.naiveFloat32(cancellation)}")
   println(s"float64 sum:       ${Accumulation.float64(cancellation)}")
-  val result = DynamicLossScaler(scale = 1024, growthInterval = 2).unscale(Vector(1024, 2048))
+  val result       = DynamicLossScaler(scale = 1024, growthInterval = 2).unscale(Vector(1024, 2048))
   println(s"unscaled gradients: ${result.gradients.mkString(", ")}")

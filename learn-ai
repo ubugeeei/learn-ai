@@ -37,6 +37,7 @@ Commands:
   precision     Compare FP16, BF16, accumulation, and dynamic loss scaling.
   xor           Train a small MLP to solve XOR.
   bigram        Train the simpler pre-Transformer language model.
+  corpus-shards Build and verify a resumable immutable corpus shard set.
   test          Compile the repository and run every automated test.
   tour          Run model, training, diagnostics, and agent in that order.
 
@@ -236,6 +237,15 @@ run_bigram() {
   run_main bigram
 }
 
+run_corpus_shards() {
+  explain \
+    "Corpus manifests and shards" \
+    "UTF-8 text is split only at code-point boundaries, each shard and the whole corpus are hashed, and bounded reads return an exact resume cursor." \
+    "Inspect provenance, contiguous byte ranges, SHA-256 verification, shard count, and a bounded first read." \
+    "A local immutable file contract does not decide whether a source license permits training or provide distributed object-store transactions."
+  run_main corpus-shards
+}
+
 run_tests() {
   explain \
     "Complete repository verification" \
@@ -268,6 +278,7 @@ case "${1:-help}" in
   precision) run_precision ;;
   xor) run_xor ;;
   bigram) run_bigram ;;
+  corpus-shards) run_corpus_shards ;;
   test) run_tests ;;
   tour)
     run_model

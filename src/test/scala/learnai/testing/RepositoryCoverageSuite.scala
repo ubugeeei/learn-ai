@@ -67,8 +67,8 @@ object RepositoryCoverageSuite extends TestSuite:
       val planned     = curriculum.linesIterator.count(_.contains("| ⬜ |"))
       Assert.isTrue(implemented > 0, "curriculum reports no implemented items")
       Assert.isTrue(planned > 0, "curriculum must not hide unfinished scope")
-      Assert.equal(implemented, 57)
-      Assert.equal(planned, 20)
+      Assert.equal(implemented, 58)
+      Assert.equal(planned, 19)
     }
   )
 

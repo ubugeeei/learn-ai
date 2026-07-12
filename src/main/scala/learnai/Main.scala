@@ -2,6 +2,7 @@ package learnai
 
 import learnai.agent.runAgentEvaluationLab
 import learnai.agent.runPlanningAgentLab
+import learnai.data.runCorpusShardLab
 import learnai.foundations.runScalaTour
 import learnai.foundations.runComplexityLab
 import learnai.foundations.runJvmSystemsLab
@@ -73,6 +74,11 @@ object Main:
       () => runTensorExecutionLab()
     ),
     Lesson("bigram", "train and sample a bigram language model", () => trainBigram()),
+    Lesson(
+      "corpus-shards",
+      "build, verify, stream, and resume an immutable corpus shard set",
+      () => runCorpusShardLab()
+    ),
     Lesson("model", "train and sample the smallest causal Transformer", () => trainMiniGpt()),
     Lesson(
       "gpt-lineage",
