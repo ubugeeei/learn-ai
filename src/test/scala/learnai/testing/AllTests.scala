@@ -18,6 +18,7 @@ import learnai.tensor.TensorSuite
 import learnai.optim.OptimizersSuite
 import learnai.text.Utf8Suite
 import learnai.text.BpeTokenizerSuite
+import learnai.text.Gpt2TokenizerSuite
 import learnai.data.CausalDatasetSuite
 import learnai.data.PackingSuite
 import learnai.data.ShuffleSuite
@@ -82,6 +83,7 @@ object AllTests:
     SplitMix64Suite,
     Utf8Suite,
     BpeTokenizerSuite,
+    Gpt2TokenizerSuite,
     CausalDatasetSuite,
     ShuffleSuite,
     PackingSuite,

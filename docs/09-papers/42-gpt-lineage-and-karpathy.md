@@ -99,8 +99,15 @@ different initialization recipe, and course-specific tokenizer/checkpoint.
 LayerNorm, and the tied vocabulary projection. Its tests prove exact closed-form
 parameter ownership, output shape, prefix causality, and gradient flow through
 the tied embedding. The remaining checkpoint work is to load that whole graph
-from a real container and compare its logits; the tokenizer artifact is also
-still absent.
+from a real container and compare its logits.
+
+`Gpt2Tokenizer` implements GPT-2's 256-value bytes-to-Unicode bijection, Unicode
+category pre-tokenization, lowest-rank adjacent BPE merging, strict UTF-8 decode,
+and parsing of `encoder.json` plus `vocab.bpe`. Tests use a complete 256-byte
+fixture and cover multilingual text, emoji, leading-space behavior, merge rank,
+unknown IDs, and malformed artifacts. This completes the algorithm and artifact
+contract; a golden vector produced from the official 50,257-entry artifacts is
+still required before claiming official tokenizer parity.
 
 ## Karpathy's implementation path
 
@@ -151,6 +158,7 @@ The course must not call GPT-2 reproduction complete until all of these exist:
 7. training recipe/data differences documented separately from architecture.
 
 The current implementation completes item 6 and the dropout-off architecture
-portion of item 2. Item 3 is complete for block names/layout but not yet for a
-real whole-model container. Items 1, 4, and 5 remain incomplete. The course
-therefore does not yet claim a genuine GPT-2 reproduction.
+portion of item 2. Item 1's algorithm/artifact parser is complete, but official
+artifact golden parity remains. Item 3 is complete for block names/layout but
+not yet for a real whole-model container. Items 4 and 5 remain incomplete. The
+course therefore does not yet claim a genuine GPT-2 reproduction.
