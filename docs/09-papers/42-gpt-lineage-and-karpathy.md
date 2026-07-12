@@ -81,14 +81,26 @@ The reference test requires the exact parameter totals:
 | GPT-2 Large | 36 | 1,280 | 20 | 774,030,080 |
 | GPT-2 XL | 48 | 1,600 | 25 | 1,557,611,200 |
 
-Run `./learn-ai gpt-lineage` to reproduce the inventory and print every reason
-the current MiniGPT format cannot load a GPT-2 checkpoint.
+Run `./learn-ai gpt-lineage` to reproduce the inventory and print the remaining
+reasons the MiniGPT format itself is not a GPT-2 checkpoint format.
 
-MiniGPT uses RMSNorm rather than LayerNorm, ReLU rather than GPT-2 GELU, a
-different initialization recipe, a course-specific tokenizer and checkpoint,
-and no GPT-2 weight-name importer or dropout. Its causal attention and tied
-output teach shared mechanisms, but “GPT-like” must not be shortened to
-“GPT-2-compatible.”
+The repository now also contains a separate, executable `Gpt2Block`. It uses
+pre-LayerNorm, the GPT-2 tanh-approximate GELU, biased attention and MLP
+projections, and residual branches. `Gpt2Checkpoint.loadBlock` accepts the 12
+public Hugging Face/nanoGPT names owned by one block. It validates all names and
+shapes first, then splits combined `attn.c_attn` columns and biases in Q, K, V
+order. Declarative tests check numerical LayerNorm gradients, causality inherited
+from attention, parameter ownership, malformed checkpoints, exact QKV values,
+and a finite loaded forward pass.
+
+This is deliberately separate from `MiniGPT`, which still uses RMSNorm, ReLU, a
+different initialization recipe, and course-specific tokenizer/checkpoint.
+`Gpt2Model` now joins learned token/position embeddings, every GPT-2 block, final
+LayerNorm, and the tied vocabulary projection. Its tests prove exact closed-form
+parameter ownership, output shape, prefix causality, and gradient flow through
+the tied embedding. The remaining checkpoint work is to load that whole graph
+from a real container and compare its logits; the tokenizer artifact is also
+still absent.
 
 ## Karpathy's implementation path
 
@@ -101,8 +113,8 @@ clear code surface.
 | [micrograd](https://github.com/karpathy/micrograd) / Zero to Hero lecture 1 | scalar reverse-mode autodiff and MLP | Chapters 10–11 (`Value`, scalar network, XOR) | compare selected scalar gradients |
 | [makemore](https://github.com/karpathy/makemore) | character LM progression from counts through MLPs | Chapters 14–17 | add shared tiny-name-corpus learning curves |
 | Zero to Hero GPT lecture / [ng-video-lecture](https://github.com/karpathy/ng-video-lecture) | build a decoder LM from token data to attention | Chapters 16–21 | maintain a commit-like stage map rather than one finished file |
-| [nanoGPT](https://github.com/karpathy/nanoGPT) | concise train/fine-tune/sample system for medium GPTs | Chapters 22a–d and training workflow | GPT-2 tokenizer/checkpoint import remains absent |
-| [build-nanogpt](https://github.com/karpathy/build-nanogpt) | stepwise GPT-2 124M reproduction and distributed training | GPT-2 inventory plus Chapters 27/29 | forward-logit parity and real weight import remain required |
+| [nanoGPT](https://github.com/karpathy/nanoGPT) | concise train/fine-tune/sample system for medium GPTs | Chapters 22a–d, GPT-2 block loader, training workflow | full-model import and tokenizer remain |
+| [build-nanogpt](https://github.com/karpathy/build-nanogpt) | stepwise GPT-2 124M reproduction and distributed training | GPT-2 inventory/block plus Chapters 27/29 | forward-logit parity remains required |
 | [llm.c](https://github.com/karpathy/llm.c) | explicit C/CUDA GPT-2 training stack | complexity, accounting, distributed and precision chapters | CPU Scala cannot claim CUDA throughput parity |
 | [nanochat](https://github.com/karpathy/nanochat) | end-to-end tokenizer, pretraining, SFT, evaluation, chat UI speedrun | target integration of data, training, post-training, eval, serving | course lacks the complete 2026 speedrun pipeline |
 
@@ -138,5 +150,7 @@ The course must not call GPT-2 reproduction complete until all of these exist:
 6. published parameter-count agreement for all four sizes;
 7. training recipe/data differences documented separately from architecture.
 
-The current commit completes item 6 and makes items 1–5 explicit work rather
-than silently treating MiniGPT as their substitute.
+The current implementation completes item 6 and the dropout-off architecture
+portion of item 2. Item 3 is complete for block names/layout but not yet for a
+real whole-model container. Items 1, 4, and 5 remain incomplete. The course
+therefore does not yet claim a genuine GPT-2 reproduction.

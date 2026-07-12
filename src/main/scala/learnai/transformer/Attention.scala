@@ -144,3 +144,20 @@ object CausalSelfAttention:
       Linear.random(channels, channels, random, s"$label.value"),
       Linear.random(channels, channels, random, s"$label.output")
     )
+
+  /** Builds attention from already separated query, key, value, and output projections. */
+  def fromProjections(
+      channels: Int,
+      headCount: Int,
+      query: Linear,
+      key: Linear,
+      value: Linear,
+      output: Linear
+  ): CausalSelfAttention =
+    val projections = Vector(query, key, value, output)
+    require(
+      projections
+        .forall(layer => layer.inputChannels == channels && layer.outputChannels == channels),
+      s"every attention projection must be [$channels,$channels]"
+    )
+    new CausalSelfAttention(channels, headCount, query, key, value, output)

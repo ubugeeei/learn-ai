@@ -99,6 +99,23 @@ final class Tensor private (
   def relu: Tensor =
     unary("relu", value => math.max(0.0, value), (input, _) => if input > 0.0 then 1.0 else 0.0)
 
+  /** GPT-2's tanh approximation to GELU with its analytical derivative. */
+  def geluApprox: Tensor =
+    val alpha = math.sqrt(2.0 / math.Pi)
+    val cubic = 0.044715
+    unary(
+      "geluApprox",
+      input => 0.5 * input * (1.0 + math.tanh(alpha * (input + cubic * input * input * input))),
+      (input, _) =>
+        val argument = alpha * (input + cubic * input * input * input)
+        val tangent  = math.tanh(argument)
+        0.5 *
+          (1.0 + tangent) +
+          0.5 * input *
+          (1.0 - tangent * tangent) * alpha *
+          (1.0 + 3.0 * cubic * input * input)
+    )
+
   def exp: Tensor = unary("exp", math.exp, (_, output) => output)
 
   def log: Tensor =
@@ -448,6 +465,74 @@ final class Tensor private (
           accumulateGradient(index, inputGradient)
           scale.accumulateGradient(channelIndex, upstream * input * inverse)
           channelIndex += 1
+        rowIndex += 1
+    output
+
+  /** Layer-normalizes each rank-2 row, then applies learned channel scale and bias. */
+  def layerNormRows(scale: Tensor, bias: Tensor, epsilon: Double): Tensor =
+    require(rank == 2, s"layerNormRows requires rank-2 input, got $shape")
+    require(scale.rank == 1 && bias.rank == 1, "LayerNorm scale and bias must have rank 1")
+    require(epsilon > 0.0 && epsilon.isFinite, s"epsilon must be finite and positive: $epsilon")
+    val rows     = shape(0)
+    val channels = shape(1)
+    require(channels > 0, "LayerNorm requires at least one channel")
+    require(scale.shape == Shape(channels), s"LayerNorm scale ${scale.shape} != [$channels]")
+    require(bias.shape == Shape(channels), s"LayerNorm bias ${bias.shape} != [$channels]")
+
+    val normalized               = new Array[Double](size)
+    val inverseStandardDeviation = new Array[Double](rows)
+    val outputData               = new Array[Double](size)
+    var row                      = 0
+    while row < rows do
+      val offset   = row * channels
+      var mean     = 0.0
+      var channel  = 0
+      while channel < channels do
+        mean += currentData(offset + channel)
+        channel += 1
+      mean /= channels.toDouble
+      var variance = 0.0
+      channel = 0
+      while channel < channels do
+        val centered = currentData(offset + channel) - mean
+        variance += centered * centered
+        channel += 1
+      val inverse  = 1.0 / math.sqrt(variance / channels.toDouble + epsilon)
+      inverseStandardDeviation(row) = inverse
+      channel = 0
+      while channel < channels do
+        val index = offset + channel
+        val value = (currentData(index) - mean) * inverse
+        normalized(index) = value
+        outputData(index) = value * scale.currentData(channel) + bias.currentData(channel)
+        channel += 1
+      row += 1
+
+    val output = Tensor.operation(shape, outputData, "layerNormRows", Vector(this, scale, bias))
+    output.backwardRule = () =>
+      var rowIndex = 0
+      while rowIndex < rows do
+        val offset                = rowIndex * channels
+        var gradientSum           = 0.0
+        var gradientNormalizedDot = 0.0
+        var channel               = 0
+        while channel < channels do
+          val index              = offset + channel
+          val gradientBeforeNorm = output.currentGradient(index) * scale.currentData(channel)
+          gradientSum += gradientBeforeNorm
+          gradientNormalizedDot += gradientBeforeNorm * normalized(index)
+          channel += 1
+        channel = 0
+        while channel < channels do
+          val index         = offset + channel
+          val upstream      = output.currentGradient(index)
+          val inputGradient = inverseStandardDeviation(rowIndex) / channels.toDouble *
+            (channels.toDouble * upstream * scale.currentData(channel) - gradientSum -
+              normalized(index) * gradientNormalizedDot)
+          accumulateGradient(index, inputGradient)
+          scale.accumulateGradient(channel, upstream * normalized(index))
+          bias.accumulateGradient(channel, upstream)
+          channel += 1
         rowIndex += 1
     output
 

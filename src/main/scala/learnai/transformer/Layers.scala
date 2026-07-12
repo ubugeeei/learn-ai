@@ -152,3 +152,45 @@ object RmsNorm:
   def create(channels: Int, epsilon: Double, label: String): RmsNorm =
     val scale = Tensor.parameter(Shape(channels), Vector.fill(channels)(1.0), s"$label.scale")
     new RmsNorm(channels, epsilon, scale)
+
+/** GPT-2 LayerNorm with learned scale and bias for every channel. */
+final class LayerNorm private (
+    val channels: Int,
+    val epsilon: Double,
+    val scale: Tensor,
+    val bias: Tensor
+):
+  /** Normalizes each input row across channels. */
+  def apply(input: Tensor): Tensor = input.layerNormRows(scale, bias, epsilon)
+
+  def parameters: Vector[Tensor] = Vector(scale, bias)
+
+object LayerNorm:
+  /** Creates identity-affine LayerNorm parameters. */
+  def create(channels: Int, epsilon: Double, label: String): LayerNorm =
+    require(channels > 0, s"LayerNorm channels must be positive: $channels")
+    require(epsilon > 0.0 && epsilon.isFinite, s"invalid LayerNorm epsilon: $epsilon")
+    new LayerNorm(
+      channels,
+      epsilon,
+      Tensor.parameter(Shape(channels), Vector.fill(channels)(1.0), s"$label.weight"),
+      Tensor.parameter(Shape(channels), Vector.fill(channels)(0.0), s"$label.bias")
+    )
+
+  /** Builds LayerNorm from checkpoint values after validating both channel vectors. */
+  def fromValues(
+      channels: Int,
+      epsilon: Double,
+      weights: Vector[Double],
+      biases: Vector[Double],
+      label: String
+  ): LayerNorm =
+    require(weights.size == channels, s"LayerNorm weight has ${weights.size}, expected $channels")
+    require(biases.size == channels, s"LayerNorm bias has ${biases.size}, expected $channels")
+    require(epsilon > 0.0 && epsilon.isFinite, s"invalid LayerNorm epsilon: $epsilon")
+    new LayerNorm(
+      channels,
+      epsilon,
+      Tensor.parameter(Shape(channels), weights, s"$label.weight"),
+      Tensor.parameter(Shape(channels), biases, s"$label.bias")
+    )

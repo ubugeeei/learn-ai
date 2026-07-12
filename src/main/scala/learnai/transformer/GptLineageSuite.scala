@@ -13,17 +13,17 @@ object GptLineageSuite extends TestSuite:
     },
     test("all four OpenAI GPT-2 configurations match checkpoint parameter inventories") {
       val totals = Vector(
-        GptLineage.Gpt2Small -> 124439808L,
+        GptLineage.Gpt2Small  -> 124439808L,
         GptLineage.Gpt2Medium -> 354823168L,
-        GptLineage.Gpt2Large -> 774030080L,
-        GptLineage.Gpt2Xl -> 1557611200L
+        GptLineage.Gpt2Large  -> 774030080L,
+        GptLineage.Gpt2Xl     -> 1557611200L
       )
       totals.foreach { case (config, expected) =>
         Assert.equal(GptLineage.parameterInventory(config).total, expected)
       }
     },
     test("tied language-model head is not counted as a second vocabulary matrix") {
-      val config = Gpt2Config(10, 8, 4, 2, 1)
+      val config    = Gpt2Config(10, 8, 4, 2, 1)
       val inventory = GptLineage.parameterInventory(config)
       Assert.equal(inventory.tokenEmbedding, 40L)
       Assert.equal(inventory.total, 324L)

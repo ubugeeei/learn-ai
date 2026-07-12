@@ -32,6 +32,9 @@ import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
 import learnai.transformer.GroupedQueryAttentionSuite
 import learnai.transformer.GptLineageSuite
+import learnai.transformer.Gpt2BlockSuite
+import learnai.transformer.Gpt2CheckpointSuite
+import learnai.transformer.Gpt2ModelSuite
 import learnai.transformer.RopeSuite
 import learnai.transformer.SwiGluSuite
 import learnai.transformer.TiledAttentionSuite
@@ -90,6 +93,9 @@ object AllTests:
     SwiGluSuite,
     GroupedQueryAttentionSuite,
     GptLineageSuite,
+    Gpt2BlockSuite,
+    Gpt2CheckpointSuite,
+    Gpt2ModelSuite,
     TiledAttentionSuite,
     ModelAccountingSuite,
     MiniGptSuite,
