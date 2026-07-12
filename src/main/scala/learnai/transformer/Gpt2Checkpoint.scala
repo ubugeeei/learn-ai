@@ -7,9 +7,13 @@ final case class Gpt2CheckpointTensor(shape: Shape, values: Vector[Double]):
   require(values.size == shape.size, s"${values.size} values do not fill $shape")
   require(values.forall(_.isFinite), "checkpoint tensor values must be finite")
 
-/** Loads the public GPT-2/Hugging Face tensor naming and Conv1D layout into one executable block. */
+/**
+ * Loads the public GPT-2/Hugging Face tensor naming and Conv1D layout into one executable block.
+ */
 object Gpt2Checkpoint:
-  /** Exact tensor names owned by block `index`; extra or missing names are rejected by `loadBlock`. */
+  /**
+   * Exact tensor names owned by block `index`; extra or missing names are rejected by `loadBlock`.
+   */
   def blockTensorNames(index: Int): Vector[String] =
     require(index >= 0, s"block index must be non-negative: $index")
     val prefix = s"transformer.h.$index"
@@ -40,29 +44,27 @@ object Gpt2Checkpoint:
       epsilon: Double,
       tensors: Map[String, Gpt2CheckpointTensor]
   ): Gpt2Block =
-    val names = blockTensorNames(index)
+    val names                                                 = blockTensorNames(index)
     require(tensors.keySet == names.toSet, missingAndExtra(names.toSet, tensors.keySet))
-    val prefix = s"transformer.h.$index"
+    val prefix                                                = s"transformer.h.$index"
     def read(suffix: String, expected: Shape): Vector[Double] =
       val name   = s"$prefix.$suffix"
       val tensor = tensors(name)
       require(tensor.shape == expected, s"$name has ${tensor.shape}, expected $expected")
       tensor.values
 
-    val vector = Shape(channels)
-    val square = Shape(channels, channels)
-    val qkvWeight = read("attn.c_attn.weight", Shape(channels, 3 * channels))
-    val qkvBias   = read("attn.c_attn.bias", Shape(3 * channels))
-    def weightPart(part: Int): Vector[Double] =
-      Vector.tabulate(channels * channels)(offset =>
-        val row    = offset / channels
-        val column = offset % channels
-        qkvWeight(row * 3 * channels + part * channels + column)
-      )
-    def biasPart(part: Int): Vector[Double] =
-      qkvBias.slice(part * channels, (part + 1) * channels)
-    def projection(part: Int, name: String): Linear =
-      Linear.fromValues(channels, channels, weightPart(part), biasPart(part), s"$prefix.attn.$name")
+    val vector                                      = Shape(channels)
+    val square                                      = Shape(channels, channels)
+    val qkvWeight                                   = read("attn.c_attn.weight", Shape(channels, 3 * channels))
+    val qkvBias                                     = read("attn.c_attn.bias", Shape(3 * channels))
+    def weightPart(part: Int): Vector[Double]       = Vector.tabulate(channels * channels)(offset =>
+      val row    = offset / channels
+      val column = offset % channels
+      qkvWeight(row * 3 * channels + part * channels + column)
+    )
+    def biasPart(part: Int): Vector[Double]         = qkvBias.slice(part * channels, (part + 1) * channels)
+    def projection(part: Int, name: String): Linear = Linear
+      .fromValues(channels, channels, weightPart(part), biasPart(part), s"$prefix.attn.$name")
 
     Gpt2Block.fromComponents(
       channels,

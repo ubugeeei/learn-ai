@@ -24,9 +24,9 @@ object Gpt2ModelSuite extends TestSuite:
       Assert.isTrue(logits.values.forall(_.isFinite))
     },
     test("changing a future token cannot alter earlier full-model logits") {
-      val model = Gpt2Model.random(Gpt2Config(9, 6, 4, 2, 2), 13)
-      val first = model.logits(Vector(TokenId(1), TokenId(2), TokenId(3))).values
-      val second = model.logits(Vector(TokenId(1), TokenId(2), TokenId(8))).values
+      val model      = Gpt2Model.random(Gpt2Config(9, 6, 4, 2, 2), 13)
+      val first      = model.logits(Vector(TokenId(1), TokenId(2), TokenId(3))).values
+      val second     = model.logits(Vector(TokenId(1), TokenId(2), TokenId(8))).values
       val vocabulary = 9
       Assert.equal(first.take(2 * vocabulary), second.take(2 * vocabulary))
     },
@@ -38,9 +38,8 @@ object Gpt2ModelSuite extends TestSuite:
     test("empty and over-context sequences fail at the model boundary") {
       val model = Gpt2Model.random(Gpt2Config(7, 2, 4, 2, 1), 19)
       Assert.throws[IllegalArgumentException](model.logits(Vector.empty))
-      Assert.throws[IllegalArgumentException](
-        model.logits(Vector(TokenId(1), TokenId(2), TokenId(3)))
-      )
+      Assert
+        .throws[IllegalArgumentException](model.logits(Vector(TokenId(1), TokenId(2), TokenId(3))))
       ()
     }
   )

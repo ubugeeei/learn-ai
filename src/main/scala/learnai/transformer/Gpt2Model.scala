@@ -23,27 +23,21 @@ final class Gpt2Model private (
     normalized.matmul(embeddings.tokens.weight.transpose2D)
 
   /** Every trainable tensor exactly once; the output classifier reuses token embedding weight. */
-  def parameters: Vector[Tensor] =
-    embeddings.parameters ++ blocks.flatMap(_.parameters) ++ finalNorm.parameters
+  def parameters: Vector[Tensor] = embeddings.parameters ++ blocks.flatMap(_.parameters) ++
+    finalNorm.parameters
 
   def parameterCount: Long = parameters.map(_.size.toLong).sum
 
 object Gpt2Model:
   /** Creates a deterministic educational model with GPT-2 shapes and forward operations. */
   def random(config: Gpt2Config, seed: Long, epsilon: Double = 1e-5): Gpt2Model =
-    val random = new SplittableRandom(seed)
+    val random     = new SplittableRandom(seed)
     val embeddings = new TokenPositionEmbedding(
       Embedding.random(config.vocabularySize, config.channels, random, "transformer.wte"),
       Embedding.random(config.contextLength, config.channels, random, "transformer.wpe")
     )
-    val blocks = Vector.tabulate(config.layerCount)(index =>
-      Gpt2Block.random(
-        config.channels,
-        config.headCount,
-        epsilon,
-        random,
-        s"transformer.h.$index"
-      )
+    val blocks     = Vector.tabulate(config.layerCount)(index =>
+      Gpt2Block.random(config.channels, config.headCount, epsilon, random, s"transformer.h.$index")
     )
     fromComponents(
       config,
