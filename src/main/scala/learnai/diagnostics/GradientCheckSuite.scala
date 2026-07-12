@@ -15,8 +15,8 @@ object GradientCheckSuite extends TestSuite:
   override val tests: Vector[TestCase] = specify(
     test("central differences match a hand-computable quadratic and restore values") {
       val parameter = Tensor.parameter(Shape(3), Vector(1.5, -2.0, 0.0), "quadratic.x")
-      val original = parameter.values
-      val report = GradientChecker.check(
+      val original  = parameter.values
+      val report    = GradientChecker.check(
         Vector(parameter),
         () => parameter.pow(2.0).sum,
         GradientCheckConfig(maximumCoordinatesPerParameter = 3)
@@ -33,7 +33,7 @@ object GradientCheckSuite extends TestSuite:
     },
     test("deterministic coordinate sampling includes both ends of a parameter") {
       val parameter = Tensor.parameter(Shape(10), Vector.tabulate(10)(_.toDouble + 1.0), "wide.x")
-      val report = GradientChecker.check(
+      val report    = GradientChecker.check(
         Vector(parameter),
         () => parameter.pow(2.0).sum,
         GradientCheckConfig(maximumCoordinatesPerParameter = 3)
@@ -42,7 +42,7 @@ object GradientCheckSuite extends TestSuite:
     },
     test("failed probes retain analytical numerical and tolerance evidence") {
       val parameter = Tensor.parameter(Shape(1), Vector(2.0), "cubic.x")
-      val report = GradientChecker.check(
+      val report    = GradientChecker.check(
         Vector(parameter),
         () => parameter.pow(3.0).sum,
         GradientCheckConfig(
@@ -60,15 +60,16 @@ object GradientCheckSuite extends TestSuite:
     },
     test("parameter values are restored when a perturbed loss construction fails") {
       val parameter = Tensor.parameter(Shape(1), Vector(3.0), "restore.x")
-      val original = parameter.values
-      var calls = 0
-      val error = Assert.throws[IllegalStateException] {
+      val original  = parameter.values
+      var calls     = 0
+      val error     = Assert.throws[IllegalStateException] {
         GradientChecker.check(
           Vector(parameter),
           () =>
             calls += 1
             if calls == 2 then throw new IllegalStateException("injected loss failure")
-            parameter.pow(2.0).sum,
+            parameter.pow(2.0).sum
+          ,
           GradientCheckConfig(maximumCoordinatesPerParameter = 1)
         )
       }
@@ -77,7 +78,7 @@ object GradientCheckSuite extends TestSuite:
       Assert.equal(parameter.gradients, Vector(0.0))
     },
     test("MiniGPT sampled parameter gradients agree with finite differences") {
-      val config = MiniGptConfig(
+      val config  = MiniGptConfig(
         vocabularySize = 5,
         maximumContextLength = 3,
         channels = 4,
@@ -85,10 +86,10 @@ object GradientCheckSuite extends TestSuite:
         hiddenChannels = 6,
         layerCount = 1
       )
-      val model = MiniGpt.random(config, seed = 77L)
-      val inputs = Vector(0, 1, 2).map(TokenId(_))
+      val model   = MiniGpt.random(config, seed = 77L)
+      val inputs  = Vector(0, 1, 2).map(TokenId(_))
       val targets = Vector(1, 2, 3).map(TokenId(_))
-      val report = GradientChecker.check(
+      val report  = GradientChecker.check(
         model.parameters,
         () => model.loss(inputs, targets),
         GradientCheckConfig(
@@ -97,22 +98,18 @@ object GradientCheckSuite extends TestSuite:
           maximumCoordinatesPerParameter = 1
         )
       )
-      Assert.isTrue(
-        report.passed,
-        s"worst probe: ${report.worstProbe}"
-      )
+      Assert.isTrue(report.passed, s"worst probe: ${report.worstProbe}")
     },
     test("parameter inventory distinguishes dense payload from other training memory") {
-      val first = Tensor.parameter(Shape(2, 3), Vector.fill(6)(0.0), "first")
-      val second = Tensor.parameter(Shape(4), Vector.fill(4)(0.0), "second")
+      val first     = Tensor.parameter(Shape(2, 3), Vector.fill(6)(0.0), "first")
+      val second    = Tensor.parameter(Shape(4), Vector.fill(4)(0.0), "second")
       val inventory = ParameterInventory.from(Vector(first, second), bytesPerElement = 8)
       Assert.equal(inventory.totalElements, 10L)
       Assert.equal(inventory.totalPayloadBytes, 80L)
       Assert.equal(inventory.entries.map(_.payloadBytes), Vector(48L, 32L))
 
-      val duplicateError = Assert.throws[IllegalArgumentException] {
-        ParameterInventory.from(Vector(first, first))
-      }
+      val duplicateError = Assert
+        .throws[IllegalArgumentException](ParameterInventory.from(Vector(first, first)))
       Assert.isTrue(duplicateError.getMessage.contains("unique"))
     }
   )

@@ -11,14 +11,17 @@ object Int8QuantizationSuite extends TestSuite:
 
   override val tests: Vector[TestCase] = specify(
     test("all-zero rows round-trip exactly with a valid scale") {
-      val original = MatrixD.zeros(2, 3)
+      val original  = MatrixD.zeros(2, 3)
       val quantized = QuantizedInt8Matrix.quantize(original)
       Assert.equal(quantized.dequantize, original)
       Assert.equal(quantized.rowScales, Vector(1.0, 1.0))
-      Assert.isTrue((0 until 2).forall(row => (0 until 3).forall(column => quantized.quantized(row, column) == 0)))
+      Assert.isTrue(
+        (0 until 2)
+          .forall(row => (0 until 3).forall(column => quantized.quantized(row, column) == 0))
+      )
     },
     test("row extrema map to the symmetric int8 range") {
-      val original = MatrixD.fromRows(Vector(VectorD(-2.0, 0.0, 2.0)))
+      val original  = MatrixD.fromRows(Vector(VectorD(-2.0, 0.0, 2.0)))
       val quantized = QuantizedInt8Matrix.quantize(original)
       Assert.equal(quantized.quantized(0, 0), -127)
       Assert.equal(quantized.quantized(0, 1), 0)
@@ -26,13 +29,9 @@ object Int8QuantizationSuite extends TestSuite:
       Assert.equal(quantized.dequantize, original)
     },
     test("reconstruction error is at most half a row scale before rounding ties") {
-      val original = MatrixD.fromRows(
-        Vector(
-          VectorD(-1.0, -0.3, 0.2, 1.0),
-          VectorD(-100.0, -1.0, 2.0, 100.0)
-        )
-      )
-      val quantized = QuantizedInt8Matrix.quantize(original)
+      val original      = MatrixD
+        .fromRows(Vector(VectorD(-1.0, -0.3, 0.2, 1.0), VectorD(-100.0, -1.0, 2.0, 100.0)))
+      val quantized     = QuantizedInt8Matrix.quantize(original)
       val reconstructed = quantized.dequantize
       (0 until original.rows).foreach { row =>
         (0 until original.columns).foreach { column =>
@@ -42,14 +41,9 @@ object Int8QuantizationSuite extends TestSuite:
       }
     },
     test("quantized matvec approximates the Double reference") {
-      val original = MatrixD.fromRows(
-        Vector(
-          VectorD(0.1, -0.4, 0.9),
-          VectorD(10.0, -20.0, 30.0)
-        )
-      )
-      val input = VectorD(2.0, -1.0, 0.5)
-      val reference = original.matvec(input)
+      val original    = MatrixD.fromRows(Vector(VectorD(0.1, -0.4, 0.9), VectorD(10.0, -20.0, 30.0)))
+      val input       = VectorD(2.0, -1.0, 0.5)
+      val reference   = original.matvec(input)
       val approximate = QuantizedInt8Matrix.quantize(original).matvec(input)
       Assert.close(approximate(0), reference(0), tolerance = 0.02)
       Assert.close(approximate(1), reference(1), tolerance = 0.5)
@@ -66,7 +60,7 @@ object Int8QuantizationSuite extends TestSuite:
     },
     test("matvec rejects a vector with the wrong channel count") {
       val matrix = QuantizedInt8Matrix.quantize(MatrixD.zeros(2, 3))
-      val error = Assert.throws[IllegalArgumentException](matrix.matvec(VectorD(1.0, 2.0)))
+      val error  = Assert.throws[IllegalArgumentException](matrix.matvec(VectorD(1.0, 2.0)))
       Assert.isTrue(error.getMessage.contains("shape mismatch"))
     }
   )

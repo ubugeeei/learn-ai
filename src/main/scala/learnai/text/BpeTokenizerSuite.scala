@@ -9,14 +9,12 @@ object BpeTokenizerSuite extends TestSuite:
 
   override val tests: Vector[TestCase] = specify(
     test("trained BPE round-trips Unicode text") {
-      val corpus = Vector("banana bandana", "café résumé", "Scala 🚀 Scala 🚀")
+      val corpus    = Vector("banana bandana", "café résumé", "Scala 🚀 Scala 🚀")
       val tokenizer = BpeTrainer.train(corpus, targetVocabularySize = 280)
-      corpus.foreach { text =>
-        Assert.equal(tokenizer.decode(tokenizer.encode(text)), Right(text))
-      }
+      corpus.foreach(text => Assert.equal(tokenizer.decode(tokenizer.encode(text)), Right(text)))
     },
     test("frequent byte pairs reduce token count") {
-      val text = "banana banana banana"
+      val text      = "banana banana banana"
       val tokenizer = BpeTrainer.train(Vector(text), targetVocabularySize = 264)
       val byteCount = ByteTokenizer.encode(text).size
       Assert.isTrue(tokenizer.encode(text).size < byteCount)
@@ -24,7 +22,7 @@ object BpeTokenizerSuite extends TestSuite:
     },
     test("training is deterministic when pair frequencies tie") {
       val corpus = Vector("abab cdcd")
-      val first = BpeTrainer.train(corpus, 260)
+      val first  = BpeTrainer.train(corpus, 260)
       val second = BpeTrainer.train(corpus, 260)
       Assert.equal(first.merges, second.merges)
     },
@@ -34,12 +32,12 @@ object BpeTokenizerSuite extends TestSuite:
     },
     test("decoder rejects token IDs outside its learned vocabulary") {
       val tokenizer = BpeTrainer.train(Vector("abcabc"), 258)
-      val error = Assert.left(tokenizer.decode(Vector(TokenId(999))))
+      val error     = Assert.left(tokenizer.decode(Vector(TokenId(999))))
       Assert.isTrue(error.contains("outside vocabulary"))
     },
     test("merge tables must be topologically ordered") {
       val invalid = Vector(BpeMerge(TokenId(256), TokenId(97), TokenId(256)))
-      val error = Assert.throws[IllegalArgumentException](BpeTokenizer.fromMerges(invalid))
+      val error   = Assert.throws[IllegalArgumentException](BpeTokenizer.fromMerges(invalid))
       Assert.isTrue(error.getMessage.contains("earlier tokens"))
     }
   )

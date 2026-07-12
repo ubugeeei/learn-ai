@@ -10,8 +10,8 @@ object ValueSuite extends TestSuite:
 
   override val tests: Vector[TestCase] = specify(
     test("backward applies product and sum rules") {
-      val x = Value.parameter(2.0, "x")
-      val y = Value.parameter(-3.0, "y")
+      val x      = Value.parameter(2.0, "x")
+      val y      = Value.parameter(-3.0, "y")
       val output = x * y + x.pow(2.0)
 
       output.backward()
@@ -21,40 +21,38 @@ object ValueSuite extends TestSuite:
       Assert.close(y.gradient, 2.0)
     },
     test("a reused node accumulates gradient from every path") {
-      val x = Value.parameter(3.0, "x")
+      val x      = Value.parameter(3.0, "x")
       val output = x * x + x
       output.backward()
       Assert.close(x.gradient, 7.0)
     },
     test("autodiff agrees with finite differences on a composite function") {
       val rawFunction = (x: Double) => math.tanh(math.exp(x * x - 0.5))
-      val x = Value.parameter(0.7, "x")
-      val output = (x.pow(2.0) - 0.5).exp.tanh
+      val x           = Value.parameter(0.7, "x")
+      val output      = (x.pow(2.0) - 0.5).exp.tanh
       output.backward()
 
       val numeric = Calculus.derivative(rawFunction, at = x.data)
       Assert.close(x.gradient, numeric, tolerance = 1e-8)
     },
     test("backward clears gradients from a previous traversal") {
-      val x = Value.parameter(2.0, "x")
+      val x      = Value.parameter(2.0, "x")
       val output = x.pow(3.0)
       output.backward()
-      val first = x.gradient
+      val first  = x.gradient
       output.backward()
       Assert.close(first, 12.0)
       Assert.close(x.gradient, 12.0)
     },
     test("gradient update is restricted to trainable leaves") {
       val parameter = Value.parameter(2.0, "weight")
-      val loss = parameter.pow(2.0)
+      val loss      = parameter.pow(2.0)
       loss.backward()
       parameter.applyGradient(learningRate = 0.1)
       Assert.close(parameter.data, 1.6)
 
       val constant = Value.constant(2.0)
-      val error = Assert.throws[IllegalArgumentException] {
-        constant.applyGradient(0.1)
-      }
+      val error    = Assert.throws[IllegalArgumentException](constant.applyGradient(0.1))
       Assert.isTrue(error.getMessage.contains("trainable"))
     },
     test("log rejects values outside its mathematical domain") {

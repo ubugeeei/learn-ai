@@ -9,19 +9,19 @@ import learnai.testing.TestSuite
 object PagedKvCacheSuite extends TestSuite:
   override val name: String = "PagedKvCache"
 
-  private def randomRow(random: SplittableRandom, channels: Int): Vector[Double] =
-    Vector.fill(channels)(random.nextDouble(-1.0, 1.0))
+  private def randomRow(random: SplittableRandom, channels: Int): Vector[Double] = Vector
+    .fill(channels)(random.nextDouble(-1.0, 1.0))
 
   override val tests: Vector[TestCase] = specify(
     test("interleaved sequences read back exactly what each one appended") {
       // Oracle: a trivially correct list of appended rows per sequence.
       // Interleaving forces the two page tables to alternate pool pages, so
       // any cross-sequence indexing bug corrupts one of the comparisons.
-      val pool = new KvPagePool(pageCount = 8, pageSize = 2, channels = 3)
-      val random = new SplittableRandom(1L)
-      val first = PagedKvSequence.empty(pool)
-      val second = PagedKvSequence.empty(pool)
-      var firstReference = Vector.empty[(Vector[Double], Vector[Double])]
+      val pool            = new KvPagePool(pageCount = 8, pageSize = 2, channels = 3)
+      val random          = new SplittableRandom(1L)
+      val first           = PagedKvSequence.empty(pool)
+      val second          = PagedKvSequence.empty(pool)
+      var firstReference  = Vector.empty[(Vector[Double], Vector[Double])]
       var secondReference = Vector.empty[(Vector[Double], Vector[Double])]
 
       (0 until 5).foreach { step =>
@@ -34,7 +34,10 @@ object PagedKvCacheSuite extends TestSuite:
           secondReference :+= secondRow
       }
 
-      def verify(sequence: PagedKvSequence, reference: Vector[(Vector[Double], Vector[Double])]): Unit =
+      def verify(
+          sequence: PagedKvSequence,
+          reference: Vector[(Vector[Double], Vector[Double])]
+      ): Unit =
         Assert.equal(sequence.length, reference.size)
         reference.zipWithIndex.foreach { case ((key, value), position) =>
           (0 until 3).foreach { channel =>
@@ -46,9 +49,9 @@ object PagedKvCacheSuite extends TestSuite:
       verify(second, secondReference)
     },
     test("pages are allocated exactly on boundaries and waste is bounded") {
-      val pool = new KvPagePool(pageCount = 8, pageSize = 4, channels = 2)
+      val pool     = new KvPagePool(pageCount = 8, pageSize = 4, channels = 2)
       val sequence = PagedKvSequence.empty(pool)
-      val row = Vector(1.0, 2.0)
+      val row      = Vector(1.0, 2.0)
       Assert.equal(sequence.mappedPageCount, 0)
 
       Assert.isTrue(sequence.append(row, row).isRight)
@@ -71,7 +74,7 @@ object PagedKvCacheSuite extends TestSuite:
       }
     },
     test("pool exhaustion is an explicit error and released pages are reused") {
-      val pool = new KvPagePool(pageCount = 2, pageSize = 2, channels = 1)
+      val pool   = new KvPagePool(pageCount = 2, pageSize = 2, channels = 1)
       val greedy = PagedKvSequence.empty(pool)
       (0 until 4).foreach(_ => Assert.isTrue(greedy.append(Vector(1.0), Vector(2.0)).isRight))
       Assert.equal(pool.freePageCount, 0)
@@ -87,11 +90,11 @@ object PagedKvCacheSuite extends TestSuite:
       Assert.equal(starved.keyAt(0, 0), 3.0)
     },
     test("forking shares full prefix pages and copies only the partial page") {
-      val pool = new KvPagePool(pageCount = 8, pageSize = 2, channels = 2)
+      val pool   = new KvPagePool(pageCount = 8, pageSize = 2, channels = 2)
       val random = new SplittableRandom(2L)
       val parent = PagedKvSequence.empty(pool)
-      val rows = Vector.fill(5)((randomRow(random, 2), randomRow(random, 2)))
-      rows.foreach { (key, value) => Assert.isTrue(parent.append(key, value).isRight) }
+      val rows   = Vector.fill(5)((randomRow(random, 2), randomRow(random, 2)))
+      rows.foreach((key, value) => Assert.isTrue(parent.append(key, value).isRight))
       Assert.equal(pool.allocatedPageCount, 3)
 
       val child = Assert.right(parent.fork())
@@ -122,11 +125,10 @@ object PagedKvCacheSuite extends TestSuite:
       Assert.equal(pool.freePageCount, 8)
     },
     test("a fork that cannot copy its partial page fails atomically") {
-      val pool = new KvPagePool(pageCount = 2, pageSize = 2, channels = 1)
+      val pool   = new KvPagePool(pageCount = 2, pageSize = 2, channels = 1)
       val parent = PagedKvSequence.empty(pool)
-      (0 until 3).foreach { index =>
-        Assert.isTrue(parent.append(Vector(index.toDouble), Vector(0.0)).isRight)
-      }
+      (0 until 3)
+        .foreach(index => Assert.isTrue(parent.append(Vector(index.toDouble), Vector(0.0)).isRight))
       Assert.equal(pool.freePageCount, 0)
 
       val refused = Assert.left(parent.fork())
@@ -139,13 +141,12 @@ object PagedKvCacheSuite extends TestSuite:
       Assert.equal(pool.freePageCount, 2)
     },
     test("a fork at a page boundary shares everything and allocates nothing") {
-      val pool = new KvPagePool(pageCount = 2, pageSize = 2, channels = 1)
+      val pool   = new KvPagePool(pageCount = 2, pageSize = 2, channels = 1)
       val parent = PagedKvSequence.empty(pool)
-      (0 until 2).foreach { index =>
-        Assert.isTrue(parent.append(Vector(index.toDouble), Vector(0.0)).isRight)
-      }
+      (0 until 2)
+        .foreach(index => Assert.isTrue(parent.append(Vector(index.toDouble), Vector(0.0)).isRight))
       Assert.equal(pool.allocatedPageCount, 1)
-      val child = Assert.right(parent.fork())
+      val child  = Assert.right(parent.fork())
       Assert.equal(pool.allocatedPageCount, 1)
       Assert.equal(child.keyAt(1, 0), 1.0)
       parent.release()
@@ -153,7 +154,7 @@ object PagedKvCacheSuite extends TestSuite:
       Assert.equal(pool.freePageCount, 2)
     },
     test("byte accounting lives at the pool and follows the page formulas") {
-      val pool = new KvPagePool(pageCount = 4, pageSize = 8, channels = 6)
+      val pool     = new KvPagePool(pageCount = 4, pageSize = 8, channels = 6)
       Assert.equal(pool.pagePayloadBytes, 2L * 8L * 6L * 8L)
       Assert.equal(pool.totalPayloadBytes, 4L * pool.pagePayloadBytes)
       Assert.equal(pool.allocatedPayloadBytes, 0L)
@@ -162,35 +163,30 @@ object PagedKvCacheSuite extends TestSuite:
       Assert.equal(pool.allocatedPayloadBytes, pool.pagePayloadBytes)
     },
     test("released sequences and invalid arguments are rejected") {
-      val pool = new KvPagePool(pageCount = 2, pageSize = 2, channels = 2)
+      val pool     = new KvPagePool(pageCount = 2, pageSize = 2, channels = 2)
       val sequence = PagedKvSequence.empty(pool)
       Assert.isTrue(sequence.append(Vector(1.0, 2.0), Vector(3.0, 4.0)).isRight)
 
-      val wrongWidth = Assert.throws[IllegalArgumentException] {
-        sequence.append(Vector(1.0), Vector(3.0, 4.0))
-      }
+      val wrongWidth      = Assert
+        .throws[IllegalArgumentException](sequence.append(Vector(1.0), Vector(3.0, 4.0)))
       Assert.isTrue(wrongWidth.getMessage.contains("width"))
       val outsidePosition = Assert.throws[IllegalArgumentException](sequence.keyAt(1, 0))
       Assert.isTrue(outsidePosition.getMessage.contains("outside"))
-      val outsideChannel = Assert.throws[IllegalArgumentException](sequence.valueAt(0, 2))
+      val outsideChannel  = Assert.throws[IllegalArgumentException](sequence.valueAt(0, 2))
       Assert.isTrue(outsideChannel.getMessage.contains("outside"))
 
       sequence.release()
       Assert.isTrue(sequence.isReleased)
       Vector(
         Assert.throws[IllegalArgumentException](sequence.keyAt(0, 0)),
-        Assert.throws[IllegalArgumentException] {
-          sequence.append(Vector(1.0, 2.0), Vector(3.0, 4.0))
-        },
+        Assert
+          .throws[IllegalArgumentException](sequence.append(Vector(1.0, 2.0), Vector(3.0, 4.0))),
         Assert.throws[IllegalArgumentException](sequence.fork()),
         Assert.throws[IllegalArgumentException](sequence.release())
-      ).foreach { error =>
-        Assert.isTrue(error.getMessage.contains("released"))
-      }
+      ).foreach(error => Assert.isTrue(error.getMessage.contains("released")))
 
-      val badPool = Assert.throws[IllegalArgumentException] {
-        new KvPagePool(pageCount = 0, pageSize = 2, channels = 2)
-      }
+      val badPool = Assert
+        .throws[IllegalArgumentException](new KvPagePool(pageCount = 0, pageSize = 2, channels = 2))
       Assert.isTrue(badPool.getMessage.contains("positive"))
     }
   )

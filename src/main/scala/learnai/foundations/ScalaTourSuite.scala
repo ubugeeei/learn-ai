@@ -8,9 +8,7 @@ object ScalaTourSuite extends TestSuite:
   override val name: String = "ScalaTour"
 
   override val tests: Vector[TestCase] = specify(
-    test("square multiplies a value by itself") {
-      Assert.close(ScalaTour.square(-3.0), 9.0)
-    },
+    test("square multiplies a value by itself")(Assert.close(ScalaTour.square(-3.0), 9.0)),
     test("mean averages non-empty values") {
       val result = ScalaTour.mean(Vector(2.0, 1.0, 0.5))
       Assert.close(Assert.right(result), 7.0 / 6.0)

@@ -19,20 +19,10 @@ object ScalarNetworkSuite extends TestSuite:
       Assert.close(output.data, 2.5)
     },
     test("MLP construction is deterministic for the same seed") {
-      val first = MultiLayerPerceptron.random(
-        2,
-        Vector(3, 1),
-        Activation.Tanh,
-        Activation.Linear,
-        seed = 7L
-      )
-      val second = MultiLayerPerceptron.random(
-        2,
-        Vector(3, 1),
-        Activation.Tanh,
-        Activation.Linear,
-        seed = 7L
-      )
+      val first  = MultiLayerPerceptron
+        .random(2, Vector(3, 1), Activation.Tanh, Activation.Linear, seed = 7L)
+      val second = MultiLayerPerceptron
+        .random(2, Vector(3, 1), Activation.Tanh, Activation.Linear, seed = 7L)
       Assert.equal(first.parameters.map(_.data), second.parameters.map(_.data))
       Assert.equal(first.parameters.map(_.label), second.parameters.map(_.label))
     },
@@ -49,13 +39,8 @@ object ScalarNetworkSuite extends TestSuite:
       }
     },
     test("network rejects an input with the wrong size") {
-      val model = MultiLayerPerceptron.random(
-        2,
-        Vector(1),
-        Activation.Tanh,
-        Activation.Linear,
-        seed = 1L
-      )
+      val model = MultiLayerPerceptron
+        .random(2, Vector(1), Activation.Tanh, Activation.Linear, seed = 1L)
       val error = Assert.throws[IllegalArgumentException](model(Vector(1.0)))
       Assert.isTrue(error.getMessage.contains("expected 2, got 1"))
     }

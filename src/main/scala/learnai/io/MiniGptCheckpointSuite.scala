@@ -25,15 +25,15 @@ object MiniGptCheckpointSuite extends TestSuite:
   override val tests: Vector[TestCase] = specify(
     test("save and load preserve config labels parameters and logits exactly") {
       val directory = Files.createTempDirectory("learn-ai-checkpoint-roundtrip")
-      val path = directory.resolve("model.lai")
+      val path      = directory.resolve("model.lai")
       try
-        val model = MiniGpt.random(config, seed = 42L)
-        val inputs = Vector(0, 1, 0, 2).map(TokenId(_))
-        val targets = Vector(1, 0, 2, 0).map(TokenId(_))
-        val _ = MiniGptTrainer.trainSequence(model, inputs, targets, steps = 3, learningRate = 0.01)
+        val model        = MiniGpt.random(config, seed = 42L)
+        val inputs       = Vector(0, 1, 0, 2).map(TokenId(_))
+        val targets      = Vector(1, 0, 2, 0).map(TokenId(_))
+        val _            = MiniGptTrainer.trainSequence(model, inputs, targets, steps = 3, learningRate = 0.01)
         val logitsBefore = model.logits(inputs).values
 
-        val saved = Assert.right(MiniGptCheckpoint.save(model, path))
+        val saved                    = Assert.right(MiniGptCheckpoint.save(model, path))
         val (loaded, loadedMetadata) = Assert.right(MiniGptCheckpoint.load(path))
 
         Assert.equal(loaded.config, model.config)
@@ -48,7 +48,7 @@ object MiniGptCheckpointSuite extends TestSuite:
     },
     test("one corrupted byte is rejected by the checksum before parsing") {
       val directory = Files.createTempDirectory("learn-ai-checkpoint-corrupt")
-      val path = directory.resolve("model.lai")
+      val path      = directory.resolve("model.lai")
       try
         val model = MiniGpt.random(config, seed = 1L)
         Assert.isTrue(MiniGptCheckpoint.save(model, path).isRight)
@@ -63,7 +63,7 @@ object MiniGptCheckpointSuite extends TestSuite:
     },
     test("truncated files return an error instead of a partially loaded model") {
       val directory = Files.createTempDirectory("learn-ai-checkpoint-truncated")
-      val path = directory.resolve("model.lai")
+      val path      = directory.resolve("model.lai")
       try
         Files.write(path, Array[Byte](1, 2, 3, 4))
         val error = Assert.left(MiniGptCheckpoint.load(path))
@@ -74,7 +74,7 @@ object MiniGptCheckpointSuite extends TestSuite:
     },
     test("checkpoint save replaces an existing file atomically") {
       val directory = Files.createTempDirectory("learn-ai-checkpoint-replace")
-      val path = directory.resolve("model.lai")
+      val path      = directory.resolve("model.lai")
       try
         Files.writeString(path, "old incomplete contents")
         val model = MiniGpt.random(config, seed = 9L)
@@ -86,13 +86,11 @@ object MiniGptCheckpointSuite extends TestSuite:
         val _ = Files.deleteIfExists(directory)
     },
     test("Tensor assignment validates all values before mutation") {
-      val model = MiniGpt.random(config, seed = 3L)
+      val model     = MiniGpt.random(config, seed = 3L)
       val parameter = model.parameters.head
-      val original = parameter.values
-      val invalid = original.updated(0, Double.NaN)
-      val error = Assert.throws[IllegalArgumentException] {
-        parameter.assignParameterValues(invalid)
-      }
+      val original  = parameter.values
+      val invalid   = original.updated(0, Double.NaN)
+      val error     = Assert.throws[IllegalArgumentException](parameter.assignParameterValues(invalid))
       Assert.isTrue(error.getMessage.contains("must be finite"))
       Assert.equal(parameter.values, original)
     }

@@ -444,6 +444,17 @@ This demonstrates control flow, not generalization to natural language.
 The next layer, `TrainingWorkflow`, connects the existing components across real
 file boundaries:
 
+```mermaid
+flowchart LR
+    A["corpus.txt"] --> B["convert to tokens"]
+    B --> C["split into training<br/>and validation"]
+    C --> D["repeat prediction,<br/>loss, and update"]
+    D --> E["manifest.json"]
+    D --> F["metrics.jsonl"]
+    D --> G["model.laigpt"]
+    D --> H["training.laibnd"]
+```
+
 ```console
 $ ./learn-ai train --input data/corpus.txt --output runs/first \
     --context 32 --channels 32 --heads 4 --hidden 64 --layers 2 \

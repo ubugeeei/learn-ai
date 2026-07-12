@@ -9,7 +9,7 @@ object VectorDSuite extends TestSuite:
 
   override val tests: Vector[TestCase] = specify(
     test("addition is element-wise and leaves inputs unchanged") {
-      val left = VectorD(1.0, 2.0, 3.0)
+      val left  = VectorD(1.0, 2.0, 3.0)
       val right = VectorD(4.0, 5.0, 6.0)
 
       Assert.equal(left + right, VectorD(5.0, 7.0, 9.0))
@@ -23,21 +23,18 @@ object VectorDSuite extends TestSuite:
       Assert.close(VectorD(3.0, 4.0).norm, 5.0)
     },
     test("operations reject mismatched sizes") {
-      val error = Assert.throws[IllegalArgumentException] {
-        VectorD(1.0, 2.0) + VectorD(3.0)
-      }
+      val error = Assert.throws[IllegalArgumentException](VectorD(1.0, 2.0) + VectorD(3.0))
       Assert.isTrue(error.getMessage.contains("left=2, right=1"))
     },
     test("constructor rejects non-finite values") {
-      val nanError = Assert.throws[IllegalArgumentException](VectorD(1.0, Double.NaN))
-      val infinityError =
-        Assert.throws[IllegalArgumentException](VectorD(Double.PositiveInfinity))
+      val nanError      = Assert.throws[IllegalArgumentException](VectorD(1.0, Double.NaN))
+      val infinityError = Assert.throws[IllegalArgumentException](VectorD(Double.PositiveInfinity))
       Assert.isTrue(nanError.getMessage.contains("must be finite"))
       Assert.isTrue(infinityError.getMessage.contains("must be finite"))
     },
     test("updated returns a new vector") {
       val original = VectorD(1.0, 2.0)
-      val updated = original.updated(0, 9.0)
+      val updated  = original.updated(0, 9.0)
       Assert.equal(original, VectorD(1.0, 2.0))
       Assert.equal(updated, VectorD(9.0, 2.0))
     },

@@ -12,18 +12,14 @@ object PackingSuite extends TestSuite:
   override val name: String = "SequencePacking"
 
   private val separator = TokenId(9)
-  private val padding = TokenId(8)
+  private val padding   = TokenId(8)
 
   private def tokens(values: Int*): Vector[TokenId] = values.toVector.map(TokenId(_))
 
   override val tests: Vector[TestCase] = specify(
     test("a hand-packed two-document example matches window by window") {
-      val result = SequencePacking.pack(
-        Vector(tokens(0, 1, 2), tokens(3, 4)),
-        contextLength = 4,
-        separator,
-        padding
-      )
+      val result = SequencePacking
+        .pack(Vector(tokens(0, 1, 2), tokens(3, 4)), contextLength = 4, separator, padding)
       // stream: 0 1 2 S 3 4 S  (7 tokens, 6 predictions, 2 windows, 2 pads)
       Assert.equal(result.packedStreamLength, 7)
       Assert.equal(result.paddingTokenCount, 2)
@@ -45,13 +41,9 @@ object PackingSuite extends TestSuite:
       Assert.equal(result.unmaskedTargetCount, 5)
     },
     test("unmasked pairs are exactly the within-document transitions plus endings") {
-      val documents = Vector(
-        tokens(0, 1, 2, 3, 4),
-        tokens(5),
-        tokens(6, 7, 0, 1),
-        tokens(2, 3, 4, 5, 6, 7)
-      )
-      val result = SequencePacking.pack(documents, contextLength = 3, separator, padding)
+      val documents =
+        Vector(tokens(0, 1, 2, 3, 4), tokens(5), tokens(6, 7, 0, 1), tokens(2, 3, 4, 5, 6, 7))
+      val result    = SequencePacking.pack(documents, contextLength = 3, separator, padding)
 
       val observedPairs = result.examples.flatMap { example =>
         example.inputs.lazyZip(example.targets).lazyZip(example.lossMask).collect {
@@ -62,15 +54,16 @@ object PackingSuite extends TestSuite:
         val terminated = document :+ separator
         terminated.init.zip(terminated.tail)
       }
-      Assert.equal(observedPairs.sorted(using pairOrdering), expectedPairs.sorted(using pairOrdering))
+      Assert
+        .equal(observedPairs.sorted(using pairOrdering), expectedPairs.sorted(using pairOrdering))
       Assert.equal(result.unmaskedTargetCount, documents.map(_.size).sum)
     },
     test("every masked position is a padding target or a separator input") {
       val documents = Vector(tokens(0, 1), tokens(2, 3, 4, 5, 6), tokens(7))
-      val result = SequencePacking.pack(documents, contextLength = 4, separator, padding)
+      val result    = SequencePacking.pack(documents, contextLength = 4, separator, padding)
       result.examples.foreach { example =>
-        example.inputs.lazyZip(example.targets).lazyZip(example.lossMask).foreach {
-          (input, target, keep) =>
+        example.inputs.lazyZip(example.targets).lazyZip(example.lossMask)
+          .foreach { (input, target, keep) =>
             if !keep then
               Assert.isTrue(
                 target == padding || input == separator,
@@ -81,27 +74,21 @@ object PackingSuite extends TestSuite:
                 target != padding && input != separator,
                 s"trainable position with input $input and target $target should be masked"
               )
-        }
+          }
       }
     },
     test("degenerate windows are exposed and filterable rather than hidden") {
       // Context length one with single-token documents produces windows
       // whose only input is a separator; they carry zero trainable targets.
-      val result = SequencePacking.pack(
-        Vector(tokens(0), tokens(1)),
-        contextLength = 1,
-        separator,
-        padding
-      )
+      val result = SequencePacking
+        .pack(Vector(tokens(0), tokens(1)), contextLength = 1, separator, padding)
       Assert.isTrue(
         result.examples.exists(_.unmaskedTargetCount == 0),
         "this construction should produce an all-masked window"
       )
       Assert.isTrue(result.trainableExamples.forall(_.unmaskedTargetCount > 0))
-      Assert.equal(
-        result.trainableExamples.map(_.unmaskedTargetCount).sum,
-        result.unmaskedTargetCount
-      )
+      Assert
+        .equal(result.trainableExamples.map(_.unmaskedTargetCount).sum, result.unmaskedTargetCount)
     },
     test("a packed window trains MiniGPT through the masked loss") {
       val config = MiniGptConfig(
@@ -112,15 +99,11 @@ object PackingSuite extends TestSuite:
         hiddenChannels = 8,
         layerCount = 1
       )
-      val model = MiniGpt.random(config, seed = 5L)
-      val result = SequencePacking.pack(
-        Vector(tokens(0, 1, 2), tokens(3, 4)),
-        contextLength = 4,
-        separator,
-        padding
-      )
+      val model  = MiniGpt.random(config, seed = 5L)
+      val result = SequencePacking
+        .pack(Vector(tokens(0, 1, 2), tokens(3, 4)), contextLength = 4, separator, padding)
       val window = result.examples(1)
-      val loss = model.lossMasked(window.inputs, window.targets, window.lossMask)
+      val loss   = model.lossMasked(window.inputs, window.targets, window.lossMask)
       Assert.isTrue(loss.valueAtFlat(0).isFinite, "masked loss must be finite")
       loss.backward()
       Assert.isTrue(
@@ -129,15 +112,15 @@ object PackingSuite extends TestSuite:
       )
     },
     test("invalid documents and configurations are rejected") {
-      val noDocuments = Assert.throws[IllegalArgumentException] {
+      val noDocuments     = Assert.throws[IllegalArgumentException] {
         SequencePacking.pack(Vector.empty, contextLength = 4, separator, padding)
       }
       Assert.isTrue(noDocuments.getMessage.contains("at least one document"))
-      val emptyDocument = Assert.throws[IllegalArgumentException] {
+      val emptyDocument   = Assert.throws[IllegalArgumentException] {
         SequencePacking.pack(Vector(tokens(1), Vector.empty), 4, separator, padding)
       }
       Assert.isTrue(emptyDocument.getMessage.contains("empty"))
-      val sameSpecials = Assert.throws[IllegalArgumentException] {
+      val sameSpecials    = Assert.throws[IllegalArgumentException] {
         SequencePacking.pack(Vector(tokens(1)), 4, separator, separator)
       }
       Assert.isTrue(sameSpecials.getMessage.contains("differ"))
@@ -145,16 +128,16 @@ object PackingSuite extends TestSuite:
         SequencePacking.pack(Vector(tokens(1, 9)), 4, separator, padding)
       }
       Assert.isTrue(separatorInside.getMessage.contains("separator"))
-      val paddingInside = Assert.throws[IllegalArgumentException] {
+      val paddingInside   = Assert.throws[IllegalArgumentException] {
         SequencePacking.pack(Vector(tokens(1, 8)), 4, separator, padding)
       }
       Assert.isTrue(paddingInside.getMessage.contains("padding"))
-      val badContext = Assert.throws[IllegalArgumentException] {
+      val badContext      = Assert.throws[IllegalArgumentException] {
         SequencePacking.pack(Vector(tokens(1)), 0, separator, padding)
       }
       Assert.isTrue(badContext.getMessage.contains("positive"))
     }
   )
 
-  private val pairOrdering: Ordering[(TokenId, TokenId)] =
-    Ordering.by(pair => (pair._1.value, pair._2.value))
+  private val pairOrdering: Ordering[(TokenId, TokenId)] = Ordering
+    .by(pair => (pair._1.value, pair._2.value))

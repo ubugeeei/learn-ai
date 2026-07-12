@@ -64,46 +64,36 @@ object ModelAccountingSuite extends TestSuite:
       Assert.equal(ModelAccounting.decodeStepFlops(config, attendedPositions = 2), 92L)
       // One more attended position adds exactly the 4C attention term.
       Assert.equal(
-        ModelAccounting.decodeStepFlops(config, 3) -
-          ModelAccounting.decodeStepFlops(config, 2),
+        ModelAccounting.decodeStepFlops(config, 3) - ModelAccounting.decodeStepFlops(config, 2),
         4L * 2L
       )
     },
     test("prefill equals the sum of its decode steps for every configuration") {
       configurations.foreach { config =>
         val tokens = config.maximumContextLength
-        val summed = (1 to tokens).map { position =>
-          ModelAccounting.decodeStepFlops(config, position)
-        }.sum
+        val summed = (1 to tokens)
+          .map(position => ModelAccounting.decodeStepFlops(config, position)).sum
         Assert.equal(ModelAccounting.prefillFlops(config, tokens), summed)
       }
     },
     test("attention weight accounting matches the tensors the layer retains") {
-      val config = configurations(1)
-      val attention = CausalSelfAttention.random(
-        config.channels,
-        config.headCount,
-        new SplittableRandom(2L),
-        "attention"
-      )
-      val contextLength = 5
-      val input = Tensor.constant(
+      val config           = configurations(1)
+      val attention        = CausalSelfAttention
+        .random(config.channels, config.headCount, new SplittableRandom(2L), "attention")
+      val contextLength    = 5
+      val input            = Tensor.constant(
         Shape(contextLength, config.channels),
         Vector.fill(contextLength * config.channels)(0.25)
       )
-      val retainedValues = attention
-        .forwardWithWeights(input)
-        .weightsByHead
-        .map(_.size.toLong)
-        .sum
-      val perLayerEstimate =
-        ModelAccounting.attentionWeightValues(config, contextLength) / config.layerCount
+      val retainedValues   = attention.forwardWithWeights(input).weightsByHead.map(_.size.toLong).sum
+      val perLayerEstimate = ModelAccounting.attentionWeightValues(config, contextLength) /
+        config.layerCount
       Assert.equal(perLayerEstimate, retainedValues)
     },
     test("KV cache accounting matches a real allocated cache") {
-      val config = configurations(1)
+      val config        = configurations(1)
       val contextLength = 7
-      val cache = AttentionKeyValueCache.create(config.channels, capacity = contextLength)
+      val cache         = AttentionKeyValueCache.create(config.channels, capacity = contextLength)
       Assert.equal(
         ModelAccounting.kvCachePayloadBytes(config, contextLength),
         cache.allocatedPayloadBytes * config.layerCount
@@ -119,22 +109,20 @@ object ModelAccountingSuite extends TestSuite:
       }
     },
     test("invalid context and token arguments are rejected") {
-      val config = configurations.head
-      val zeroAttended = Assert.throws[IllegalArgumentException] {
-        ModelAccounting.decodeStepFlops(config, 0)
-      }
+      val config       = configurations.head
+      val zeroAttended = Assert
+        .throws[IllegalArgumentException](ModelAccounting.decodeStepFlops(config, 0))
       Assert.isTrue(zeroAttended.getMessage.contains("positive"))
-      val overContext = Assert.throws[IllegalArgumentException] {
+      val overContext  = Assert.throws[IllegalArgumentException] {
         ModelAccounting.decodeStepFlops(config, config.maximumContextLength + 1)
       }
       Assert.isTrue(overContext.getMessage.contains("exceed"))
-      val overPrefill = Assert.throws[IllegalArgumentException] {
+      val overPrefill  = Assert.throws[IllegalArgumentException] {
         ModelAccounting.prefillFlops(config, config.maximumContextLength + 1)
       }
       Assert.isTrue(overPrefill.getMessage.contains("exceeds"))
-      val zeroCache = Assert.throws[IllegalArgumentException] {
-        ModelAccounting.kvCachePayloadBytes(config, 0)
-      }
+      val zeroCache    = Assert
+        .throws[IllegalArgumentException](ModelAccounting.kvCachePayloadBytes(config, 0))
       Assert.isTrue(zeroCache.getMessage.contains("positive"))
     }
   )

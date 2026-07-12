@@ -38,16 +38,18 @@ Scala と JDK の標準ライブラリのみを使います。
 
 ## ここから始める
 
-1. [学び方](docs/ja/00-guide/00-how-to-learn.md)を読みます。
-2. [完全な実装章の構造](docs/ja/00-guide/04-chapter-anatomy.md)を読みます。
-3. 小さな参照実装をゴールと誤解しないよう、
+1. [図で見る全体像と最小用語集](docs/ja/00-guide/09-visual-map-and-glossary.md)を
+   読みます。
+2. [学び方](docs/ja/00-guide/00-how-to-learn.md)を読みます。
+3. [完全な実装章の構造](docs/ja/00-guide/04-chapter-anatomy.md)を読みます。
+4. 小さな参照実装をゴールと誤解しないよう、
    [プロフェッショナル能力ロードマップ](docs/ja/00-guide/05-professional-roadmap.md)
    を読みます。
-4. [カリキュラム](docs/ja/00-guide/01-curriculum.md)を順に進めます。
-5. 完了した各章の検証コマンドを実行します。
-6. 答えを読んだり実装したりする前に、演習を解きます。
-7. 各パートの成果物を自分の言葉で説明します。
-8. 各実装マイルストーンの後に、
+5. [カリキュラム](docs/ja/00-guide/01-curriculum.md)を順に進めます。
+6. 完了した各章の検証コマンドを実行します。
+7. 答えを読んだり実装したりする前に、演習を解きます。
+8. 各パートの成果物を自分の言葉で説明します。
+9. 各実装マイルストーンの後に、
    [一次論文リーディングマップ](docs/ja/09-papers/40-primary-reading-map.md)
    を使います。
 

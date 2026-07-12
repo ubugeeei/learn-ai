@@ -23,7 +23,7 @@ object ExperimentManifestSuite extends TestSuite:
       Assert.equal(fingerprint.tokenCount, 3L)
     },
     test("equal logical specifications have equal canonical JSON and identity") {
-      val first = specification()
+      val first  = specification()
       val second = specification()
       Assert.equal(first.canonicalJson, second.canonicalJson)
       Assert.equal(first.experimentId, second.experimentId)
@@ -42,15 +42,15 @@ object ExperimentManifestSuite extends TestSuite:
       Assert.isTrue(variants.forall(_.experimentId != original.experimentId))
     },
     test("runtime fingerprint changes execution manifest but not logical experiment identity") {
-      val spec = specification()
-      val first = ExperimentManifest(spec, runtime("vm-a"))
+      val spec   = specification()
+      val first  = ExperimentManifest(spec, runtime("vm-a"))
       val second = ExperimentManifest(spec, runtime("vm-b"))
       Assert.equal(first.experimentId, second.experimentId)
       Assert.isTrue(first.render != second.render)
       Assert.equal(JsonParser.parse(first.render), Right(first.json))
     },
     test("manifest rendering is stable and names every reproducibility boundary") {
-      val manifest = ExperimentManifest(specification(), runtime("vm"))
+      val manifest      = ExperimentManifest(specification(), runtime("vm"))
       val renderedAgain = ExperimentManifest(specification(), runtime("vm")).render
       Assert.equal(manifest.render, renderedAgain)
       Vector(
@@ -66,36 +66,33 @@ object ExperimentManifestSuite extends TestSuite:
       ).foreach(field => Assert.isTrue(manifest.render.contains(s"\"$field\""), s"missing $field"))
     },
     test("invalid corpus hashes and missing revisions fail before a manifest exists") {
-      val hashError = Assert.throws[IllegalArgumentException] {
-        CorpusFingerprint("bad", "ABC", 0L, 0L, 0L)
-      }
-      val revisionError = Assert.throws[IllegalArgumentException] {
-        specification().copy(codeRevision = "")
-      }
+      val hashError     = Assert
+        .throws[IllegalArgumentException](CorpusFingerprint("bad", "ABC", 0L, 0L, 0L))
+      val revisionError = Assert
+        .throws[IllegalArgumentException](specification().copy(codeRevision = ""))
       Assert.isTrue(hashError.getMessage.contains("64 lowercase"))
       Assert.isTrue(revisionError.getMessage.contains("code revision"))
     }
   )
 
-  private def specification(): ExperimentSpecification =
-    ExperimentSpecification(
-      name = "fixture-run",
-      modelSeed = 7L,
-      model = MiniGptConfig(4, 3, 4, 2, 8, 1),
-      training = MiniGptTrainingConfig(
-        totalUpdates = 10,
-        batchSize = 4,
-        microBatchSize = 2,
-        validationEveryUpdates = 2,
-        maximumValidationBatches = 3,
-        batchSeed = 11L,
-        learningRateSchedule = WarmupCosineLearningRate(0.02, 0.001, 2),
-        optimizer = AdamWTrainingConfig(weightDecay = 0.0)
-      ),
-      corpus = CorpusFingerprint.fromText("fixture", "0 1 2 3", 100L, 70L, 20L),
-      codeRevision = "abc123",
-      environmentRevision = "flake-1"
-    )
+  private def specification(): ExperimentSpecification = ExperimentSpecification(
+    name = "fixture-run",
+    modelSeed = 7L,
+    model = MiniGptConfig(4, 3, 4, 2, 8, 1),
+    training = MiniGptTrainingConfig(
+      totalUpdates = 10,
+      batchSize = 4,
+      microBatchSize = 2,
+      validationEveryUpdates = 2,
+      maximumValidationBatches = 3,
+      batchSeed = 11L,
+      learningRateSchedule = WarmupCosineLearningRate(0.02, 0.001, 2),
+      optimizer = AdamWTrainingConfig(weightDecay = 0.0)
+    ),
+    corpus = CorpusFingerprint.fromText("fixture", "0 1 2 3", 100L, 70L, 20L),
+    codeRevision = "abc123",
+    environmentRevision = "flake-1"
+  )
 
   private def runtime(vm: String): RuntimeFingerprint =
     RuntimeFingerprint("java-21", vm, "1", "test-os", "test-arch", 2)

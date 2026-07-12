@@ -14,17 +14,17 @@ object JsonSuite extends TestSuite:
       Assert.equal(
         value,
         JsonObject(
-          "null" -> JsonNull,
-          "bool" -> JsonBoolean(true),
+          "null"   -> JsonNull,
+          "bool"   -> JsonBoolean(true),
           "number" -> JsonNumber(BigDecimal(-1250)),
           "string" -> JsonString("ok"),
-          "array" -> JsonArray(Vector(JsonNumber(1), JsonBoolean(false)))
+          "array"  -> JsonArray(Vector(JsonNumber(1), JsonBoolean(false)))
         )
       )
     },
     test("render and parse round-trip escaped text and emoji") {
       val original = JsonObject(
-        "text" -> JsonString("quote=\" slash=\\ newline=\n rocket=🚀"),
+        "text"    -> JsonString("quote=\" slash=\\ newline=\n rocket=🚀"),
         "control" -> JsonString("\u0001")
       )
       Assert.equal(JsonParser.parse(original.render), Right(original))
@@ -57,7 +57,10 @@ object JsonSuite extends TestSuite:
     test("renderer normalizes decimal spelling without losing value") {
       Assert.equal(JsonNumber(BigDecimal("1.2300")).render, "1.23")
       Assert.equal(JsonNumber(BigDecimal("0.000")).render, "0")
-      Assert.equal(JsonParser.parse(JsonNumber(BigDecimal("1e100")).render), Right(JsonNumber(BigDecimal("1e100"))))
+      Assert.equal(
+        JsonParser.parse(JsonNumber(BigDecimal("1e100")).render),
+        Right(JsonNumber(BigDecimal("1e100")))
+      )
     },
     test("JsonObject preserves insertion order for deterministic rendering") {
       val value = JsonObject("z" -> JsonNumber(1), "a" -> JsonNumber(2))

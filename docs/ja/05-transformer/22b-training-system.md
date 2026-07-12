@@ -343,6 +343,17 @@ $ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 `runMiniGptTrainingLab` はアルゴリズムを観察する決定的なフィクスチャです。そこから
 一段進んだ `TrainingWorkflow` は、既存の各部品を実際のファイル境界で接続します。
 
+```mermaid
+flowchart LR
+    A["corpus.txt"] --> B["tokenへ変換"]
+    B --> C["training用と<br/>validation用に分割"]
+    C --> D["予測・loss・更新を反復"]
+    D --> E["manifest.json"]
+    D --> F["metrics.jsonl"]
+    D --> G["model.laigpt"]
+    D --> H["training.laibnd"]
+```
+
 ```console
 $ ./learn-ai train --input data/corpus.txt --output runs/first \
     --context 32 --channels 32 --heads 4 --hidden 64 --layers 2 \

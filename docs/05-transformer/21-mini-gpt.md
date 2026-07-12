@@ -10,14 +10,29 @@ Source: `src/main/scala/learnai/transformer/MiniGpt.scala`.
 
 ## Architecture
 
-```text
-token IDs [T]
-  -> token + position embeddings       [T,C]
-  -> Transformer block x L             [T,C]
-  -> final RMSNorm                      [T,C]
-  -> tied token-embedding transpose     [T,V]
-  -> cross entropy with targets [T]     scalar
+Set the specialist names aside first and follow values. The model receives a
+sequence of numbers, scores every possible next number at each position, and
+reduces the difference from the answer to one value.
+
+```mermaid
+flowchart LR
+    A["token numbers<br/>for example 12, 8, 31"] --> B["convert each number<br/>to a numeric row"]
+    B --> C["repeatedly decide which<br/>earlier positions matter"]
+    C --> D["score every possible<br/>next token"]
+    D --> E["difference from answer<br/>one loss"]
 ```
+
+Mapping those steps to code names and shapes gives:
+
+```text
+token IDs [T] -> embeddings [T,C] -> Transformer x L [T,C]
+              -> RMSNorm [T,C] -> logits [T,V] -> loss scalar
+```
+
+- `T`: tokens shown in this invocation
+- `C`: numbers used to represent each token
+- `V`: total token choices
+- `L`: repeated processing blocks
 
 `MiniGptConfig` determines every parameter and activation shape:
 
@@ -93,10 +108,12 @@ integration and trainability.
 Run the prompt, take only the final logits row, sample one token, append it, and
 repeat:
 
-```text
-prompt -> all logits -> final row -> sample
-   ^                                  |
-   +------------ append --------------+
+```mermaid
+flowchart LR
+    A["text so far"] --> B["score next-token choices"]
+    B --> C["select one choice"]
+    C --> D["append it to the text"]
+    D --> A
 ```
 
 This reference recomputes all past Q/K/V at every step. KV caching later stores

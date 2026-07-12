@@ -19,10 +19,10 @@ object BenchmarkSuite extends TestSuite:
       Assert.close(statistics.operationsPerSecond, 400_000_000.0)
     },
     test("runner excludes warmup and normalizes batched measurements per operation") {
-      val clock = new ScriptedNanoClock(Vector(100L, 160L, 200L, 280L))
+      val clock      = new ScriptedNanoClock(Vector(100L, 160L, 200L, 280L))
       var operations = 0
-      val runtime = RuntimeFingerprint("test-java", "test-vm", "1", "test-os", "test-arch", 1)
-      val result = Benchmark.measure(
+      val runtime    = RuntimeFingerprint("test-java", "test-vm", "1", "test-os", "test-arch", 1)
+      val result     = Benchmark.measure(
         "scripted",
         BenchmarkConfig(
           warmupIterations = 1,
@@ -43,13 +43,11 @@ object BenchmarkSuite extends TestSuite:
       Assert.isTrue(result.checksum != 0L)
     },
     test("invalid configuration and non-increasing clocks fail near the boundary") {
-      val warmupError = Assert.throws[IllegalArgumentException] {
-        BenchmarkConfig(warmupIterations = -1)
-      }
-      val measurementError = Assert.throws[IllegalArgumentException] {
-        BenchmarkConfig(measurementIterations = 0)
-      }
-      val clockError = Assert.throws[IllegalArgumentException] {
+      val warmupError      = Assert
+        .throws[IllegalArgumentException](BenchmarkConfig(warmupIterations = -1))
+      val measurementError = Assert
+        .throws[IllegalArgumentException](BenchmarkConfig(measurementIterations = 0))
+      val clockError       = Assert.throws[IllegalArgumentException] {
         Benchmark.measure(
           "zero-time",
           BenchmarkConfig(warmupIterations = 0, measurementIterations = 1),
@@ -62,7 +60,7 @@ object BenchmarkSuite extends TestSuite:
     }
   )
 
-  private final class ScriptedNanoClock(values: Vector[Long]) extends NanoClock:
+  final private class ScriptedNanoClock(values: Vector[Long]) extends NanoClock:
     private var index = 0
 
     override def nanoTime(): Long =

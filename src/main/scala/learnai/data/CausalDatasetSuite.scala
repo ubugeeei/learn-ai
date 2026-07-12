@@ -12,26 +12,20 @@ object CausalDatasetSuite extends TestSuite:
 
   override val tests: Vector[TestCase] = specify(
     test("sliding windows align each target one token ahead") {
-      val tokens = Vector(10, 11, 12, 13, 14).map(TokenId(_))
+      val tokens  = Vector(10, 11, 12, 13, 14).map(TokenId(_))
       val dataset = CausalDataset.fromTokens(tokens, contextLength = 3)
       Assert.equal(dataset.size, 2)
       Assert.equal(
         dataset.examples.head,
-        CausalExample(
-          Vector(10, 11, 12).map(TokenId(_)),
-          Vector(11, 12, 13).map(TokenId(_))
-        )
+        CausalExample(Vector(10, 11, 12).map(TokenId(_)), Vector(11, 12, 13).map(TokenId(_)))
       )
       Assert.equal(
         dataset.examples.last,
-        CausalExample(
-          Vector(11, 12, 13).map(TokenId(_)),
-          Vector(12, 13, 14).map(TokenId(_))
-        )
+        CausalExample(Vector(11, 12, 13).map(TokenId(_)), Vector(12, 13, 14).map(TokenId(_)))
       )
     },
     test("a sequence no longer than its context produces no full example") {
-      val exact = CausalDataset.fromTokens(Vector(1, 2, 3).map(TokenId(_)), 3)
+      val exact   = CausalDataset.fromTokens(Vector(1, 2, 3).map(TokenId(_)), 3)
       val shorter = CausalDataset.fromTokens(Vector(1, 2).map(TokenId(_)), 3)
       Assert.isTrue(exact.isEmpty)
       Assert.isTrue(shorter.isEmpty)
@@ -39,17 +33,19 @@ object CausalDatasetSuite extends TestSuite:
     test("contiguous split creates no window crossing its boundary") {
       import learnai.text.TokenId.*
 
-      val tokens = Vector.range(0, 20).map(TokenId(_))
-      val split = CausalDataset.contiguousSplit(tokens, trainingFraction = 0.6, contextLength = 3)
-      val trainingIds = split.training.examples.flatMap(example => example.inputs ++ example.targets)
-      val validationIds = split.validation.examples.flatMap(example => example.inputs ++ example.targets)
+      val tokens        = Vector.range(0, 20).map(TokenId(_))
+      val split         = CausalDataset.contiguousSplit(tokens, trainingFraction = 0.6, contextLength = 3)
+      val trainingIds   = split.training.examples
+        .flatMap(example => example.inputs ++ example.targets)
+      val validationIds = split.validation.examples
+        .flatMap(example => example.inputs ++ example.targets)
       Assert.isTrue(trainingIds.forall(_.value < split.boundaryTokenIndex))
       Assert.isTrue(validationIds.forall(_.value >= split.boundaryTokenIndex))
     },
     test("sampling is deterministic for equal random seeds") {
       val dataset = CausalDataset.fromTokens(Vector.range(0, 12).map(TokenId(_)), 2)
-      val first = Assert.right(dataset.sampleBatch(8, new SplittableRandom(17L)))
-      val second = Assert.right(dataset.sampleBatch(8, new SplittableRandom(17L)))
+      val first   = Assert.right(dataset.sampleBatch(8, new SplittableRandom(17L)))
+      val second  = Assert.right(dataset.sampleBatch(8, new SplittableRandom(17L)))
       Assert.equal(first, second)
       Assert.equal(first.batchSize, 8)
       Assert.equal(first.contextLength, 2)
@@ -71,13 +67,11 @@ object CausalDatasetSuite extends TestSuite:
       val contextError = Assert.throws[IllegalArgumentException] {
         CausalDataset.fromTokens(Vector(TokenId(1)), contextLength = 0)
       }
-      val splitError = Assert.throws[IllegalArgumentException] {
-        CausalDataset.contiguousSplit(Vector(TokenId(1)), 1.0, 1)
-      }
-      val dataset = CausalDataset.fromTokens(Vector(TokenId(1), TokenId(2)), 1)
-      val batchError = Assert.throws[IllegalArgumentException] {
-        dataset.sampleBatch(0, new SplittableRandom(1L))
-      }
+      val splitError   = Assert
+        .throws[IllegalArgumentException](CausalDataset.contiguousSplit(Vector(TokenId(1)), 1.0, 1))
+      val dataset      = CausalDataset.fromTokens(Vector(TokenId(1), TokenId(2)), 1)
+      val batchError   = Assert
+        .throws[IllegalArgumentException](dataset.sampleBatch(0, new SplittableRandom(1L)))
       Assert.isTrue(contextError.getMessage.contains("context length"))
       Assert.isTrue(splitError.getMessage.contains("training fraction"))
       Assert.isTrue(batchError.getMessage.contains("batch size"))

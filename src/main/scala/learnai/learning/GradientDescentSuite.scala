@@ -9,7 +9,7 @@ object GradientDescentSuite extends TestSuite:
 
   override val tests: Vector[TestCase] = specify(
     test("gradient descent reduces a convex quadratic loss") {
-      val target = 3.0
+      val target  = 3.0
       val history = GradientDescent.minimize(
         parameter => math.pow(parameter - target, 2.0),
         parameter => 2.0 * (parameter - target),
