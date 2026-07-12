@@ -22,8 +22,8 @@ bridge from visible mechanisms to operational judgment.
 | 01 | ✅ | Nix development environment | Reproducible Scala 3 shell |
 | 02 | ✅ | Minimal Scala 3 | Values, functions, types, control flow, CLI |
 | 03 | ✅ | Testing and debugging | Dependency-free test runner |
-| 03a | ⬜ | Complexity and representation | Arrays, locality, allocation, stack/heap accounting |
-| 03b | ⬜ | JVM systems | JIT, GC, profiling, concurrency, files, networking |
+| 03a | ✅ | Complexity and representation | Arrays, locality, allocation, stack/heap accounting |
+| 03b | ✅ | JVM systems | JIT, GC, profiling, concurrency, files, networking |
 
 ## Part 1 — Mathematics and numerical computing for LLMs
 

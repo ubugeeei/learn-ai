@@ -3,6 +3,8 @@ package learnai
 import learnai.agent.runAgentEvaluationLab
 import learnai.agent.runPlanningAgentLab
 import learnai.foundations.runScalaTour
+import learnai.foundations.runComplexityLab
+import learnai.foundations.runJvmSystemsLab
 import learnai.learning.runGradientDescentLab
 import learnai.lm.trainBigram
 import learnai.math.runFloatingPointLab
@@ -27,6 +29,12 @@ object Main:
 
   private val lessons = Vector(
     Lesson("foundations", "Scala values, collections, and explicit errors", () => runScalaTour()),
+    Lesson("complexity", "count work, bytes, locality, and array growth", () => runComplexityLab()),
+    Lesson(
+      "jvm",
+      "inspect heap capacity, deadlines, threads, and atomic files",
+      () => runJvmSystemsLab()
+    ),
     Lesson(
       "floating-point",
       "rounding error and stable numerical operations",

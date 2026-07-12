@@ -28,6 +28,8 @@ Commands:
   agent         Run deterministic agent outcome, tool, and permission scenarios.
   planning      Run the task-graph planner with retry and recovery.
   foundations   Run the introductory Scala values/functions/error-handling lab.
+  complexity    Compare deterministic work, layout, allocation, and payload costs.
+  jvm           Inspect JVM capacity, bounded work, and atomic file publication.
   xor           Train a small MLP to solve XOR.
   bigram        Train the simpler pre-Transformer language model.
   test          Compile the repository and run every automated test.
@@ -148,6 +150,24 @@ run_foundations() {
   run_main foundations
 }
 
+run_complexity() {
+  explain \
+    "Complexity and representation" \
+    "Linear and binary search count comparisons; matrix traversals expose flat memory order; array growth counts copies; payload accounting counts bytes." \
+    "Predict counts before reading them and distinguish deterministic work from noisy elapsed time." \
+    "Operation counts do not model JIT, caches, GC, SIMD, or complete object overhead."
+  run_main complexity
+}
+
+run_jvm() {
+  explain \
+    "JVM systems boundaries" \
+    "The process reports heap capacity and processors, executes owned work with a deadline, and demonstrates explicit runtime outcomes." \
+    "Distinguish maximum from allocated heap and verify the worker completes without leaking ownership." \
+    "A thread timeout is not a process sandbox, and heap observations are not exact live-object measurements."
+  run_main jvm
+}
+
 run_xor() {
   explain \
     "Scalar autodiff and XOR MLP" \
@@ -189,6 +209,8 @@ case "${1:-help}" in
   agent) run_agent ;;
   planning) run_planning ;;
   foundations) run_foundations ;;
+  complexity) run_complexity ;;
+  jvm) run_jvm ;;
   xor) run_xor ;;
   bigram) run_bigram ;;
   test) run_tests ;;

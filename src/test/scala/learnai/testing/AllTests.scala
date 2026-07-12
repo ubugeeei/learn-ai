@@ -2,6 +2,8 @@ package learnai.testing
 
 import learnai.accounting.ModelAccountingSuite
 import learnai.foundations.ScalaTourSuite
+import learnai.foundations.ComplexitySuite
+import learnai.foundations.JvmSystemsSuite
 import learnai.math.NumericsSuite
 import learnai.math.VectorDSuite
 import learnai.math.MatrixDSuite
@@ -57,6 +59,8 @@ object AllTests:
     GradientCheckSuite,
     ExperimentManifestSuite,
     ScalaTourSuite,
+    ComplexitySuite,
+    JvmSystemsSuite,
     NumericsSuite,
     VectorDSuite,
     MatrixDSuite,
