@@ -31,7 +31,7 @@ read.
 | --- | --- |
 | 13 | Adam; AdamW |
 | 15 | Subword units with BPE |
-| 19–21 | Attention Is All You Need; RMSNorm; GPT-3 |
+| 19–21 | Attention Is All You Need; GPT-1; GPT-2; GPT-3; RMSNorm |
 | 22 | FlashAttention method/evidence; OpenJDK JMH implementation guidance |
 | 24–26 | Multi-query attention; speculative decoding; GPTQ; AWQ |
 | 28–30 | RoPE; GQA; SwiGLU; scaling laws; Chinchilla; deduplication |
@@ -88,6 +88,31 @@ read.
 ---
 
 ## B. Transformer language models
+
+Read the dedicated [GPT lineage and Karpathy implementation map](42-gpt-lineage-and-karpathy.md)
+before treating MiniGPT as a reproduction of a published GPT checkpoint.
+
+### Improving Language Understanding by Generative Pre-Training (GPT-1)
+
+[Radford et al., 2018](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf)
+
+- **Contribution:** Pre-trains a Transformer language model on contiguous text,
+  then fine-tunes it with task-aware input transformations.
+- **Connection:** Chapters 17–22 implement the causal pre-training objective;
+  Chapter 31a changes data and masks for supervised fine-tuning.
+- **Read critically:** Pre-training transfer depends on data and downstream
+  evaluation, not only on choosing a decoder architecture.
+
+### Language Models are Unsupervised Multitask Learners (GPT-2)
+
+[Radford et al., 2019](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
+
+- **Contribution:** Scales decoder-only language modeling on WebText and frames
+  tasks as zero-shot text continuation.
+- **Connection:** `GptLineage` reproduces all four published parameter
+  inventories and explicitly lists remaining tokenizer/weight/forward gaps.
+- **Read critically:** MiniGPT shares causal mechanisms but is not GPT-2
+  checkpoint compatible.
 
 ### Attention Is All You Need
 

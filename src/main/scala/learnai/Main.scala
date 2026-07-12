@@ -19,6 +19,7 @@ import learnai.training.TrainingWorkflow
 import learnai.transformer.runKvCacheLab
 import learnai.transformer.runMiniGptDiagnostics
 import learnai.transformer.trainMiniGpt
+import learnai.transformer.runGptLineageLab
 
 /**
  * The single public entrypoint for every executable lesson.
@@ -61,6 +62,11 @@ object Main:
     Lesson("xor", "train a scalar-autodiff multilayer perceptron", () => trainXor()),
     Lesson("bigram", "train and sample a bigram language model", () => trainBigram()),
     Lesson("model", "train and sample the smallest causal Transformer", () => trainMiniGpt()),
+    Lesson(
+      "gpt-lineage",
+      "audit GPT-2 architecture counts and MiniGPT compatibility gaps",
+      () => runGptLineageLab()
+    ),
     Lesson(
       "training",
       "run batched MiniGPT training and validation",

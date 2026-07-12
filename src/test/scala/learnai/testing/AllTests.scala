@@ -31,6 +31,7 @@ import learnai.lm.BigramLanguageModelSuite
 import learnai.transformer.LayersSuite
 import learnai.transformer.AttentionSuite
 import learnai.transformer.GroupedQueryAttentionSuite
+import learnai.transformer.GptLineageSuite
 import learnai.transformer.RopeSuite
 import learnai.transformer.SwiGluSuite
 import learnai.transformer.TiledAttentionSuite
@@ -88,6 +89,7 @@ object AllTests:
     RopeSuite,
     SwiGluSuite,
     GroupedQueryAttentionSuite,
+    GptLineageSuite,
     TiledAttentionSuite,
     ModelAccountingSuite,
     MiniGptSuite,

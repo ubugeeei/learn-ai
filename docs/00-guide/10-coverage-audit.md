@@ -18,7 +18,7 @@ of that evidence.
 | Implemented | 55 | chapter, code, and verification path exist |
 | Planned | 22 | explanation or implementation remains incomplete |
 | Production Scala | about 9,200 lines | standard-library-centered implementation |
-| Declarative tests | 346 cases | success, boundary, failure, and numerical properties |
+| Declarative tests | 351 cases | success, boundary, failure, and numerical properties |
 | Canonical English prose | about 70,000 words | source mirrored by Japanese translations |
 
 Line count is not a quality proof. It only makes the scale visible without
@@ -66,7 +66,7 @@ tests, a chapter, and an executable observation.
 
 For 55 items, the target is a path that lets a learner reconstruct the minimal
 mechanism and observe failure paths. `sbt check` verifies formatting, compilation,
-346 cases, translation pairing, chapter structure, implementation/test
+351 cases, translation pairing, chapter structure, implementation/test
 colocation, and file-level Scaladoc presence.
 
 It does not guarantee frontier-scale GPU training, production SLAs, security or

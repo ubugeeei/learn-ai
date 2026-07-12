@@ -20,6 +20,7 @@ Start with:
 Commands:
   help          Show this explanation.
   model         Train tiny MiniGPT on one repeated phrase, then generate text.
+  gpt-lineage   Reproduce GPT-2 parameter inventories and compatibility boundaries.
   training      Train MiniGPT with batches, validation, scheduling, and metrics.
   train         Production-shaped file-to-artifacts workflow; use train --help.
   diagnostics   Check MiniGPT gradients, parameter bytes, and local timing.
@@ -81,6 +82,15 @@ run_model() {
     "Initial/final loss should fall sharply; generated text should reproduce parts of the tiny training pattern." \
     "This does not show broad language ability or generalization. The corpus is deliberately tiny and repetitive."
   run_main model
+}
+
+run_gpt_lineage() {
+  explain \
+    "GPT research and implementation lineage" \
+    "Published GPT-2 configurations are counted exactly, including LayerNorm, biases, four-times GELU MLPs, learned positions, and tied output ownership." \
+    "Compare all four checkpoint totals and read every architectural reason MiniGPT cannot load GPT-2 weights." \
+    "Parameter-count parity is necessary but does not prove tokenizer, forward-logit, sampling, data, or training parity."
+  run_main gpt-lineage
 }
 
 run_training() {
@@ -221,6 +231,7 @@ require_nix
 case "${1:-help}" in
   help|-h|--help) usage ;;
   model) run_model ;;
+  gpt-lineage) run_gpt_lineage ;;
   training) run_training ;;
   train) run_training_workflow "$@" ;;
   diagnostics) run_diagnostics ;;

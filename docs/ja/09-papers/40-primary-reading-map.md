@@ -31,7 +31,7 @@ implement a minimal mechanism
 | --- | --- |
 | 13 | Adam; AdamW |
 | 15 | Subword units with BPE |
-| 19–21 | Attention Is All You Need; RMSNorm; GPT-3 |
+| 19–21 | Attention Is All You Need; GPT-1; GPT-2; GPT-3; RMSNorm |
 | 22 | FlashAttention method/evidence; OpenJDK JMH implementation guidance |
 | 24–26 | Multi-query attention; speculative decoding; GPTQ; AWQ |
 | 28–30 | RoPE; GQA; SwiGLU; scaling laws; Chinchilla; deduplication |
@@ -90,6 +90,29 @@ implement a minimal mechanism
 ---
 
 ## B. Transformer 言語モデル
+
+MiniGPTをpublished GPT checkpointの再現と見なす前に、専用の
+[GPT系譜とKarpathy実装map](42-gpt-lineage-and-karpathy.md)を読んでください。
+
+### Improving Language Understanding by Generative Pre-Training (GPT-1)
+
+[Radford et al., 2018](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf)
+
+- **Contribution:** contiguous textでTransformer LMをpre-trainし、task向けinput変換で
+  fine-tuneします。
+- **Connection:** 17–22章がcausal pre-training objective、31aがsupervised fine-tuningの
+  data/maskを実装します。
+- **Read critically:** transferはdecoder architectureだけでなくdataとevaluationに依存します。
+
+### Language Models are Unsupervised Multitask Learners (GPT-2)
+
+[Radford et al., 2019](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
+
+- **Contribution:** WebText上のdecoder-only LMをscaleし、taskをzero-shot text continuationとして
+  framingします。
+- **Connection:** `GptLineage`が4sizeのparameter inventoryを再現し、tokenizer/weight/forwardの
+  gapを明示します。
+- **Read critically:** MiniGPTはcausal mechanismを共有しますがGPT-2 checkpoint互換ではありません。
 
 ### Attention Is All You Need
 

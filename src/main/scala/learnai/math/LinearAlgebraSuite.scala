@@ -14,7 +14,7 @@ object LinearAlgebraSuite extends TestSuite:
       Assert.equal(LinearAlgebra.rank(MatrixD.zeros(3, 2)), 0)
     },
     test("power iteration finds a dominant eigenpair with a small residual") {
-      val matrix = MatrixD.fromRows(Vector(VectorD(3, 1), VectorD(1, 3)))
+      val matrix   = MatrixD.fromRows(Vector(VectorD(3, 1), VectorD(1, 3)))
       val estimate = LinearAlgebra.dominantEigenpair(matrix, VectorD(1, 0))
       Assert.close(estimate.value, 4.0, 1e-8)
       Assert.isTrue(estimate.residualNorm < 1e-8)
@@ -35,4 +35,3 @@ object LinearAlgebraSuite extends TestSuite:
       Assert.equal(LinearAlgebra.rank(result), 1)
     }
   )
-

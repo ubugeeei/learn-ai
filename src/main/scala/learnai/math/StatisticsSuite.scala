@@ -30,7 +30,7 @@ object StatisticsSuite extends TestSuite:
     },
     test("reliability omits empty bins and weights populated bins") {
       val forecasts = Vector(ProbabilityForecast(0.2, 0), ProbabilityForecast(0.8, 0))
-      val bins = Statistics.reliability(forecasts, 4)
+      val bins      = Statistics.reliability(forecasts, 4)
       Assert.equal(bins.size, 2)
       Assert.close(Assert.right(Statistics.expectedCalibrationError(forecasts, 4)), 0.5)
       Assert.isTrue(Statistics.expectedCalibrationError(Vector.empty, 4).isLeft)
