@@ -7,12 +7,12 @@ import learnai.math.Probability
 import learnai.math.VectorD
 import learnai.text.TokenId
 
-/** Immutable generation-time probability filtering policy.
-  *
-  * Filtering order is temperature, top-k, then nucleus top-p. At least one
-  * token is always retained, and ties are resolved by smaller token ID for
-  * deterministic behavior.
-  */
+/**
+ * Immutable generation-time probability filtering policy.
+ *
+ * Filtering order is temperature, top-k, then nucleus top-p. At least one token is always retained,
+ * and ties are resolved by smaller token ID for deterministic behavior.
+ */
 final case class SamplingConfig(
     temperature: Double = 1.0,
     topK: Option[Int] = None,
@@ -29,17 +29,14 @@ final case class SamplingConfig(
 
 object Sampling:
   /** Converts logits to a filtered, renormalized categorical distribution. */
-  def distribution(
-      logits: VectorD,
-      config: SamplingConfig
-  ): Either[String, Categorical] =
+  def distribution(logits: VectorD, config: SamplingConfig): Either[String, Categorical] =
     Probability.softmax(logits.scale(1.0 / config.temperature)).flatMap { initial =>
       val afterTopK = config.topK match
-        case None => initial.probabilities
+        case None        => initial.probabilities
         case Some(limit) => retainTopK(initial.probabilities, math.min(limit, logits.size))
 
       val normalizedTopK = normalize(afterTopK)
-      val afterTopP = config.topP match
+      val afterTopP      = config.topP match
         case None            => normalizedTopK
         case Some(threshold) => retainTopP(normalizedTopK, threshold)
       Categorical.from(normalize(afterTopP))
@@ -50,23 +47,21 @@ object Sampling:
       logits: VectorD,
       config: SamplingConfig,
       random: RandomGenerator
-  ): Either[String, TokenId] =
-    distribution(logits, config).map(distribution => TokenId(distribution.sample(random)))
+  ): Either[String, TokenId] = distribution(logits, config)
+    .map(distribution => TokenId(distribution.sample(random)))
 
   private def retainTopK(probabilities: VectorD, limit: Int): VectorD =
-    val retained = probabilities.toVector.indices
-      .sortBy(index => (-probabilities(index), index))
-      .take(limit)
-      .toSet
+    val retained = probabilities.toVector.indices.sortBy(index => (-probabilities(index), index))
+      .take(limit).toSet
     VectorD.tabulate(probabilities.size) { index =>
       if retained.contains(index) then probabilities(index) else 0.0
     }
 
   private def retainTopP(probabilities: VectorD, threshold: Double): VectorD =
-    val ranked = probabilities.toVector.indices.sortBy(index => (-probabilities(index), index))
-    val retained = scala.collection.mutable.Set.empty[Int]
+    val ranked     = probabilities.toVector.indices.sortBy(index => (-probabilities(index), index))
+    val retained   = scala.collection.mutable.Set.empty[Int]
     var cumulative = 0.0
-    var rank = 0
+    var rank       = 0
     while rank < ranked.size && cumulative < threshold do
       val index = ranked(rank)
       retained += index

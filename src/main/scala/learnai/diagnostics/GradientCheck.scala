@@ -3,14 +3,13 @@ package learnai.diagnostics
 import learnai.tensor.Shape
 import learnai.tensor.Tensor
 
-/** Numerical-gradient configuration for deterministic scalar losses.
-  *
-  * A probe passes when
-  * `absoluteError <= absoluteTolerance + relativeTolerance * gradientScale`,
-  * where `gradientScale` is the larger analytical/numerical magnitude. The
-  * absolute term protects gradients near zero; the relative term scales with
-  * larger gradients.
-  */
+/**
+ * Numerical-gradient configuration for deterministic scalar losses.
+ *
+ * A probe passes when `absoluteError <= absoluteTolerance + relativeTolerance * gradientScale`,
+ * where `gradientScale` is the larger analytical/numerical magnitude. The absolute term protects
+ * gradients near zero; the relative term scales with larger gradients.
+ */
 final case class GradientCheckConfig(
     epsilon: Double = 1e-5,
     absoluteTolerance: Double = 1e-6,
@@ -43,36 +42,35 @@ final case class GradientProbe(
     relativeError: Double,
     allowedError: Double
 ):
-  val passed: Boolean = absoluteError <= allowedError
+  val passed: Boolean    = absoluteError <= allowedError
   val errorRatio: Double =
-    if allowedError == 0.0 then
-      if absoluteError == 0.0 then 0.0 else Double.PositiveInfinity
+    if allowedError == 0.0 then if absoluteError == 0.0 then 0.0 else Double.PositiveInfinity
     else absoluteError / allowedError
 
 /** Complete gradient-check result retaining every inspected coordinate. */
 final case class GradientCheckReport(loss: Double, probes: Vector[GradientProbe]):
   require(probes.nonEmpty, "gradient-check report requires at least one probe")
-  val passed: Boolean = probes.forall(_.passed)
+  val passed: Boolean                     = probes.forall(_.passed)
   val failedProbes: Vector[GradientProbe] = probes.filterNot(_.passed)
-  val worstProbe: GradientProbe = probes.maxBy(_.errorRatio)
-  val maximumAbsoluteError: Double = probes.iterator.map(_.absoluteError).max
-  val maximumRelativeError: Double = probes.iterator.map(_.relativeError).max
-  val maximumErrorRatio: Double = probes.iterator.map(_.errorRatio).max
+  val worstProbe: GradientProbe           = probes.maxBy(_.errorRatio)
+  val maximumAbsoluteError: Double        = probes.iterator.map(_.absoluteError).max
+  val maximumRelativeError: Double        = probes.iterator.map(_.relativeError).max
+  val maximumErrorRatio: Double           = probes.iterator.map(_.errorRatio).max
 
 object GradientChecker:
-  /** Compares reverse-mode gradients with central differences and restores parameters.
-    *
-    * `lossFactory` must build a fresh deterministic scalar graph connected to
-    * the supplied trainable parameters. The method first performs one backward
-    * pass, then evaluates `f(theta + epsilon)` and `f(theta - epsilon)` for a
-    * deterministic subset of each parameter. Every parameter value is restored
-    * in a `finally` block, including when loss construction fails. Diagnostic
-    * gradients are cleared before returning; run the checker between training
-    * steps because pre-existing gradients are intentionally not preserved.
-    *
-    * Cost is one forward/backward pass plus two forward passes per probe. This
-    * is a correctness diagnostic for small models, not a training algorithm.
-    */
+  /**
+   * Compares reverse-mode gradients with central differences and restores parameters.
+   *
+   * `lossFactory` must build a fresh deterministic scalar graph connected to the supplied trainable
+   * parameters. The method first performs one backward pass, then evaluates `f(theta + epsilon)`
+   * and `f(theta - epsilon)` for a deterministic subset of each parameter. Every parameter value is
+   * restored in a `finally` block, including when loss construction fails. Diagnostic gradients are
+   * cleared before returning; run the checker between training steps because pre-existing gradients
+   * are intentionally not preserved.
+   *
+   * Cost is one forward/backward pass plus two forward passes per probe. This is a correctness
+   * diagnostic for small models, not a training algorithm.
+   */
   def check(
       parameters: Vector[Tensor],
       lossFactory: () => Tensor,
@@ -97,43 +95,44 @@ object GradientChecker:
         analyticalLoss.shape == Shape.scalar,
         s"gradient checking requires scalar loss, got ${analyticalLoss.shape}"
       )
-      val lossValue = analyticalLoss.valueAtFlat(0)
+      val lossValue      = analyticalLoss.valueAtFlat(0)
       analyticalLoss.backward()
 
       val probes = Vector.newBuilder[GradientProbe]
       originals.foreach { case (parameter, originalValues) =>
-        selectedIndices(parameter.size, config.maximumCoordinatesPerParameter).foreach { flatIndex =>
-          val analytical = parameter.gradientAtFlat(flatIndex)
-          val plus = evaluatePerturbation(
-            parameter,
-            originalValues,
-            flatIndex,
-            config.epsilon,
-            lossFactory
-          )
-          val minus = evaluatePerturbation(
-            parameter,
-            originalValues,
-            flatIndex,
-            -config.epsilon,
-            lossFactory
-          )
-          val numerical = (plus - minus) / (2.0 * config.epsilon)
-          val absoluteError = math.abs(analytical - numerical)
-          val scale = math.max(math.abs(analytical), math.abs(numerical))
-          val relativeError = absoluteError / math.max(scale, 1e-30)
-          val allowedError = config.absoluteTolerance + config.relativeTolerance * scale
-          probes += GradientProbe(
-            parameter.label,
-            parameter.shape,
-            flatIndex,
-            parameter.shape.coordinates(flatIndex),
-            analytical,
-            numerical,
-            absoluteError,
-            relativeError,
-            allowedError
-          )
+        selectedIndices(parameter.size, config.maximumCoordinatesPerParameter).foreach {
+          flatIndex =>
+            val analytical    = parameter.gradientAtFlat(flatIndex)
+            val plus          = evaluatePerturbation(
+              parameter,
+              originalValues,
+              flatIndex,
+              config.epsilon,
+              lossFactory
+            )
+            val minus         = evaluatePerturbation(
+              parameter,
+              originalValues,
+              flatIndex,
+              -config.epsilon,
+              lossFactory
+            )
+            val numerical     = (plus - minus) / (2.0 * config.epsilon)
+            val absoluteError = math.abs(analytical - numerical)
+            val scale         = math.max(math.abs(analytical), math.abs(numerical))
+            val relativeError = absoluteError / math.max(scale, 1e-30)
+            val allowedError  = config.absoluteTolerance + config.relativeTolerance * scale
+            probes += GradientProbe(
+              parameter.label,
+              parameter.shape,
+              flatIndex,
+              parameter.shape.coordinates(flatIndex),
+              analytical,
+              numerical,
+              absoluteError,
+              relativeError,
+              allowedError
+            )
         }
       }
       GradientCheckReport(lossValue, probes.result())
@@ -152,7 +151,10 @@ object GradientChecker:
     parameter.assignParameterValues(perturbed)
     try
       val loss = lossFactory()
-      require(loss.shape == Shape.scalar, s"gradient checking requires scalar loss, got ${loss.shape}")
+      require(
+        loss.shape == Shape.scalar,
+        s"gradient checking requires scalar loss, got ${loss.shape}"
+      )
       loss.valueAtFlat(0)
     finally parameter.assignParameterValues(originalValues)
 
@@ -171,16 +173,22 @@ final case class ParameterEntry(label: String, shape: Shape, elements: Int, payl
 /** Deterministic inventory of uniquely owned trainable parameters. */
 final case class ParameterInventory(entries: Vector[ParameterEntry], bytesPerElement: Int):
   require(entries.nonEmpty, "parameter inventory requires at least one entry")
-  val totalElements: Long = entries.iterator.map(_.elements.toLong).sum
+  val totalElements: Long     = entries.iterator.map(_.elements.toLong).sum
   val totalPayloadBytes: Long = entries.iterator.map(_.payloadBytes).sum
 
 object ParameterInventory:
-  /** Describes dense parameter payload only; gradients, optimizer state, and activations are separate. */
+  /**
+   * Describes dense parameter payload only; gradients, optimizer state, and activations are
+   * separate.
+   */
   def from(parameters: Vector[Tensor], bytesPerElement: Int = 8): ParameterInventory =
     require(parameters.nonEmpty, "parameter inventory requires at least one parameter")
     require(bytesPerElement > 0, s"bytes per element must be positive: $bytesPerElement")
     require(parameters.distinct.size == parameters.size, "parameter references must be unique")
-    require(parameters.map(_.label).distinct.size == parameters.size, "parameter labels must be unique")
+    require(
+      parameters.map(_.label).distinct.size == parameters.size,
+      "parameter labels must be unique"
+    )
     ParameterInventory(
       parameters.map { parameter =>
         ParameterEntry(

@@ -26,7 +26,7 @@ Use `./learn-ai help` to list every guided command.
 Consider the lower-level command:
 
 ```console
-$ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
+$ nix develop -c sbt 'runMain learnai.Main model'
 ```
 
 It has four layers.
@@ -56,16 +56,17 @@ under `src/main/scala/learnai`.
 
 ### `runMain ...`
 
-`runMain` asks sbt to execute one named `@main` entrypoint. The long name is its
-Scala package plus function name:
+`runMain` asks sbt to execute the sole production entrypoint, `learnai.Main`.
+The trailing `model` argument selects a lesson:
 
 ```text
-learnai.transformer.trainMiniGpt
-|       package       | function |
+learnai.Main model
+| entrypoint | lesson |
 ```
 
-The `./learn-ai` wrapper maps memorable names such as `model` and `agent` to
-these implementation names.
+The small table in `Main.scala` maps memorable names such as `model` and `agent`
+to ordinary runnable functions in their packages, so the whole route is visible
+in one place.
 
 ## Which lab should I run?
 
@@ -216,11 +217,11 @@ Follow the program from entrypoint to implementation:
 
 ```text
 ./learn-ai command
-  -> printed underlying runMain name
-  -> @main function in src/main/scala
+  -> learnai.Main and lesson name
+  -> ordinary lesson function in its package
   -> model/runtime public methods
   -> Tensor/tool primitives
-  -> focused suite in src/test/scala
+  -> colocated *Suite.scala
   -> corresponding chapter in docs
 ```
 

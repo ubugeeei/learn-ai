@@ -6,7 +6,16 @@
 作ります。このコースを通して使う、値・型・関数・コレクション・分岐・エラー表現を
 ここで導入します。
 
-ソース: `src/main/scala/learnai/foundations/ScalaTour.scala`。
+ソースは同じディレクトリに並びます。
+
+```text
+src/main/scala/learnai/foundations/
+├── ScalaTour.scala       # この章で育てる実装
+└── ScalaTourSuite.scala  # 実装と一対一に対応する実行可能な仕様
+```
+
+以後の章もこの形です。パッケージディレクトリを開けば、実装・テスト・実行関数を
+一度に見つけられます。
 
 ## プログラムは値を変換する
 
@@ -106,10 +115,11 @@ mean(losses) match
 
 ## I/O を境界に留める
 
-`@main` 関数はプログラムのエントリポイントです。
+JVM のエントリポイントは `learnai.Main` の `main` メソッドです。各章の実行関数を
+普通の関数として保ち、`Main` がコマンド名から選びます。
 
 ```scala
-@main def runScalaTour(): Unit =
+def runScalaTour(): Unit =
   println("visible side effect")
 ```
 
@@ -120,7 +130,7 @@ mean(losses) match
 ## 実行する
 
 ```console
-$ nix develop -c sbt 'runMain learnai.foundations.runScalaTour'
+$ nix develop -c sbt 'runMain learnai.Main foundations'
 mean loss: 1.167
 the last loss is positive
 ```
@@ -128,7 +138,7 @@ the last loss is positive
 ## 実装ウォークスルー
 
 `ScalaTour.scala` を宣言順に読んでください。`object ScalaTour` は一つの名前空間
-を作ります。そのメソッドは純粋なので、テストからも `@main` エントリポイントからも
+を作ります。そのメソッドは純粋なので、テストからも共有 CLI からも
 容易に呼び出せます。
 
 `square` は、もっとも単純な型付き関数を示します。
@@ -158,9 +168,10 @@ def mean(values: Vector[Double]): Either[String, Double] =
 対するメソッドチェーンの例です。`trim` と `toLowerCase` はそれぞれ新しい値を
 返します。
 
-最後に、`@main def runScalaTour()` は JVM のエントリポイントにコンパイルされ
-ます。テストと同じ関数を呼び出しており、デモの中に二つ目の実装があるわけでは
-ありません。`Either` を出力する際は、エラーチャネルが抽象的なままにならない
+最後に、`Main.main` は引数 `foundations` を `runScalaTour()` に対応付けます。
+実行関数はテストと同じ関数を呼び出しており、デモの中に二つ目の実装があるわけでは
+ありません。入口を一つにする一方、各ラボは普通の関数なので再利用できます。
+`Either` を出力する際は、エラーチャネルが抽象的なままにならない
 よう、`Right` と `Left` の両方を意図的に観察してください。
 
 ## テストの読み方

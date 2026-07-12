@@ -1,10 +1,11 @@
 package learnai.diagnostics
 
-/** Monotonic clock boundary used to make benchmark orchestration testable.
-  *
-  * Production measurements use `System.nanoTime`. Tests may supply a scripted
-  * clock to verify batching and statistics without depending on wall time.
-  */
+/**
+ * Monotonic clock boundary used to make benchmark orchestration testable.
+ *
+ * Production measurements use `System.nanoTime`. Tests may supply a scripted clock to verify
+ * batching and statistics without depending on wall time.
+ */
 trait NanoClock:
   def nanoTime(): Long
 
@@ -12,12 +13,13 @@ object NanoClock:
   val system: NanoClock = new NanoClock:
     override def nanoTime(): Long = System.nanoTime()
 
-/** Controls warmup, sampling, and batching for one microbenchmark.
-  *
-  * `operationsPerMeasurement` repeats the operation inside one timed region.
-  * Batching reduces timer-resolution noise for very small operations. The
-  * reported samples are normalized back to nanoseconds per operation.
-  */
+/**
+ * Controls warmup, sampling, and batching for one microbenchmark.
+ *
+ * `operationsPerMeasurement` repeats the operation inside one timed region. Batching reduces
+ * timer-resolution noise for very small operations. The reported samples are normalized back to
+ * nanoseconds per operation.
+ */
 final case class BenchmarkConfig(
     warmupIterations: Int = 10,
     measurementIterations: Int = 30,
@@ -33,13 +35,13 @@ final case class BenchmarkConfig(
     s"operations per measurement must be positive: $operationsPerMeasurement"
   )
 
-/** Descriptive statistics over normalized nanoseconds-per-operation samples.
-  *
-  * Median averages the two central samples for an even count. Percentile 95
-  * uses the nearest-rank definition. Standard deviation is the population
-  * standard deviation of this observed sample vector; it is descriptive, not
-  * a confidence interval for a larger population.
-  */
+/**
+ * Descriptive statistics over normalized nanoseconds-per-operation samples.
+ *
+ * Median averages the two central samples for an even count. Percentile 95 uses the nearest-rank
+ * definition. Standard deviation is the population standard deviation of this observed sample
+ * vector; it is descriptive, not a confidence interval for a larger population.
+ */
 final case class BenchmarkStatistics private (
     samplesNanoseconds: Vector[Double],
     minimumNanoseconds: Double,
@@ -49,7 +51,7 @@ final case class BenchmarkStatistics private (
     meanNanoseconds: Double,
     standardDeviationNanoseconds: Double
 ):
-  val operationsPerSecond: Double = 1_000_000_000.0 / meanNanoseconds
+  val operationsPerSecond: Double    = 1_000_000_000.0 / meanNanoseconds
   val coefficientOfVariation: Double = standardDeviationNanoseconds / meanNanoseconds
 
 object BenchmarkStatistics:
@@ -62,17 +64,16 @@ object BenchmarkStatistics:
         s"benchmark sample $index must be finite and positive: $sample"
       )
     }
-    val sorted = samplesNanoseconds.sorted
-    val median =
+    val sorted            = samplesNanoseconds.sorted
+    val median            =
       if sorted.size % 2 == 1 then sorted(sorted.size / 2)
       else
         val upper = sorted.size / 2
         (sorted(upper - 1) + sorted(upper)) / 2.0
     val percentile95Index = math.ceil(0.95 * sorted.size.toDouble).toInt - 1
-    val mean = samplesNanoseconds.sum / samplesNanoseconds.size.toDouble
-    val variance = samplesNanoseconds.iterator
-      .map(sample => math.pow(sample - mean, 2.0))
-      .sum / samplesNanoseconds.size.toDouble
+    val mean              = samplesNanoseconds.sum / samplesNanoseconds.size.toDouble
+    val variance          = samplesNanoseconds.iterator.map(sample => math.pow(sample - mean, 2.0)).sum /
+      samplesNanoseconds.size.toDouble
     BenchmarkStatistics(
       samplesNanoseconds,
       sorted.head,
@@ -114,17 +115,16 @@ final case class BenchmarkResult(
   require(name.nonEmpty, "benchmark name cannot be empty")
 
 object Benchmark:
-  /** Measures a side-effect-free operation that returns an observable checksum value.
-    *
-    * The operation must be deterministic for a fixed setup and must perform the
-    * work under study. Its returned `Long` is mixed into the result so the JVM
-    * cannot trivially discard an unused calculation. Warmup runs execute the
-    * same batch shape but are excluded from timing statistics.
-    *
-    * This is an educational harness, not a replacement for JMH. It does not
-    * control compiler forks, CPU frequency, process affinity, garbage
-    * collection, or hardware performance counters.
-    */
+  /**
+   * Measures a side-effect-free operation that returns an observable checksum value.
+   *
+   * The operation must be deterministic for a fixed setup and must perform the work under study.
+   * Its returned `Long` is mixed into the result so the JVM cannot trivially discard an unused
+   * calculation. Warmup runs execute the same batch shape but are excluded from timing statistics.
+   *
+   * This is an educational harness, not a replacement for JMH. It does not control compiler forks,
+   * CPU frequency, process affinity, garbage collection, or hardware performance counters.
+   */
   def measure(
       name: String,
       config: BenchmarkConfig,
@@ -148,7 +148,7 @@ object Benchmark:
       runBatch()
       warmup += 1
 
-    val samples = Vector.newBuilder[Double]
+    val samples     = Vector.newBuilder[Double]
     var measurement = 0
     while measurement < config.measurementIterations do
       val started = clock.nanoTime()

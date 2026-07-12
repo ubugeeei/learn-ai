@@ -101,3 +101,14 @@ git diff --check
 `docs/ja/00-guide/07-translation-policy.md` に従います。訳語を創作せず、
 世界的に標準的な英語の用語をそのまま使うことを優先し、定着した日本語訳は
 維持します。ミラー構造はテストガードで強制されます。
+## コードの読みやすさも正しさの一部
+
+すべての Scala ソースは Scalafmt で整形します。commit 前に
+`sbt scalafmtAll scalafmtSbt` を実行してください。`sbt check` は整形のずれも
+失敗させます。公開 domain type と自明でない contract には、名前を言い換えるだけ
+ではなく、不変条件・所有権・失敗時の挙動・単位を説明する Scaladoc を書きます。
+
+feature test は実装の隣に置く実行可能な仕様です。`specify(...)` で振る舞い一覧を
+宣言し、観測可能な property を case 名にします。公開境界には原則として正常系・
+境界値・拒否される入力を含めます。数値アルゴリズムには、独立に計算した参照値か
+property test も必要です。

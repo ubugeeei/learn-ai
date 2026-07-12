@@ -1,10 +1,11 @@
 package learnai.foundations
 
-/** Small examples used by the Scala introduction.
-  *
-  * Keeping the examples as ordinary functions makes every result callable from
-  * later tests. Only `runScalaTour` performs console I/O.
-  */
+/**
+ * Small examples used by the Scala introduction.
+ *
+ * Keeping the examples as ordinary functions makes every result callable from later tests. Only
+ * `runScalaTour` performs console I/O; `learnai.Main` selects it from the command line.
+ */
 object ScalaTour:
   final case class Observation(label: String, value: Double)
 
@@ -14,22 +15,20 @@ object ScalaTour:
     if values.isEmpty then Left("mean requires at least one value")
     else Right(values.sum / values.size.toDouble)
 
-  def describeSign(value: Double): String =
-    value match
-      case number if number < 0.0 => "negative"
-      case 0.0                    => "zero"
-      case _                      => "positive"
+  def describeSign(value: Double): String = value match
+    case number if number < 0.0 => "negative"
+    case 0.0                    => "zero"
+    case _                      => "positive"
 
-  def normalizeLabel(raw: String): String =
-    raw.trim.toLowerCase
+  def normalizeLabel(raw: String): String = raw.trim.toLowerCase
 
-@main def runScalaTour(): Unit =
+def runScalaTour(): Unit =
   val observations = Vector(
     ScalaTour.Observation("first loss", 2.0),
     ScalaTour.Observation("second loss", 1.0),
     ScalaTour.Observation("third loss", 0.5)
   )
-  val losses = observations.map(observation => observation.value)
+  val losses       = observations.map(observation => observation.value)
 
   ScalaTour.mean(losses) match
     case Right(average) => println(f"mean loss: $average%.3f")

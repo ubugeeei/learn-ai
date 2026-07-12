@@ -99,3 +99,15 @@ Japanese translations mirror `docs/` under `docs/ja/` and follow
 `docs/00-guide/07-translation-policy.md`: never coin terminology, prefer
 globally standard English terms as-is, and keep established Japanese
 renderings. Test guards enforce the mirror structure.
+## Code readability is part of correctness
+
+All Scala sources are formatted by Scalafmt. Run `sbt scalafmtAll scalafmtSbt`
+before committing; `sbt check` rejects formatting drift. Keep public domain
+types and non-obvious contracts documented with Scaladoc that explains
+invariants, ownership, failure behavior, and units instead of restating names.
+
+Feature tests are executable specifications colocated with their implementation.
+Declare the complete behavior list with `specify(...)`, and name cases after an
+observable property. Every public boundary should normally have a success case,
+a boundary case, and a rejected-input case. Numerical algorithms additionally
+need an independently calculated reference or property test.

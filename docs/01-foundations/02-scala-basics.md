@@ -6,7 +6,16 @@ A small command-line program that records loss observations and computes their
 mean. It introduces the values, types, functions, collections, branches, and
 error representation used throughout the course.
 
-Source: `src/main/scala/learnai/foundations/ScalaTour.scala`.
+The sources sit together in one directory.
+
+```text
+src/main/scala/learnai/foundations/
+├── ScalaTour.scala       # implementation grown by this chapter
+└── ScalaTourSuite.scala  # executable specification paired with it
+```
+
+Later chapters use the same shape. Opening a package directory reveals the
+implementation, tests, and runnable lesson together.
 
 ## Programs transform values
 
@@ -105,10 +114,11 @@ execution.
 
 ## Keep I/O at the boundary
 
-An `@main` function is a program entrypoint:
+The JVM entrypoint is the `main` method on `learnai.Main`. Each chapter keeps an
+ordinary runnable function, and `Main` selects one from the command name:
 
 ```scala
-@main def runScalaTour(): Unit =
+def runScalaTour(): Unit =
   println("visible side effect")
 ```
 
@@ -119,7 +129,7 @@ pure and concentrate I/O at entry and exit boundaries.
 ## Run it
 
 ```console
-$ nix develop -c sbt 'runMain learnai.foundations.runScalaTour'
+$ nix develop -c sbt 'runMain learnai.Main foundations'
 mean loss: 1.167
 the last loss is positive
 ```
@@ -128,7 +138,7 @@ the last loss is positive
 
 Read `ScalaTour.scala` in declaration order. `object ScalaTour` creates one
 namespace; its methods are pure and therefore easy to call from both tests and
-the `@main` entrypoint.
+the shared CLI.
 
 `square` shows the simplest typed function:
 
@@ -157,9 +167,10 @@ so the compiler can infer the branch result type. `normalizeLabel` demonstrates
 method chaining on an immutable `String`: `trim` and `toLowerCase` each return a
 new value.
 
-Finally, `@main def runScalaTour()` is compiled into a JVM entrypoint. It calls
+Finally, `Main.main` maps the `foundations` argument to `runScalaTour()`. It calls
 the same functions as the tests; the demo does not contain a second
-implementation. When printing `Either`, deliberately observe both `Right` and
+implementation. The entrypoint stays singular while every lab remains an
+ordinary reusable function. When printing `Either`, deliberately observe both `Right` and
 `Left` so the error channel is not abstract.
 
 ## Reading the tests

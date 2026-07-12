@@ -8,19 +8,19 @@ import learnai.tensor.Tensor
 import learnai.text.TokenId
 import learnai.text.TokenId.*
 
-/** A trainable lookup table with shape `[entries, channels]`.
-  *
-  * Lookup output has shape `[indices.size, channels]`. Repeated indices share
-  * one parameter row and therefore accumulate gradients.
-  */
-final class Embedding private (
-    val entries: Int,
-    val channels: Int,
-    val weight: Tensor
-):
+/**
+ * A trainable lookup table with shape `[entries, channels]`.
+ *
+ * Lookup output has shape `[indices.size, channels]`. Repeated indices share one parameter row and
+ * therefore accumulate gradients.
+ */
+final class Embedding private (val entries: Int, val channels: Int, val weight: Tensor):
   require(entries > 0, s"embedding entries must be positive: $entries")
   require(channels > 0, s"embedding channels must be positive: $channels")
-  require(weight.shape == Shape(entries, channels), s"invalid embedding weight shape ${weight.shape}")
+  require(
+    weight.shape == Shape(entries, channels),
+    s"invalid embedding weight shape ${weight.shape}"
+  )
 
   /** Looks up integer row indices after validating their vocabulary range. */
   def apply(indices: Vector[Int]): Tensor =
@@ -36,41 +36,23 @@ final class Embedding private (
 
 object Embedding:
   /** Xavier-initializes an embedding table using a caller-owned RNG. */
-  def random(
-      entries: Int,
-      channels: Int,
-      random: SplittableRandom,
-      label: String
-  ): Embedding =
-    val weight = Initialization.xavierUniform(
-      Shape(entries, channels),
-      fanIn = entries,
-      fanOut = channels,
-      random,
-      label
-    )
+  def random(entries: Int, channels: Int, random: SplittableRandom, label: String): Embedding =
+    val weight = Initialization
+      .xavierUniform(Shape(entries, channels), fanIn = entries, fanOut = channels, random, label)
     new Embedding(entries, channels, weight)
 
   /** Builds an embedding from explicit row-major values for tests or loading. */
-  def fromValues(
-      entries: Int,
-      channels: Int,
-      values: Vector[Double],
-      label: String
-  ): Embedding =
+  def fromValues(entries: Int, channels: Int, values: Vector[Double], label: String): Embedding =
     new Embedding(entries, channels, Tensor.parameter(Shape(entries, channels), values, label))
 
 /** Combines learned token and absolute-position embeddings by addition. */
-final class TokenPositionEmbedding(
-    val tokens: Embedding,
-    val positions: Embedding
-):
+final class TokenPositionEmbedding(val tokens: Embedding, val positions: Embedding):
   require(
     tokens.channels == positions.channels,
     s"token and position channels differ: ${tokens.channels} != ${positions.channels}"
   )
 
-  val channels: Int = tokens.channels
+  val channels: Int             = tokens.channels
   val maximumContextLength: Int = positions.entries
 
   /** Returns `[time, channels]` embeddings for one token sequence. */
@@ -79,7 +61,7 @@ final class TokenPositionEmbedding(
       tokenIds.size <= maximumContextLength,
       s"sequence length ${tokenIds.size} exceeds maximum $maximumContextLength"
     )
-    val tokenValues = tokenIds.map(_.value)
+    val tokenValues    = tokenIds.map(_.value)
     val positionValues = tokenIds.indices.toVector
     tokens(tokenValues) + positions(positionValues)
 
@@ -100,7 +82,10 @@ final class Linear private (
     val weight: Tensor,
     val bias: Tensor
 ):
-  require(weight.shape == Shape(inputChannels, outputChannels), s"invalid weight shape ${weight.shape}")
+  require(
+    weight.shape == Shape(inputChannels, outputChannels),
+    s"invalid weight shape ${weight.shape}"
+  )
   require(bias.shape == Shape(outputChannels), s"invalid bias shape ${bias.shape}")
 
   /** Applies `[rows,inputChannels] x [inputChannels,outputChannels] + bias`. */
@@ -130,7 +115,7 @@ object Linear:
       random,
       s"$label.weight"
     )
-    val bias = Initialization.zeros(Shape(outputChannels), s"$label.bias")
+    val bias   = Initialization.zeros(Shape(outputChannels), s"$label.bias")
     new Linear(inputChannels, outputChannels, weight, bias)
 
   /** Builds a layer from explicit parameter values for deterministic tests. */
@@ -140,20 +125,15 @@ object Linear:
       weights: Vector[Double],
       biases: Vector[Double],
       label: String
-  ): Linear =
-    new Linear(
-      inputChannels,
-      outputChannels,
-      Tensor.parameter(Shape(inputChannels, outputChannels), weights, s"$label.weight"),
-      Tensor.parameter(Shape(outputChannels), biases, s"$label.bias")
-    )
+  ): Linear = new Linear(
+    inputChannels,
+    outputChannels,
+    Tensor.parameter(Shape(inputChannels, outputChannels), weights, s"$label.weight"),
+    Tensor.parameter(Shape(outputChannels), biases, s"$label.bias")
+  )
 
 /** Root-mean-square normalization with one learned scale per channel. */
-final class RmsNorm private (
-    val channels: Int,
-    val epsilon: Double,
-    val scale: Tensor
-):
+final class RmsNorm private (val channels: Int, val epsilon: Double, val scale: Tensor):
   require(channels > 0, s"RMSNorm channels must be positive: $channels")
   require(scale.shape == Shape(channels), s"invalid RMSNorm scale shape ${scale.shape}")
 

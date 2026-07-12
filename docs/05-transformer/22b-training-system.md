@@ -438,6 +438,34 @@ This demonstrates control flow, not generalization to natural language.
 6. Remember that mid-run restart is not supported yet; only replay from zero is
    guaranteed here.
 
+## Run the complete workflow on your own corpus
+
+`runMiniGptTrainingLab` is a deterministic fixture for observing the algorithm.
+The next layer, `TrainingWorkflow`, connects the existing components across real
+file boundaries:
+
+```console
+$ ./learn-ai train --input data/corpus.txt --output runs/first \
+    --context 32 --channels 32 --heads 4 --hidden 64 --layers 2 \
+    --updates 100 --batch-size 8 --microbatch 2
+```
+
+The command reads UTF-8, tokenizes bytes, creates non-crossing train/validation
+splits, runs resumable training, and persists the result.
+
+| Artifact | Purpose | Verification boundary |
+| --- | --- | --- |
+| `manifest.json` | corpus/config/code/runtime identity | canonical JSON and SHA-256 ID |
+| `metrics.jsonl` | loss, LR, gradient, and tokens per update | one machine-readable row per update |
+| `model.laigpt` | inference architecture and weights | version, shape, label, and SHA-256 |
+| `training.laibnd` | complete exact-resume state | optimizer, scheduler position, RNG, data cursor, and SHA-256 |
+
+The CLI rejects unknown, duplicate, and valueless options. Missing inputs,
+insufficient split windows, incompatible head/channel counts, and write failures
+also produce a `training workflow failed` diagnostic and a nonzero exit. The
+models remain deliberately small, but this is an end-to-end path from user data
+to reusable, inspectable artifacts rather than a fixed-string printing demo.
+
 ## Limitations and next connection
 
 This training system still lacks:
@@ -446,10 +474,8 @@ This training system still lacks:
 - batched Tensor kernels;
 - dropout and train/eval modes;
 - mixed precision and loss scaling;
-- optimizer/checkpoint serialization;
-- exact interrupted resume;
 - activation memory accounting/checkpointing;
-- asynchronous logging and durable run records;
+- asynchronous logging and a large-scale run registry;
 - early stopping policy and artifact retention;
 - distributed gradient reduction.
 

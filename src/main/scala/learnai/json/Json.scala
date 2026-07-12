@@ -7,10 +7,10 @@ sealed trait JsonValue:
   /** Renders compact RFC 8259-compatible JSON. */
   final def render: String = JsonRenderer.render(this)
 
-case object JsonNull extends JsonValue
-final case class JsonBoolean(value: Boolean) extends JsonValue
-final case class JsonNumber(value: BigDecimal) extends JsonValue
-final case class JsonString(value: String) extends JsonValue
+case object JsonNull                                  extends JsonValue
+final case class JsonBoolean(value: Boolean)          extends JsonValue
+final case class JsonNumber(value: BigDecimal)        extends JsonValue
+final case class JsonString(value: String)            extends JsonValue
 final case class JsonArray(values: Vector[JsonValue]) extends JsonValue
 
 /** A JSON object with stable insertion order and unique field names. */
@@ -32,7 +32,7 @@ object JsonObject:
 /** Strict JSON parser with explicit input-size and nesting-depth limits. */
 object JsonParser:
   val DefaultMaximumInputCharacters: Int = 1_000_000
-  val DefaultMaximumDepth: Int = 64
+  val DefaultMaximumDepth: Int           = 64
 
   /** Parses exactly one JSON value and rejects trailing non-whitespace data. */
   def parse(
@@ -47,12 +47,11 @@ object JsonParser:
     else
       try
         val cursor = new Cursor(input, maximumDepth)
-        val value = cursor.parseDocument()
+        val value  = cursor.parseDocument()
         Right(value)
-      catch
-        case failure: JsonParseFailure => Left(failure.getMessage)
+      catch case failure: JsonParseFailure => Left(failure.getMessage)
 
-  private final class Cursor(input: String, maximumDepth: Int):
+  final private class Cursor(input: String, maximumDepth: Int):
     private var index = 0
 
     def parseDocument(): JsonValue =
@@ -66,15 +65,15 @@ object JsonParser:
       if depth > maximumDepth then fail(s"JSON nesting exceeds maximum depth $maximumDepth")
       if index >= input.length then fail("expected a JSON value, reached end of input")
       input(index) match
-        case 'n' => parseLiteral("null", JsonNull)
-        case 't' => parseLiteral("true", JsonBoolean(true))
-        case 'f' => parseLiteral("false", JsonBoolean(false))
-        case '"' => JsonString(parseString())
-        case '[' => parseArray(depth + 1)
-        case '{' => parseObject(depth + 1)
-        case '-' => parseNumber()
+        case 'n'                                   => parseLiteral("null", JsonNull)
+        case 't'                                   => parseLiteral("true", JsonBoolean(true))
+        case 'f'                                   => parseLiteral("false", JsonBoolean(false))
+        case '"'                                   => JsonString(parseString())
+        case '['                                   => parseArray(depth + 1)
+        case '{'                                   => parseObject(depth + 1)
+        case '-'                                   => parseNumber()
         case digit if digit >= '0' && digit <= '9' => parseNumber()
-        case other => fail(s"unexpected character '$other' while parsing a value")
+        case other                                 => fail(s"unexpected character '$other' while parsing a value")
 
     private def parseLiteral(expected: String, value: JsonValue): JsonValue =
       if !input.startsWith(expected, index) then fail(s"expected '$expected'")
@@ -103,7 +102,7 @@ object JsonParser:
       index += 1
       skipWhitespace()
       val fields = Vector.newBuilder[(String, JsonValue)]
-      val names = scala.collection.mutable.Set.empty[String]
+      val names  = scala.collection.mutable.Set.empty[String]
       if consumeIf('}') then JsonObject.empty
       else
         var done = false
@@ -133,10 +132,10 @@ object JsonParser:
         val character = input(index)
         index += 1
         character match
-          case '"' => closed = true
-          case '\\' => parseEscape(result)
+          case '"'                      => closed = true
+          case '\\'                     => parseEscape(result)
           case control if control < ' ' => fail("unescaped control character in JSON string")
-          case ordinary => result.append(ordinary)
+          case ordinary                 => result.append(ordinary)
       if !closed then fail("unterminated JSON string")
       result.result()
 
@@ -145,15 +144,15 @@ object JsonParser:
       val escaped = input(index)
       index += 1
       escaped match
-        case '"' => result.append('"')
-        case '\\' => result.append('\\')
-        case '/' => result.append('/')
-        case 'b' => result.append('\b')
-        case 'f' => result.append('\f')
-        case 'n' => result.append('\n')
-        case 'r' => result.append('\r')
-        case 't' => result.append('\t')
-        case 'u' => appendUnicodeEscape(result)
+        case '"'   => result.append('"')
+        case '\\'  => result.append('\\')
+        case '/'   => result.append('/')
+        case 'b'   => result.append('\b')
+        case 'f'   => result.append('\f')
+        case 'n'   => result.append('\n')
+        case 'r'   => result.append('\r')
+        case 't'   => result.append('\t')
+        case 'u'   => appendUnicodeEscape(result)
         case other => fail(s"invalid JSON string escape '\\$other'")
 
     private def appendUnicodeEscape(result: StringBuilder): Unit =
@@ -225,31 +224,28 @@ object JsonParser:
         true
       else false
 
-    private def peekContains(expected: Char): Boolean =
-      index < input.length && input(index) == expected
+    private def peekContains(expected: Char): Boolean = index < input.length &&
+      input(index) == expected
 
-    private def skipWhitespace(): Unit =
-      while index < input.length &&
-          (input(index) == ' ' || input(index) == '\n' || input(index) == '\r' || input(index) == '\t')
-      do index += 1
+    private def skipWhitespace(): Unit = while index < input.length &&
+      (input(index) == ' ' || input(index) == '\n' || input(index) == '\r' || input(index) == '\t')
+    do index += 1
 
     private def fail(message: String): Nothing =
       throw JsonParseFailure(s"$message at character $index")
 
-  private final case class JsonParseFailure(message: String) extends RuntimeException(message)
+  final private case class JsonParseFailure(message: String) extends RuntimeException(message)
 
 private object JsonRenderer:
-  def render(value: JsonValue): String =
-    value match
-      case JsonNull           => "null"
-      case JsonBoolean(value) => value.toString
-      case JsonNumber(value)  => renderNumber(value)
-      case JsonString(value)  => renderString(value)
-      case JsonArray(values)  => values.map(render).mkString("[", ",", "]")
-      case JsonObject(fields) =>
-        fields.map { case (name, fieldValue) =>
-          s"${renderString(name)}:${render(fieldValue)}"
-        }.mkString("{", ",", "}")
+  def render(value: JsonValue): String = value match
+    case JsonNull           => "null"
+    case JsonBoolean(value) => value.toString
+    case JsonNumber(value)  => renderNumber(value)
+    case JsonString(value)  => renderString(value)
+    case JsonArray(values)  => values.map(render).mkString("[", ",", "]")
+    case JsonObject(fields) => fields.map { case (name, fieldValue) =>
+        s"${renderString(name)}:${render(fieldValue)}"
+      }.mkString("{", ",", "}")
 
   private def renderNumber(value: BigDecimal): String =
     val stripped = value.bigDecimal.stripTrailingZeros()
@@ -258,14 +254,14 @@ private object JsonRenderer:
   private def renderString(value: String): String =
     val output = new StringBuilder("\"")
     value.foreach {
-      case '"'  => output.append("\\\"")
-      case '\\' => output.append("\\\\")
-      case '\b' => output.append("\\b")
-      case '\f' => output.append("\\f")
-      case '\n' => output.append("\\n")
-      case '\r' => output.append("\\r")
-      case '\t' => output.append("\\t")
+      case '"'                      => output.append("\\\"")
+      case '\\'                     => output.append("\\\\")
+      case '\b'                     => output.append("\\b")
+      case '\f'                     => output.append("\\f")
+      case '\n'                     => output.append("\\n")
+      case '\r'                     => output.append("\\r")
+      case '\t'                     => output.append("\\t")
       case control if control < ' ' => output.append(f"\\u${control.toInt}%04x")
-      case ordinary => output.append(ordinary)
+      case ordinary                 => output.append(ordinary)
     }
     output.append('"').result()

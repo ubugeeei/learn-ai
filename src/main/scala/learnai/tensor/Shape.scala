@@ -10,14 +10,11 @@ final class Shape private (
   def apply(axis: Int): Int = dimensions(axis)
 
   def offset(indices: Seq[Int]): Int =
-    require(
-      indices.size == rank,
-      s"expected $rank indices for shape $this, got ${indices.size}"
-    )
+    require(indices.size == rank, s"expected $rank indices for shape $this, got ${indices.size}")
     var result = 0
-    var axis = 0
+    var axis   = 0
     while axis < rank do
-      val index = indices(axis)
+      val index     = indices(axis)
       val dimension = dimensions(axis)
       require(
         index >= 0 && index < dimension,
@@ -29,19 +26,18 @@ final class Shape private (
 
   def coordinates(flatIndex: Int): Vector[Int] =
     require(flatIndex >= 0 && flatIndex < size, s"flat index $flatIndex outside [0, $size)")
-    val result = new Array[Int](rank)
+    val result    = new Array[Int](rank)
     var remainder = flatIndex
-    var axis = 0
+    var axis      = 0
     while axis < rank do
       result(axis) = remainder / strides(axis)
       remainder %= strides(axis)
       axis += 1
     result.toVector
 
-  override def equals(other: Any): Boolean =
-    other match
-      case that: Shape => dimensions == that.dimensions
-      case _           => false
+  override def equals(other: Any): Boolean = other match
+    case that: Shape => dimensions == that.dimensions
+    case _           => false
 
   override def hashCode(): Int = dimensions.hashCode()
 
@@ -56,10 +52,10 @@ object Shape:
       require(dimension >= 0, s"dimension at axis $axis must be non-negative: $dimension")
     }
 
-    val size = vector.foldLeft(1)(Math.multiplyExact)
+    val size    = vector.foldLeft(1)(Math.multiplyExact)
     val strides = new Array[Int](vector.size)
-    var stride = 1
-    var axis = vector.size - 1
+    var stride  = 1
+    var axis    = vector.size - 1
     while axis >= 0 do
       strides(axis) = stride
       stride = Math.multiplyExact(stride, vector(axis))

@@ -33,6 +33,7 @@ import learnai.transformer.TiledAttentionSuite
 import learnai.transformer.TransformerBlockSuite
 import learnai.training.MiniGptTrainingSuite
 import learnai.training.ResumableTrainingSuite
+import learnai.training.TrainingWorkflowSuite
 import learnai.transformer.MiniGptSuite
 import learnai.lm.SamplingSuite
 import learnai.io.MiniGptCheckpointSuite
@@ -83,6 +84,7 @@ object AllTests:
     MiniGptSuite,
     MiniGptTrainingSuite,
     ResumableTrainingSuite,
+    TrainingWorkflowSuite,
     DataParallelSuite,
     SftSuite,
     LoraSuite,
@@ -100,17 +102,17 @@ object AllTests:
   )
 
   def main(arguments: Array[String]): Unit =
-    val results = for
-      suite <- suites
-      testCase <- suite.tests
-    yield runOne(suite.name, testCase)
+    val results =
+      for
+        suite    <- suites
+        testCase <- suite.tests
+      yield runOne(suite.name, testCase)
 
     val failures = results.count(result => !result)
-    val passed = results.size - failures
+    val passed   = results.size - failures
     println(s"\n$passed passed, $failures failed, ${results.size} total")
 
-    if failures > 0 then
-      throw new AssertionError(s"$failures test(s) failed")
+    if failures > 0 then throw new AssertionError(s"$failures test(s) failed")
 
   private def runOne(suiteName: String, testCase: TestCase): Boolean =
     val fullName = s"$suiteName / ${testCase.name}"

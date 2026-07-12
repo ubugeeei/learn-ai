@@ -91,17 +91,32 @@ math -> autodiff -> neural networks -> tokenization -> language modeling
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
 ```
 
-Useful entrypoints:
+There is one discoverable entrypoint, `learnai.Main`. With no lesson argument it
+prints every implemented lab and a one-line description in learning order.
 
 ```console
 $ nix develop -c sbt check
-$ nix develop -c sbt 'runMain learnai.nn.trainXor'
-$ nix develop -c sbt 'runMain learnai.lm.trainBigram'
-$ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
-$ nix develop -c sbt 'runMain learnai.transformer.runMiniGptDiagnostics'
-$ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
-$ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
+$ nix develop -c sbt 'runMain learnai.Main'
+$ nix develop -c sbt 'runMain learnai.Main foundations'
+$ nix develop -c sbt 'runMain learnai.Main model'
 ```
+
+After the fixed demonstrations, train on your own UTF-8 text and produce a
+reproducible run directory:
+
+```console
+$ ./learn-ai train --input data/corpus.txt --output runs/first \
+    --context 32 --channels 32 --heads 4 --layers 2 --updates 100
+```
+
+The output contains an identity/runtime `manifest.json`, per-update
+`metrics.jsonl`, a checksummed inference model `model.laigpt`, and a complete
+`training.laibnd` carrying optimizer, scheduler, random, and data-cursor state.
+
+Implementations and their tests are colocated. For example, `ScalaTour.scala`
+sits beside `ScalaTourSuite.scala`, and `Attention.scala` beside
+`AttentionSuite.scala`. Only the test runner itself and repository-wide checks
+remain under `src/test/scala/learnai/testing`.
 
 Tensor/pipeline/ZeRO simulation, the serving scheduler, corpus curation at
 scale, preference optimization, and production agent adapters remain

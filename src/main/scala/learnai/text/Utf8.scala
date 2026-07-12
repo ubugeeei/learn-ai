@@ -11,23 +11,20 @@ object TokenId:
     require(value >= 0, s"token ID must be non-negative: $value")
     value
 
-  extension (tokenId: TokenId)
-    def value: Int = tokenId
+  extension (tokenId: TokenId) def value: Int = tokenId
 
 object Utf8:
-  def encodeBytes(text: String): Vector[Int] =
-    text.getBytes(StandardCharsets.UTF_8).iterator.map(byte => byte & 0xff).toVector
+  def encodeBytes(text: String): Vector[Int] = text.getBytes(StandardCharsets.UTF_8).iterator
+    .map(byte => byte & 0xff).toVector
 
   def decodeBytes(unsignedBytes: IterableOnce[Int]): Either[String, String] =
-    val values = unsignedBytes.iterator.toArray
+    val values       = unsignedBytes.iterator.toArray
     val invalidIndex = values.indexWhere(value => value < 0 || value > 255)
     if invalidIndex >= 0 then
       Left(s"byte at index $invalidIndex outside [0, 256): ${values(invalidIndex)}")
     else
-      val bytes = values.map(_.toByte)
-      val decoder = StandardCharsets.UTF_8
-        .newDecoder()
-        .onMalformedInput(CodingErrorAction.REPORT)
+      val bytes   = values.map(_.toByte)
+      val decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
         .onUnmappableCharacter(CodingErrorAction.REPORT)
       try Right(decoder.decode(ByteBuffer.wrap(bytes)).toString)
       catch
@@ -36,16 +33,16 @@ object Utf8:
 
 object ByteTokenizer:
   val ByteVocabularySize: Int = 256
-  val BeginOfText: TokenId = TokenId(256)
-  val EndOfText: TokenId = TokenId(257)
-  val VocabularySize: Int = 258
+  val BeginOfText: TokenId    = TokenId(256)
+  val EndOfText: TokenId      = TokenId(257)
+  val VocabularySize: Int     = 258
 
   def encode(
       text: String,
       addBeginOfText: Boolean = false,
       addEndOfText: Boolean = false
   ): Vector[TokenId] =
-    val bytes = Utf8.encodeBytes(text).map(TokenId(_))
+    val bytes         = Utf8.encodeBytes(text).map(TokenId(_))
     val withBeginning = if addBeginOfText then BeginOfText +: bytes else bytes
     if addEndOfText then withBeginning :+ EndOfText else withBeginning
 
@@ -53,8 +50,6 @@ object ByteTokenizer:
       tokenIds: IterableOnce[TokenId],
       skipSpecialTokens: Boolean = true
   ): Either[String, String] =
-    val values = tokenIds.iterator.map(_.value).toVector
-    val ordinaryBytes =
-      if skipSpecialTokens then values.filter(_ < ByteVocabularySize)
-      else values
+    val values        = tokenIds.iterator.map(_.value).toVector
+    val ordinaryBytes = if skipSpecialTokens then values.filter(_ < ByteVocabularySize) else values
     Utf8.decodeBytes(ordinaryBytes)

@@ -5,22 +5,19 @@ import learnai.tensor.Shape
 import learnai.tensor.Tensor
 import learnai.text.TokenId
 
-/** Fixed-capacity key/value storage for one self-attention layer.
-  *
-  * Keys and values use row-major `[capacity, channels]` arrays. Appending one
-  * token writes exactly one row to each array; previous rows are never
-  * projected again. The cache is mutable because it belongs to one inference
-  * session, not to the model or its trainable parameters.
-  *
-  * `allocatedPayloadBytes` and `usedPayloadBytes` count only `Double` array
-  * payloads. JVM object and array headers are deliberately excluded.
-  */
-final class AttentionKeyValueCache private (
-    val channels: Int,
-    val capacity: Int
-):
-  private val keys = new Array[Double](Math.multiplyExact(channels, capacity))
-  private val values = new Array[Double](Math.multiplyExact(channels, capacity))
+/**
+ * Fixed-capacity key/value storage for one self-attention layer.
+ *
+ * Keys and values use row-major `[capacity, channels]` arrays. Appending one token writes exactly
+ * one row to each array; previous rows are never projected again. The cache is mutable because it
+ * belongs to one inference session, not to the model or its trainable parameters.
+ *
+ * `allocatedPayloadBytes` and `usedPayloadBytes` count only `Double` array payloads. JVM object and
+ * array headers are deliberately excluded.
+ */
+final class AttentionKeyValueCache private (val channels: Int, val capacity: Int):
+  private val keys          = new Array[Double](Math.multiplyExact(channels, capacity))
+  private val values        = new Array[Double](Math.multiplyExact(channels, capacity))
   private var currentLength = 0
 
   /** Number of token rows currently available to attention. */
@@ -28,29 +25,29 @@ final class AttentionKeyValueCache private (
 
   def remainingCapacity: Int = capacity - currentLength
 
-  def allocatedPayloadBytes: Long =
-    2L * channels.toLong * capacity.toLong * java.lang.Double.BYTES.toLong
+  def allocatedPayloadBytes: Long = 2L * channels.toLong * capacity.toLong *
+    java.lang.Double.BYTES.toLong
 
-  def usedPayloadBytes: Long =
-    2L * channels.toLong * currentLength.toLong * java.lang.Double.BYTES.toLong
+  def usedPayloadBytes: Long = 2L * channels.toLong * currentLength.toLong *
+    java.lang.Double.BYTES.toLong
 
   /** Removes logical contents without reallocating the fixed backing arrays. */
   def clear(): Unit = currentLength = 0
 
   private[transformer] def append(key: Tensor, value: Tensor): Unit =
-    require(key.shape == Shape(1, channels), s"cached key must have shape [1,$channels], got ${key.shape}")
+    require(
+      key.shape == Shape(1, channels),
+      s"cached key must have shape [1,$channels], got ${key.shape}"
+    )
     require(
       value.shape == Shape(1, channels),
       s"cached value must have shape [1,$channels], got ${value.shape}"
     )
-    require(
-      currentLength < capacity,
-      s"KV cache capacity $capacity is exhausted"
-    )
-    val offset = currentLength * channels
-    val keyValues = key.values
+    require(currentLength < capacity, s"KV cache capacity $capacity is exhausted")
+    val offset      = currentLength * channels
+    val keyValues   = key.values
     val valueValues = value.values
-    var channel = 0
+    var channel     = 0
     while channel < channels do
       keys(offset + channel) = keyValues(channel)
       values(offset + channel) = valueValues(channel)
@@ -66,7 +63,10 @@ final class AttentionKeyValueCache private (
     values(position * channels + channel)
 
   private def requirePositionAndChannel(position: Int, channel: Int): Unit =
-    require(position >= 0 && position < currentLength, s"cache position $position outside [0, $currentLength)")
+    require(
+      position >= 0 && position < currentLength,
+      s"cache position $position outside [0, $currentLength)"
+    )
     require(channel >= 0 && channel < channels, s"cache channel $channel outside [0, $channels)")
 
 object AttentionKeyValueCache:
@@ -76,18 +76,19 @@ object AttentionKeyValueCache:
     require(capacity > 0, s"cache capacity must be positive: $capacity")
     new AttentionKeyValueCache(channels, capacity)
 
-/** Mutable inference state for one MiniGPT request.
-  *
-  * A session evaluates one token at a time and owns one KV cache per
-  * Transformer block. It is intentionally not thread-safe: concurrent
-  * requests must use independent sessions so that cache ownership is explicit.
-  */
+/**
+ * Mutable inference state for one MiniGPT request.
+ *
+ * A session evaluates one token at a time and owns one KV cache per Transformer block. It is
+ * intentionally not thread-safe: concurrent requests must use independent sessions so that cache
+ * ownership is explicit.
+ */
 final class MiniGptInferenceSession(val model: MiniGpt):
-  private val caches = model.blocks.map { _ =>
+  private val caches                        = model.blocks.map { _ =>
     AttentionKeyValueCache.create(model.config.channels, model.config.maximumContextLength)
   }
-  private var currentLength = 0
-  private var totalEvaluatedTokens = 0L
+  private var currentLength                 = 0
+  private var totalEvaluatedTokens          = 0L
   private var latestLogits: Option[VectorD] = None
 
   def length: Int = currentLength
@@ -114,7 +115,7 @@ final class MiniGptInferenceSession(val model: MiniGpt):
       s"prefill length ${tokenIds.size} exceeds maximum ${model.config.maximumContextLength}"
     )
     reset()
-    tokenIds.foldLeft(VectorD.empty) { (_, tokenId) => append(tokenId) }
+    tokenIds.foldLeft(VectorD.empty)((_, tokenId) => append(tokenId))
 
   /** Evaluates one new token and appends its projected keys and values. */
   def append(tokenId: TokenId): VectorD =
@@ -122,13 +123,12 @@ final class MiniGptInferenceSession(val model: MiniGpt):
       currentLength < model.config.maximumContextLength,
       s"inference context ${model.config.maximumContextLength} is full"
     )
-    val embedded = model.embeddings.at(tokenId, currentLength)
-    val hidden = model.blocks.zip(caches).foldLeft(embedded) {
-      case (input, (block, cache)) => block.forwardCached(input, cache)
-    }
+    val embedded   = model.embeddings.at(tokenId, currentLength)
+    val hidden     = model.blocks.zip(caches)
+      .foldLeft(embedded) { case (input, (block, cache)) => block.forwardCached(input, cache) }
     val normalized = model.finalNorm(hidden)
-    val output = normalized.matmul(model.embeddings.tokens.weight.transpose2D)
-    val result = VectorD.from(output.rowValues(0))
+    val output     = normalized.matmul(model.embeddings.tokens.weight.transpose2D)
+    val result     = VectorD.from(output.rowValues(0))
     currentLength += 1
     totalEvaluatedTokens += 1L
     latestLogits = Some(result)
@@ -142,19 +142,20 @@ final class MiniGptInferenceSession(val model: MiniGpt):
       s"rebuild length ${tokenIds.size} exceeds maximum ${model.config.maximumContextLength}"
     )
     clearContext()
-    tokenIds.foldLeft(VectorD.empty) { (_, tokenId) => append(tokenId) }
+    tokenIds.foldLeft(VectorD.empty)((_, tokenId) => append(tokenId))
 
   private def clearContext(): Unit =
     caches.foreach(_.clear())
     currentLength = 0
     latestLogits = None
 
-/** Accounting returned with cached generation.
-  *
-  * `referenceTokenEvaluations` is the number of token rows the uncached
-  * sliding-window implementation would evaluate for the same decisions. It is
-  * a deterministic work count, not a wall-clock speed claim.
-  */
+/**
+ * Accounting returned with cached generation.
+ *
+ * `referenceTokenEvaluations` is the number of token rows the uncached sliding-window
+ * implementation would evaluate for the same decisions. It is a deterministic work count, not a
+ * wall-clock speed claim.
+ */
 final case class CachedGenerationStatistics(
     tokenEvaluations: Long,
     referenceTokenEvaluations: Long,

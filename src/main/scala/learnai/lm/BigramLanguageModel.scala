@@ -14,16 +14,13 @@ import learnai.text.BpeTrainer
 import learnai.text.TokenId
 import learnai.text.TokenId.*
 
-/** A neural bigram language model.
-  *
-  * Row `i` of `transitionLogits` contains unnormalized scores for the token
-  * following token `i`. The model has no hidden state and a context length of
-  * exactly one token.
-  */
-final class BigramLanguageModel private (
-    val vocabularySize: Int,
-    val transitionLogits: Tensor
-):
+/**
+ * A neural bigram language model.
+ *
+ * Row `i` of `transitionLogits` contains unnormalized scores for the token following token `i`. The
+ * model has no hidden state and a context length of exactly one token.
+ */
+final class BigramLanguageModel private (val vocabularySize: Int, val transitionLogits: Tensor):
   require(vocabularySize > 0, s"vocabulary size must be positive: $vocabularySize")
   require(
     transitionLogits.shape == Shape(vocabularySize, vocabularySize),
@@ -53,15 +50,16 @@ final class BigramLanguageModel private (
       temperature: Double = 1.0
   ): Either[String, Categorical] =
     require(temperature > 0.0 && temperature.isFinite, s"temperature must be finite and positive")
-    val row = validateTokenIds(Vector(currentTokenId), "current").head
+    val row          = validateTokenIds(Vector(currentTokenId), "current").head
     val scaledLogits = VectorD.from(transitionLogits.rowValues(row)).scale(1.0 / temperature)
     Probability.softmax(scaledLogits)
 
-  /** Samples `newTokenCount` transitions and includes the start token in the result.
-    *
-    * The caller owns the random generator, so equal model state, seed, start,
-    * count, and temperature produce the same token sequence.
-    */
+  /**
+   * Samples `newTokenCount` transitions and includes the start token in the result.
+   *
+   * The caller owns the random generator, so equal model state, seed, start, count, and temperature
+   * produce the same token sequence.
+   */
   def generate(
       start: TokenId,
       newTokenCount: Int,
@@ -70,14 +68,14 @@ final class BigramLanguageModel private (
   ): Either[String, Vector[TokenId]] =
     require(newTokenCount >= 0, s"new token count must be non-negative: $newTokenCount")
     validateTokenIds(Vector(start), "start")
-    val generated = Vector.newBuilder[TokenId]
+    val generated             = Vector.newBuilder[TokenId]
     generated += start
-    var current = start
-    var remaining = newTokenCount
+    var current               = start
+    var remaining             = newTokenCount
     var error: Option[String] = None
     while remaining > 0 && error.isEmpty do
       nextDistribution(current, temperature) match
-        case Left(message) => error = Some(message)
+        case Left(message)       => error = Some(message)
         case Right(distribution) =>
           current = TokenId(distribution.sample(random))
           generated += current
@@ -88,8 +86,8 @@ final class BigramLanguageModel private (
 
   def parameters: Vector[Tensor] = Vector(transitionLogits)
 
-  private def validateTokenIds(tokenIds: Vector[TokenId], role: String): Vector[Int] =
-    tokenIds.zipWithIndex.map { case (tokenId, index) =>
+  private def validateTokenIds(tokenIds: Vector[TokenId], role: String): Vector[Int] = tokenIds
+    .zipWithIndex.map { case (tokenId, index) =>
       val value = tokenId.value
       require(
         value >= 0 && value < vocabularySize,
@@ -113,19 +111,17 @@ object BigramLanguageModel:
 
   /** Constructs a model from explicit row-major logits, mainly for tests and loading. */
   def fromLogits(vocabularySize: Int, values: Vector[Double]): BigramLanguageModel =
-    val logits = Tensor.parameter(
-      Shape(vocabularySize, vocabularySize),
-      values,
-      "bigram.transitionLogits"
-    )
+    val logits = Tensor
+      .parameter(Shape(vocabularySize, vocabularySize), values, "bigram.transitionLogits")
     new BigramLanguageModel(vocabularySize, logits)
 
 object BigramTrainer:
-  /** Full-batch AdamW training over aligned adjacent token pairs.
-    *
-    * @return
-    *   loss before each parameter update, with exactly `steps` entries.
-    */
+  /**
+   * Full-batch AdamW training over aligned adjacent token pairs.
+   *
+   * @return
+   *   loss before each parameter update, with exactly `steps` entries.
+   */
   def train(
       model: BigramLanguageModel,
       inputs: Vector[TokenId],
@@ -134,29 +130,26 @@ object BigramTrainer:
       learningRate: Double
   ): Vector[Double] =
     require(steps >= 0, s"training steps must be non-negative: $steps")
-    val optimizer = new AdamW(
-      learningRate = learningRate,
-      weightDecay = 0.0,
-      maximumGradientNorm = Some(1.0)
-    )
-    val history = Vector.newBuilder[Double]
-    var step = 0
+    val optimizer =
+      new AdamW(learningRate = learningRate, weightDecay = 0.0, maximumGradientNorm = Some(1.0))
+    val history   = Vector.newBuilder[Double]
+    var step      = 0
     while step < steps do
       val loss = model.loss(inputs, targets)
       history += loss.valueAtFlat(0)
       loss.backward()
-      val _ = optimizer.step(model.parameters)
+      val _    = optimizer.step(model.parameters)
       step += 1
     history.result()
 
-@main def trainBigram(): Unit =
-  val corpus = Vector.fill(20)("scala learns ai. ai learns scala. ").mkString
+def trainBigram(): Unit =
+  val corpus    = Vector.fill(20)("scala learns ai. ai learns scala. ").mkString
   val tokenizer = BpeTrainer.train(Vector(corpus), targetVocabularySize = 272)
-  val tokens = tokenizer.encode(corpus)
-  val inputs = tokens.dropRight(1)
-  val targets = tokens.drop(1)
-  val model = BigramLanguageModel.random(tokenizer.vocabularySize, seed = 42L)
-  val history = BigramTrainer.train(model, inputs, targets, steps = 250, learningRate = 0.05)
+  val tokens    = tokenizer.encode(corpus)
+  val inputs    = tokens.dropRight(1)
+  val targets   = tokens.drop(1)
+  val model     = BigramLanguageModel.random(tokenizer.vocabularySize, seed = 42L)
+  val history   = BigramTrainer.train(model, inputs, targets, steps = 250, learningRate = 0.05)
   println(f"initial loss: ${history.head}%.6f")
   println(f"final loss:   ${history.last}%.6f")
 
@@ -167,5 +160,5 @@ object BigramTrainer:
     random = new SplittableRandom(7L)
   )
   generated.flatMap(tokenizer.decode) match
-    case Right(text)    => println(s"generated: $text")
-    case Left(problem)  => println(s"generated bytes were not valid UTF-8: $problem")
+    case Right(text)   => println(s"generated: $text")
+    case Left(problem) => println(s"generated bytes were not valid UTF-8: $problem")

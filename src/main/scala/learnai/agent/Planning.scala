@@ -9,16 +9,13 @@ final case class PlanTask(
   require(id.nonEmpty, "plan task ID cannot be empty")
   require(objective.nonEmpty, s"objective for task '$id' cannot be empty")
 
-/** An immutable acyclic task graph.
-  *
-  * Construction validates IDs and dependencies before any model or tool is
-  * invoked. Task order is retained as the deterministic tie-breaker when
-  * several nodes are ready.
-  */
-final class TaskPlan private (
-    val goal: String,
-    val tasks: Vector[PlanTask]
-):
+/**
+ * An immutable acyclic task graph.
+ *
+ * Construction validates IDs and dependencies before any model or tool is invoked. Task order is
+ * retained as the deterministic tie-breaker when several nodes are ready.
+ */
+final class TaskPlan private (val goal: String, val tasks: Vector[PlanTask]):
   private val tasksById = tasks.map(task => task.id -> task).toMap
 
   def task(id: String): Option[PlanTask] = tasksById.get(id)
@@ -30,16 +27,15 @@ object TaskPlan:
     if goal.trim.isEmpty then problems += "plan goal cannot be empty"
     if tasks.isEmpty then problems += "plan must contain at least one task"
 
-    val duplicateIds = tasks.groupBy(_.id).collect { case (id, values) if values.size > 1 => id }.toVector.sorted
+    val duplicateIds = tasks.groupBy(_.id).collect { case (id, values) if values.size > 1 => id }
+      .toVector.sorted
     duplicateIds.foreach(id => problems += s"duplicate task ID '$id'")
-    val knownIds = tasks.map(_.id).toSet
+    val knownIds     = tasks.map(_.id).toSet
     tasks.foreach { task =>
-      val duplicateDependencies = task.dependencies.groupBy(identity).collect {
-        case (dependency, values) if values.size > 1 => dependency
-      }.toVector.sorted
-      duplicateDependencies.foreach { dependency =>
-        problems += s"task '${task.id}' repeats dependency '$dependency'"
-      }
+      val duplicateDependencies = task.dependencies.groupBy(identity)
+        .collect { case (dependency, values) if values.size > 1 => dependency }.toVector.sorted
+      duplicateDependencies
+        .foreach(dependency => problems += s"task '${task.id}' repeats dependency '$dependency'")
       task.dependencies.foreach { dependency =>
         if dependency == task.id then problems += s"task '${task.id}' cannot depend on itself"
         else if !knownIds.contains(dependency) then
@@ -54,13 +50,12 @@ object TaskPlan:
 
   private def containsCycle(tasks: Vector[PlanTask]): Boolean =
     var remainingDependencies = tasks.map(task => task.id -> task.dependencies.size).toMap
-    val dependents = tasks.flatMap { task =>
-      task.dependencies.map(dependency => dependency -> task.id)
-    }.groupMap(_._1)(_._2)
-    val ready = scala.collection.mutable.Queue.from(
-      tasks.iterator.filter(_.dependencies.isEmpty).map(_.id)
-    )
-    var visited = 0
+    val dependents            = tasks
+      .flatMap(task => task.dependencies.map(dependency => dependency -> task.id))
+      .groupMap(_._1)(_._2)
+    val ready                 = scala.collection.mutable.Queue
+      .from(tasks.iterator.filter(_.dependencies.isEmpty).map(_.id))
+    var visited               = 0
     while ready.nonEmpty do
       val completed = ready.dequeue()
       visited += 1
@@ -72,10 +67,7 @@ object TaskPlan:
     visited != tasks.size
 
 /** Completed task outputs sufficient to resume without repeating prior work. */
-final class PlanCheckpoint private (
-    val goal: String,
-    val completedAnswers: Map[String, String]
-)
+final class PlanCheckpoint private (val goal: String, val completedAnswers: Map[String, String])
 
 object PlanCheckpoint:
   def empty(plan: TaskPlan): PlanCheckpoint = new PlanCheckpoint(plan.goal, Map.empty)
@@ -95,9 +87,8 @@ object PlanCheckpoint:
           problems += s"checkpoint task '${task.id}' is missing completed dependency '$dependency'"
       }
     }
-    val result = problems.result()
-    if result.nonEmpty then Left(result)
-    else Right(new PlanCheckpoint(plan.goal, completedAnswers))
+    val result   = problems.result()
+    if result.nonEmpty then Left(result) else Right(new PlanCheckpoint(plan.goal, completedAnswers))
 
 /** Retry budget for one task before its dependents become blocked. */
 final case class PlanningConfig(maximumTaskAttempts: Int = 2):
@@ -124,11 +115,7 @@ enum PlanningStatus:
   case Completed
   case Failed
 
-final case class TaskAttemptRecord(
-    taskId: String,
-    attempt: Int,
-    run: AgentRun
-)
+final case class TaskAttemptRecord(taskId: String, attempt: Int, run: AgentRun)
 
 final case class PlannedTaskResult(
     task: PlanTask,
@@ -141,8 +128,8 @@ final case class PlannedTaskResult(
 sealed trait PlanningEvent:
   def sequence: Int
 
-final case class PlanStarted(sequence: Int, goal: String) extends PlanningEvent
-final case class TaskRecovered(sequence: Int, taskId: String) extends PlanningEvent
+final case class PlanStarted(sequence: Int, goal: String)                   extends PlanningEvent
+final case class TaskRecovered(sequence: Int, taskId: String)               extends PlanningEvent
 final case class TaskAttemptStarted(sequence: Int, taskId: String, attempt: Int)
     extends PlanningEvent
 final case class TaskAttemptFinished(
@@ -166,13 +153,13 @@ final case class PlanningRun(
     executedToolCalls: Int
 )
 
-/** Deterministically executes ready plan tasks through the bounded agent runtime.
-  *
-  * Tasks are sequential in this first implementation. Independent tasks remain
-  * runnable after another branch fails, while descendants of a failed branch
-  * become explicitly blocked. A checkpoint skips already completed nodes on a
-  * later process-level retry.
-  */
+/**
+ * Deterministically executes ready plan tasks through the bounded agent runtime.
+ *
+ * Tasks are sequential in this first implementation. Independent tasks remain runnable after
+ * another branch fails, while descendants of a failed branch become explicitly blocked. A
+ * checkpoint skips already completed nodes on a later process-level retry.
+ */
 final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
   def run(
       plan: TaskPlan,
@@ -182,17 +169,20 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
   ): PlanningRun =
     require(checkpoint.goal == plan.goal, "checkpoint belongs to a different plan goal")
     val checkpointProblems = PlanCheckpoint.create(plan, checkpoint.completedAnswers)
-    require(checkpointProblems.isRight, checkpointProblems.left.toOption.getOrElse(Vector.empty).mkString("; "))
+    require(
+      checkpointProblems.isRight,
+      checkpointProblems.left.toOption.getOrElse(Vector.empty).mkString("; ")
+    )
 
-    var completed = checkpoint.completedAnswers
-    var failed = Set.empty[String]
-    var blocked = Set.empty[String]
-    var results = Map.empty[String, PlannedTaskResult]
-    val attempts = Vector.newBuilder[TaskAttemptRecord]
-    var events = Vector.empty[PlanningEvent]
-    var usage = ModelUsage.zero
+    var completed         = checkpoint.completedAnswers
+    var failed            = Set.empty[String]
+    var blocked           = Set.empty[String]
+    var results           = Map.empty[String, PlannedTaskResult]
+    val attempts          = Vector.newBuilder[TaskAttemptRecord]
+    var events            = Vector.empty[PlanningEvent]
+    var usage             = ModelUsage.zero
     var executedToolCalls = 0
-    var sequence = 0
+    var sequence          = 0
 
     def record(event: Int => PlanningEvent): Unit =
       events :+= event(sequence)
@@ -210,39 +200,37 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
       record(index => TaskRecovered(index, task.id))
     }
 
-    def isTerminal(id: String): Boolean = completed.contains(id) || failed.contains(id) || blocked.contains(id)
+    def isTerminal(id: String): Boolean = completed.contains(id) || failed.contains(id) ||
+      blocked.contains(id)
 
     while plan.tasks.exists(task => !isTerminal(task.id)) do
       val newlyBlocked = plan.tasks.filter { task =>
-        !isTerminal(task.id) && task.dependencies.exists(dependency => failed.contains(dependency) || blocked.contains(dependency))
+        !isTerminal(task.id) &&
+        task.dependencies
+          .exists(dependency => failed.contains(dependency) || blocked.contains(dependency))
       }
       newlyBlocked.foreach { task =>
-        val reason = s"dependency did not succeed: ${task.dependencies.filter(id => failed.contains(id) || blocked.contains(id)).mkString(", ")}"
+        val reason = s"dependency did not succeed: ${task.dependencies
+            .filter(id => failed.contains(id) || blocked.contains(id)).mkString(", ")}"
         blocked += task.id
-        results += task.id -> PlannedTaskResult(
-          task,
-          PlannedTaskStatus.Blocked,
-          None,
-          attempts = 0,
-          reason
-        )
+        results += task.id ->
+          PlannedTaskResult(task, PlannedTaskStatus.Blocked, None, attempts = 0, reason)
         record(index => TaskBlocked(index, task.id, reason))
       }
 
-      val ready = plan.tasks.find { task =>
-        !isTerminal(task.id) && task.dependencies.forall(completed.contains)
-      }
+      val ready = plan.tasks
+        .find(task => !isTerminal(task.id) && task.dependencies.forall(completed.contains))
       ready match
         case Some(task) =>
-          var attempt = 1
-          var succeeded = false
+          var attempt            = 1
+          var succeeded          = false
           var finalFailureReason = "task did not run"
           while attempt <= config.maximumTaskAttempts && !succeeded do
             val dependencyAnswers = task.dependencies.map(id => id -> completed(id)).toMap
-            val context = TaskExecutionContext(plan.goal, task, dependencyAnswers, attempt)
+            val context           = TaskExecutionContext(plan.goal, task, dependencyAnswers, attempt)
             record(index => TaskAttemptStarted(index, task.id, attempt))
-            val history = taskHistory(initialHistory, context)
-            val agentRun = runtime.run(modelFactory.create(context), history)
+            val history           = taskHistory(initialHistory, context)
+            val agentRun          = runtime.run(modelFactory.create(context), history)
             attempts += TaskAttemptRecord(task.id, attempt, agentRun)
             usage = usage + agentRun.usage
             executedToolCalls += agentRun.executedToolCalls
@@ -250,7 +238,7 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
             agentRun.finalAnswer.filter(_ => agentRun.status == AgentStatus.Completed) match
               case Some(answer) =>
                 completed += task.id -> answer
-                results += task.id -> PlannedTaskResult(
+                results += task.id   -> PlannedTaskResult(
                   task,
                   PlannedTaskStatus.Succeeded,
                   Some(answer),
@@ -258,8 +246,7 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
                   reason = "worker returned a final answer"
                 )
                 succeeded = true
-              case None =>
-                finalFailureReason = agentRun.events.lastOption match
+              case None         => finalFailureReason = agentRun.events.lastOption match
                   case Some(AgentStopped(_, _, reason)) => reason
                   case _                                => s"worker stopped with ${agentRun.status}"
             attempt += 1
@@ -272,31 +259,25 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
               attempts = config.maximumTaskAttempts,
               reason = finalFailureReason
             )
-        case None =>
+        case None       =>
           // A validated DAG reaches this branch only when failures have made
           // every remaining dependency chain unrunnable.
           plan.tasks.filter(task => !isTerminal(task.id)).foreach { task =>
             val reason = "no successful dependency path remains"
             blocked += task.id
-            results += task.id -> PlannedTaskResult(
-              task,
-              PlannedTaskStatus.Blocked,
-              None,
-              attempts = 0,
-              reason
-            )
+            results += task.id ->
+              PlannedTaskResult(task, PlannedTaskStatus.Blocked, None, attempts = 0, reason)
             record(index => TaskBlocked(index, task.id, reason))
           }
 
-    val status = if completed.size == plan.tasks.size then PlanningStatus.Completed else PlanningStatus.Failed
-    val reason =
+    val status          =
+      if completed.size == plan.tasks.size then PlanningStatus.Completed else PlanningStatus.Failed
+    val reason          =
       if status == PlanningStatus.Completed then "every planned task succeeded"
       else s"${failed.size} task(s) failed and ${blocked.size} task(s) were blocked"
     record(index => PlanStopped(index, status, reason))
-    val finalCheckpoint = PlanCheckpoint.create(plan, completed).fold(
-      problems => throw new IllegalStateException(problems.mkString("; ")),
-      identity
-    )
+    val finalCheckpoint = PlanCheckpoint.create(plan, completed)
+      .fold(problems => throw new IllegalStateException(problems.mkString("; ")), identity)
     PlanningRun(
       status,
       plan.tasks.map(task => results(task.id)),
@@ -325,9 +306,8 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
     )
     if context.dependencyAnswers.isEmpty then initialHistory :+ instruction
     else
-      val dependencyData = context.task.dependencies.map { id =>
-        s"[$id]\n${context.dependencyAnswers(id)}"
-      }.mkString("\n\n")
+      val dependencyData = context.task.dependencies
+        .map(id => s"[$id]\n${context.dependencyAnswers(id)}").mkString("\n\n")
       initialHistory ++ Vector(
         instruction,
         TextMessage(
@@ -338,7 +318,7 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
       )
 
 /** Runs a deterministic planning and recovery demonstration with fake workers. */
-@main def runPlanningAgentLab(): Unit =
+def runPlanningAgentLab(): Unit =
   val plan = TaskPlan.create(
     "Produce a grounded project brief",
     Vector(
@@ -353,19 +333,15 @@ final class PlanningAgent(runtime: AgentRuntime, config: PlanningConfig):
       override def complete(request: ModelRequest): Either[ModelError, ModelDecision] =
         if context.task.id == "analyze" && context.attempt == 1 then
           Left(ModelError("transient_provider_error", "simulated retry", retryable = true))
-        else
-          Right(FinalAnswer(s"completed ${context.task.id}", ModelUsage(12, 4)))
+        else Right(FinalAnswer(s"completed ${context.task.id}", ModelUsage(12, 4)))
 
   val runtime = new AgentRuntime(Vector.empty, AgentConfig())
-  val result = new PlanningAgent(runtime, PlanningConfig(maximumTaskAttempts = 2)).run(
-    plan,
-    Vector(TextMessage(MessageRole.User, "Create the brief")),
-    factory
-  )
+  val result  = new PlanningAgent(runtime, PlanningConfig(maximumTaskAttempts = 2))
+    .run(plan, Vector(TextMessage(MessageRole.User, "Create the brief")), factory)
   println(s"status: ${result.status}")
-  println(s"attempts: ${result.attempts.map(attempt => s"${attempt.taskId}#${attempt.attempt}").mkString(", ")}")
-  println(s"completed checkpoint: ${result.checkpoint.completedAnswers.keys.toVector.sorted.mkString(", ")}")
+  println(s"attempts: ${result.attempts.map(attempt => s"${attempt.taskId}#${attempt.attempt}")
+      .mkString(", ")}")
+  println(s"completed checkpoint: ${result.checkpoint.completedAnswers.keys.toVector.sorted
+      .mkString(", ")}")
   println(s"usage: ${result.usage.totalTokens} tokens")
-  result.taskResults.foreach { task =>
-    println(s"${task.task.id}: ${task.status} (${task.reason})")
-  }
+  result.taskResults.foreach(task => println(s"${task.task.id}: ${task.status} (${task.reason})"))

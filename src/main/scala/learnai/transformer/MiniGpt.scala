@@ -37,13 +37,13 @@ final case class MiniGptConfig(
     s"normalization epsilon must be finite and positive: $normalizationEpsilon"
   )
 
-/** A decoder-only Transformer language model for one sequence at a time.
-  *
-  * The model uses learned absolute positions, pre-norm blocks, causal
-  * multi-head attention, and weight tying between token embeddings and the
-  * output classifier. It is intentionally small and CPU-oriented but performs
-  * real reverse-mode training through every component.
-  */
+/**
+ * A decoder-only Transformer language model for one sequence at a time.
+ *
+ * The model uses learned absolute positions, pre-norm blocks, causal multi-head attention, and
+ * weight tying between token embeddings and the output classifier. It is intentionally small and
+ * CPU-oriented but performs real reverse-mode training through every component.
+ */
 final class MiniGpt private (
     val config: MiniGptConfig,
     val embeddings: TokenPositionEmbedding,
@@ -53,8 +53,8 @@ final class MiniGpt private (
   /** Computes next-token logits with shape `[time, vocabularySize]`. */
   def logits(tokenIds: Vector[TokenId]): Tensor =
     require(tokenIds.nonEmpty, "MiniGPT requires at least one input token")
-    val embedded = embeddings(tokenIds)
-    val hidden = blocks.foldLeft(embedded) { (current, block) => block(current) }
+    val embedded   = embeddings(tokenIds)
+    val hidden     = blocks.foldLeft(embedded)((current, block) => block(current))
     val normalized = finalNorm(hidden)
     normalized.matmul(embeddings.tokens.weight.transpose2D)
 
@@ -75,13 +75,13 @@ final class MiniGpt private (
     }
     logits(inputs).crossEntropy(targetValues)
 
-  /** Computes mean cross entropy over only the unmasked target positions.
-    *
-    * This is the training loss for packed sequences (Chapter 17b): padding
-    * targets and cross-document targets carry `false` in the mask and
-    * receive no loss and no gradient. At least one position must remain
-    * unmasked.
-    */
+  /**
+   * Computes mean cross entropy over only the unmasked target positions.
+   *
+   * This is the training loss for packed sequences (Chapter 17b): padding targets and
+   * cross-document targets carry `false` in the mask and receive no loss and no gradient. At least
+   * one position must remain unmasked.
+   */
   def lossMasked(
       inputs: Vector[TokenId],
       targets: Vector[TokenId],
@@ -102,11 +102,12 @@ final class MiniGpt private (
     }
     logits(inputs).crossEntropyMasked(targetValues, targetMask)
 
-  /** Returns the distribution after the final token of a non-empty context.
-    *
-    * Contexts longer than the configured maximum are cropped from the left.
-    * Position IDs restart at zero for the retained sliding window.
-    */
+  /**
+   * Returns the distribution after the final token of a non-empty context.
+   *
+   * Contexts longer than the configured maximum are cropped from the left. Position IDs restart at
+   * zero for the retained sliding window.
+   */
   def nextDistribution(
       context: Vector[TokenId],
       temperature: Double = 1.0
@@ -117,7 +118,7 @@ final class MiniGpt private (
       s"temperature must be finite and positive: $temperature"
     )
     val retained = context.takeRight(config.maximumContextLength)
-    val output = logits(retained)
+    val output   = logits(retained)
     val finalRow = VectorD.from(output.rowValues(retained.size - 1)).scale(1.0 / temperature)
     Probability.softmax(finalRow)
 
@@ -130,12 +131,12 @@ final class MiniGpt private (
   ): Either[String, Vector[TokenId]] =
     require(prompt.nonEmpty, "generation requires a non-empty prompt")
     require(newTokenCount >= 0, s"new token count must be non-negative: $newTokenCount")
-    var generated = prompt
-    var remaining = newTokenCount
+    var generated             = prompt
+    var remaining             = newTokenCount
     var error: Option[String] = None
     while remaining > 0 && error.isEmpty do
       nextDistribution(generated, temperature) match
-        case Left(message) => error = Some(message)
+        case Left(message)       => error = Some(message)
         case Right(distribution) =>
           generated = generated :+ TokenId(distribution.sample(random))
           remaining -= 1
@@ -143,14 +144,14 @@ final class MiniGpt private (
       case Some(message) => Left(message)
       case None          => Right(generated)
 
-  /** Samples with one KV cache per block and returns deterministic work metrics.
-    *
-    * Within the context capacity, each generated token adds one model token
-    * evaluation instead of recomputing the full prefix. If a learned absolute-
-    * position window becomes full, the retained window is rebuilt with
-    * positions starting at zero so results remain equivalent to
-    * `nextDistribution` rather than silently changing positional semantics.
-    */
+  /**
+   * Samples with one KV cache per block and returns deterministic work metrics.
+   *
+   * Within the context capacity, each generated token adds one model token evaluation instead of
+   * recomputing the full prefix. If a learned absolute- position window becomes full, the retained
+   * window is rebuilt with positions starting at zero so results remain equivalent to
+   * `nextDistribution` rather than silently changing positional semantics.
+   */
   def generateCached(
       prompt: Vector[TokenId],
       newTokenCount: Int,
@@ -162,26 +163,24 @@ final class MiniGpt private (
 
     val session = new MiniGptInferenceSession(this)
     if newTokenCount == 0 then
-      Right(
-        CachedGenerationResult(
-          prompt,
-          CachedGenerationStatistics(0L, 0L, 0, 0, session.allocatedCachePayloadBytes)
-        )
-      )
+      Right(CachedGenerationResult(
+        prompt,
+        CachedGenerationStatistics(0L, 0L, 0, 0, session.allocatedCachePayloadBytes)
+      ))
     else
-      var generated = prompt
-      var activeContext = prompt.takeRight(config.maximumContextLength)
-      var nextLogits = session.prefill(activeContext)
-      var remaining = newTokenCount
+      var generated                 = prompt
+      var activeContext             = prompt.takeRight(config.maximumContextLength)
+      var nextLogits                = session.prefill(activeContext)
+      var remaining                 = newTokenCount
       var referenceTokenEvaluations = 0L
-      var cacheRebuilds = 0
-      var peakCachedTokens = session.length
-      var error: Option[String] = None
+      var cacheRebuilds             = 0
+      var peakCachedTokens          = session.length
+      var error: Option[String]     = None
 
       while remaining > 0 && error.isEmpty do
         referenceTokenEvaluations += math.min(generated.size, config.maximumContextLength).toLong
         Sampling.sample(nextLogits, sampling, random) match
-          case Left(message) => error = Some(message)
+          case Left(message)    => error = Some(message)
           case Right(nextToken) =>
             generated :+= nextToken
             remaining -= 1
@@ -197,43 +196,32 @@ final class MiniGpt private (
 
       error match
         case Some(message) => Left(message)
-        case None =>
-          Right(
-            CachedGenerationResult(
-              generated,
-              CachedGenerationStatistics(
-                session.evaluatedTokens,
-                referenceTokenEvaluations,
-                cacheRebuilds,
-                peakCachedTokens,
-                session.allocatedCachePayloadBytes
-              )
+        case None          => Right(CachedGenerationResult(
+            generated,
+            CachedGenerationStatistics(
+              session.evaluatedTokens,
+              referenceTokenEvaluations,
+              cacheRebuilds,
+              peakCachedTokens,
+              session.allocatedCachePayloadBytes
             )
-          )
+          ))
 
   /** Every owned trainable Tensor exactly once; the tied logit head adds none. */
-  def parameters: Vector[Tensor] =
-    embeddings.parameters ++ blocks.flatMap(_.parameters) ++ finalNorm.parameters
+  def parameters: Vector[Tensor] = embeddings.parameters ++ blocks.flatMap(_.parameters) ++
+    finalNorm.parameters
 
   def parameterCount: Int = parameters.map(_.size).sum
 
 object MiniGpt:
   /** Initializes all parameter Tensors from one deterministic random stream. */
   def random(config: MiniGptConfig, seed: Long): MiniGpt =
-    val random = new SplittableRandom(seed)
-    val tokenEmbedding = Embedding.random(
-      config.vocabularySize,
-      config.channels,
-      random,
-      "embeddings.token"
-    )
-    val positionEmbedding = Embedding.random(
-      config.maximumContextLength,
-      config.channels,
-      random,
-      "embeddings.position"
-    )
-    val blocks = Vector.tabulate(config.layerCount) { index =>
+    val random            = new SplittableRandom(seed)
+    val tokenEmbedding    = Embedding
+      .random(config.vocabularySize, config.channels, random, "embeddings.token")
+    val positionEmbedding = Embedding
+      .random(config.maximumContextLength, config.channels, random, "embeddings.position")
+    val blocks            = Vector.tabulate(config.layerCount) { index =>
       TransformerBlock.random(
         config.channels,
         config.headCount,
@@ -251,12 +239,12 @@ object MiniGpt:
     )
 
 object MiniGptTrainer:
-  /** Trains one fixed sequence with full-sequence AdamW updates.
-    *
-    * This helper is deliberately small; dataset sampling and validation loops
-    * remain explicit exercises. Returned loss values are recorded before each
-    * update.
-    */
+  /**
+   * Trains one fixed sequence with full-sequence AdamW updates.
+   *
+   * This helper is deliberately small; dataset sampling and validation loops remain explicit
+   * exercises. Returned loss values are recorded before each update.
+   */
   def trainSequence(
       model: MiniGpt,
       inputs: Vector[TokenId],
@@ -265,28 +253,25 @@ object MiniGptTrainer:
       learningRate: Double
   ): Vector[Double] =
     require(steps >= 0, s"training steps must be non-negative: $steps")
-    val optimizer = new AdamW(
-      learningRate = learningRate,
-      weightDecay = 0.0,
-      maximumGradientNorm = Some(1.0)
-    )
-    val history = Vector.newBuilder[Double]
-    var step = 0
+    val optimizer =
+      new AdamW(learningRate = learningRate, weightDecay = 0.0, maximumGradientNorm = Some(1.0))
+    val history   = Vector.newBuilder[Double]
+    var step      = 0
     while step < steps do
       val loss = model.loss(inputs, targets)
       history += loss.valueAtFlat(0)
       loss.backward()
-      val _ = optimizer.step(model.parameters)
+      val _    = optimizer.step(model.parameters)
       step += 1
     history.result()
 
-@main def trainMiniGpt(): Unit =
-  val corpus = Vector.fill(20)("to be or not to be. ").mkString
-  val tokenizer = BpeTrainer.train(Vector(corpus), targetVocabularySize = 264)
-  val tokens = tokenizer.encode(corpus)
+def trainMiniGpt(): Unit =
+  val corpus        = Vector.fill(20)("to be or not to be. ").mkString
+  val tokenizer     = BpeTrainer.train(Vector(corpus), targetVocabularySize = 264)
+  val tokens        = tokenizer.encode(corpus)
   val contextLength = 12
-  val window = tokens.take(contextLength + 1)
-  val config = MiniGptConfig(
+  val window        = tokens.take(contextLength + 1)
+  val config        = MiniGptConfig(
     vocabularySize = tokenizer.vocabularySize,
     maximumContextLength = contextLength,
     channels = 12,
@@ -294,14 +279,9 @@ object MiniGptTrainer:
     hiddenChannels = 24,
     layerCount = 1
   )
-  val model = MiniGpt.random(config, seed = 42L)
-  val history = MiniGptTrainer.trainSequence(
-    model,
-    window.dropRight(1),
-    window.drop(1),
-    steps = 120,
-    learningRate = 0.03
-  )
+  val model         = MiniGpt.random(config, seed = 42L)
+  val history       = MiniGptTrainer
+    .trainSequence(model, window.dropRight(1), window.drop(1), steps = 120, learningRate = 0.03)
   println(s"parameters:   ${model.parameterCount}")
   println(f"initial loss: ${history.head}%.6f")
   println(f"final loss:   ${history.last}%.6f")

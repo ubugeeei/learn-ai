@@ -11,12 +11,13 @@ final case class QuantizationError(
     rootMeanSquaredError: Double
 )
 
-/** A symmetric per-row int8 matrix.
-  *
-  * Each row stores signed integers in `[-127,127]` and one positive `Double`
-  * scale. Reconstructed values are `quantized * rowScale`. The unused `-128`
-  * code keeps positive and negative ranges symmetric.
-  */
+/**
+ * A symmetric per-row int8 matrix.
+ *
+ * Each row stores signed integers in `[-127,127]` and one positive `Double` scale. Reconstructed
+ * values are `quantized * rowScale`. The unused `-128` code keeps positive and negative ranges
+ * symmetric.
+ */
 final class QuantizedInt8Matrix private (
     val rows: Int,
     val columns: Int,
@@ -25,7 +26,10 @@ final class QuantizedInt8Matrix private (
 ):
   require(quantizedValues.length == rows * columns, "quantized data size does not match shape")
   require(rowScales.size == rows, "one quantization scale is required per row")
-  require(rowScales.forall(scale => scale > 0.0 && scale.isFinite), "scales must be finite and positive")
+  require(
+    rowScales.forall(scale => scale > 0.0 && scale.isFinite),
+    "scales must be finite and positive"
+  )
 
   /** Reads one signed int8 code as an `Int`. */
   def quantized(row: Int, column: Int): Int =
@@ -34,12 +38,10 @@ final class QuantizedInt8Matrix private (
     quantizedValues(row * columns + column).toInt
 
   /** Reconstructs one approximate `Double` value. */
-  def dequantized(row: Int, column: Int): Double =
-    quantized(row, column).toDouble * rowScales(row)
+  def dequantized(row: Int, column: Int): Double = quantized(row, column).toDouble * rowScales(row)
 
   /** Materializes the full approximate matrix. */
-  def dequantize: MatrixD =
-    MatrixD.tabulate(rows, columns)(dequantized)
+  def dequantize: MatrixD = MatrixD.tabulate(rows, columns)(dequantized)
 
   /** Computes a matrix-vector product without materializing Double weights. */
   def matvec(input: VectorD): VectorD =
@@ -49,7 +51,7 @@ final class QuantizedInt8Matrix private (
     )
     VectorD.tabulate(rows) { row =>
       var integerWeightedSum = 0.0
-      var column = 0
+      var column             = 0
       while column < columns do
         integerWeightedSum += quantized(row, column).toDouble * input(column)
         column += 1
@@ -62,15 +64,16 @@ final class QuantizedInt8Matrix private (
   def doubleStorageBytes: Long = rows.toLong * columns.toLong * 8L
 
 object QuantizedInt8Matrix:
-  /** Quantizes every row with `scale = max(abs(row)) / 127`.
-    *
-    * All-zero rows use scale `1.0`; every quantized code is still zero, and a
-    * positive scale keeps the representation invariant simple.
-    */
+  /**
+   * Quantizes every row with `scale = max(abs(row)) / 127`.
+   *
+   * All-zero rows use scale `1.0`; every quantized code is still zero, and a positive scale keeps
+   * the representation invariant simple.
+   */
   def quantize(matrix: MatrixD): QuantizedInt8Matrix =
     val scales = Vector.tabulate(matrix.rows) { row =>
       var maximum = 0.0
-      var column = 0
+      var column  = 0
       while column < matrix.columns do
         maximum = math.max(maximum, math.abs(matrix(row, column)))
         column += 1
@@ -78,7 +81,7 @@ object QuantizedInt8Matrix:
     }
 
     val values = new Array[Byte](matrix.size)
-    var row = 0
+    var row    = 0
     while row < matrix.rows do
       var column = 0
       while column < matrix.columns do
@@ -98,10 +101,10 @@ object QuantizationMetrics:
         s"[${reconstructed.rows},${reconstructed.columns}]"
     )
     require(original.size > 0, "quantization metrics require a non-empty matrix")
-    var maximum = 0.0
+    var maximum     = 0.0
     var absoluteSum = 0.0
-    var squareSum = 0.0
-    var row = 0
+    var squareSum   = 0.0
+    var row         = 0
     while row < original.rows do
       var column = 0
       while column < original.columns do
@@ -117,12 +120,11 @@ object QuantizationMetrics:
       math.sqrt(squareSum / original.size.toDouble)
     )
 
-@main def runInt8QuantizationLab(): Unit =
-  val matrix = MatrixD.tabulate(4, 8) { (row, column) =>
-    math.sin(row * 8.0 + column) * math.pow(10.0, row.toDouble)
-  }
+def runInt8QuantizationLab(): Unit =
+  val matrix    = MatrixD
+    .tabulate(4, 8)((row, column) => math.sin(row * 8.0 + column) * math.pow(10.0, row.toDouble))
   val quantized = QuantizedInt8Matrix.quantize(matrix)
-  val error = QuantizationMetrics.compare(matrix, quantized.dequantize)
+  val error     = QuantizationMetrics.compare(matrix, quantized.dequantize)
   println(s"Double payload bytes: ${quantized.doubleStorageBytes}")
   println(s"int8 payload bytes:   ${quantized.storageBytes}")
   println(f"maximum abs error:    ${error.maximumAbsoluteError}%.8f")

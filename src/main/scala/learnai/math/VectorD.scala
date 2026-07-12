@@ -2,12 +2,12 @@ package learnai.math
 
 import java.util.Arrays
 
-/** An immutable, one-dimensional collection of finite `Double` values.
-  *
-  * The backing array is never exposed. Operations validate shape before doing
-  * arithmetic and construct a fresh vector, so callers can reason about a
-  * `VectorD` as a value.
-  */
+/**
+ * An immutable, one-dimensional collection of finite `Double` values.
+ *
+ * The backing array is never exposed. Operations validate shape before doing arithmetic and
+ * construct a fresh vector, so callers can reason about a `VectorD` as a value.
+ */
 final class VectorD private (private val values: Array[Double]):
   val size: Int = values.length
 
@@ -21,7 +21,7 @@ final class VectorD private (private val values: Array[Double]):
 
   def map(function: Double => Double): VectorD =
     val result = new Array[Double](size)
-    var index = 0
+    var index  = 0
     while index < size do
       result(index) = function(values(index))
       index += 1
@@ -30,7 +30,7 @@ final class VectorD private (private val values: Array[Double]):
   def zipMap(other: VectorD)(function: (Double, Double) => Double): VectorD =
     requireSameSize(other)
     val result = new Array[Double](size)
-    var index = 0
+    var index  = 0
     while index < size do
       result(index) = function(values(index), other.values(index))
       index += 1
@@ -53,26 +53,23 @@ final class VectorD private (private val values: Array[Double]):
     val products = values.indices.iterator.map(index => values(index) * other.values(index))
     Numerics.requireFinite(Numerics.compensatedSum(products), "dot product")
 
-  def sum: Double =
-    Numerics.requireFinite(Numerics.compensatedSum(values), "vector sum")
+  def sum: Double = Numerics.requireFinite(Numerics.compensatedSum(values), "vector sum")
 
   def squaredNorm: Double = dot(this)
 
   def norm: Double = math.sqrt(squaredNorm)
 
   def mean: Either[String, Double] =
-    if size == 0 then Left("mean requires a non-empty vector")
-    else Right(sum / size.toDouble)
+    if size == 0 then Left("mean requires a non-empty vector") else Right(sum / size.toDouble)
 
   def max: Either[String, Double] =
-    if size == 0 then Left("max requires a non-empty vector")
-    else Right(values.max)
+    if size == 0 then Left("max requires a non-empty vector") else Right(values.max)
 
   def argmax: Either[String, Int] =
     if size == 0 then Left("argmax requires a non-empty vector")
     else
       var bestIndex = 0
-      var index = 1
+      var index     = 1
       while index < size do
         if values(index) > values(bestIndex) then bestIndex = index
         index += 1
@@ -80,28 +77,23 @@ final class VectorD private (private val values: Array[Double]):
 
   def toVector: Vector[Double] = values.toVector
 
-  override def equals(other: Any): Boolean =
-    other match
-      case that: VectorD => Arrays.equals(values, that.values)
-      case _             => false
+  override def equals(other: Any): Boolean = other match
+    case that: VectorD => Arrays.equals(values, that.values)
+    case _             => false
 
   override def hashCode(): Int = Arrays.hashCode(values)
 
   override def toString: String = values.mkString("VectorD(", ", ", ")")
 
   private def requireSameSize(other: VectorD): Unit =
-    require(
-      size == other.size,
-      s"vector size mismatch: left=$size, right=${other.size}"
-    )
+    require(size == other.size, s"vector size mismatch: left=$size, right=${other.size}")
 
 object VectorD:
   val empty: VectorD = unsafeFromOwnedArray(Array.emptyDoubleArray)
 
   def apply(values: Double*): VectorD = fromOwnedArray(values.toArray)
 
-  def from(values: IterableOnce[Double]): VectorD =
-    fromOwnedArray(values.iterator.toArray)
+  def from(values: IterableOnce[Double]): VectorD = fromOwnedArray(values.iterator.toArray)
 
   def fill(size: Int)(value: => Double): VectorD =
     require(size >= 0, s"vector size must be non-negative: $size")
@@ -120,5 +112,4 @@ object VectorD:
       index += 1
     unsafeFromOwnedArray(values)
 
-  private[math] def unsafeFromOwnedArray(values: Array[Double]): VectorD =
-    new VectorD(values)
+  private[math] def unsafeFromOwnedArray(values: Array[Double]): VectorD = new VectorD(values)

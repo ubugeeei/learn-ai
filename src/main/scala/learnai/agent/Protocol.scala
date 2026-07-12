@@ -20,7 +20,7 @@ final case class ToolCall(id: String, name: String, arguments: JsonObject):
 
 sealed trait ConversationItem
 final case class TextMessage(role: MessageRole, content: String) extends ConversationItem
-final case class AssistantToolCalls(calls: Vector[ToolCall]) extends ConversationItem:
+final case class AssistantToolCalls(calls: Vector[ToolCall])     extends ConversationItem:
   require(calls.nonEmpty, "an assistant tool-call item cannot be empty")
 
 /** A tool failure safe to expose to the model as an observation. */
@@ -29,14 +29,11 @@ final case class ToolError(code: String, message: String, retryable: Boolean):
 
 sealed trait ToolOutcome
 final case class ToolSucceeded(value: JsonValue) extends ToolOutcome
-final case class ToolFailed(error: ToolError) extends ToolOutcome
+final case class ToolFailed(error: ToolError)    extends ToolOutcome
 
 /** The result paired to a prior call ID and tool name. */
-final case class ToolObservation(
-    callId: String,
-    toolName: String,
-    outcome: ToolOutcome
-) extends ConversationItem
+final case class ToolObservation(callId: String, toolName: String, outcome: ToolOutcome)
+    extends ConversationItem
 
 enum JsonFieldType:
   case StringValue
@@ -57,49 +54,48 @@ final case class ToolField(
   require(name.nonEmpty, "tool field name cannot be empty")
 
 /** A deliberately small JSON object schema used for tool input validation. */
-final case class ToolSchema(
-    fields: Vector[ToolField],
-    allowAdditionalFields: Boolean = false
-):
+final case class ToolSchema(fields: Vector[ToolField], allowAdditionalFields: Boolean = false):
   require(fields.map(_.name).distinct.size == fields.size, "tool schema field names must be unique")
 
   /** Returns every validation problem; an empty vector means valid. */
   def validate(arguments: JsonObject): Vector[String] =
     val problems = Vector.newBuilder[String]
-    val defined = fields.map(field => field.name -> field).toMap
+    val defined  = fields.map(field => field.name -> field).toMap
     fields.filter(_.required).foreach { field =>
-      if arguments.get(field.name).isEmpty then problems += s"missing required field '${field.name}'"
+      if arguments.get(field.name).isEmpty then
+        problems += s"missing required field '${field.name}'"
     }
     arguments.fields.foreach { case (name, value) =>
       defined.get(name) match
-        case None if !allowAdditionalFields => problems += s"unknown field '$name'"
-        case None => ()
+        case None if !allowAdditionalFields                  => problems += s"unknown field '$name'"
+        case None                                            => ()
         case Some(field) if !matches(value, field.fieldType) =>
-          problems += s"field '$name' must be ${field.fieldType}, got ${value.getClass.getSimpleName}"
-        case Some(_) => ()
+          problems +=
+            s"field '$name' must be ${field.fieldType}, got ${value.getClass.getSimpleName}"
+        case Some(_)                                         => ()
     }
     problems.result()
 
-  private def matches(value: JsonValue, expected: JsonFieldType): Boolean =
-    (value, expected) match
-      case (_: JsonString, JsonFieldType.StringValue)   => true
-      case (_: JsonNumber, JsonFieldType.NumberValue)   => true
-      case (JsonNumber(number), JsonFieldType.IntegerValue) => number.isWhole
-      case (_: JsonBoolean, JsonFieldType.BooleanValue) => true
-      case (_: JsonObject, JsonFieldType.ObjectValue)   => true
-      case (_: JsonArray, JsonFieldType.ArrayValue)     => true
-      case (JsonNull, JsonFieldType.NullValue)          => true
-      case _                                            => false
+  private def matches(value: JsonValue, expected: JsonFieldType): Boolean = (value, expected) match
+    case (_: JsonString, JsonFieldType.StringValue)       => true
+    case (_: JsonNumber, JsonFieldType.NumberValue)       => true
+    case (JsonNumber(number), JsonFieldType.IntegerValue) => number.isWhole
+    case (_: JsonBoolean, JsonFieldType.BooleanValue)     => true
+    case (_: JsonObject, JsonFieldType.ObjectValue)       => true
+    case (_: JsonArray, JsonFieldType.ArrayValue)         => true
+    case (JsonNull, JsonFieldType.NullValue)              => true
+    case _                                                => false
 
-/** Operational effect used to decide approval and retry behavior.
-  *
-  * Read-only and idempotent operations may be retried after an explicitly
-  * retryable failure. Non-idempotent writes are never retried automatically
-  * because the first attempt may have committed before its response failed.
-  */
+/**
+ * Operational effect used to decide approval and retry behavior.
+ *
+ * Read-only and idempotent operations may be retried after an explicitly retryable failure.
+ * Non-idempotent writes are never retried automatically because the first attempt may have
+ * committed before its response failed.
+ */
 enum ToolEffect(val requiresApproval: Boolean, val safeToRetry: Boolean):
-  case ReadOnly extends ToolEffect(requiresApproval = false, safeToRetry = true)
-  case IdempotentWrite extends ToolEffect(requiresApproval = true, safeToRetry = true)
+  case ReadOnly           extends ToolEffect(requiresApproval = false, safeToRetry = true)
+  case IdempotentWrite    extends ToolEffect(requiresApproval = true, safeToRetry = true)
   case NonIdempotentWrite extends ToolEffect(requiresApproval = true, safeToRetry = false)
 
 /** Model-visible metadata plus host-only operational policy for one capability. */
@@ -115,7 +111,7 @@ sealed trait ApprovalDecision:
   def reason: String
 
 final case class ApprovalGranted(reason: String) extends ApprovalDecision
-final case class ApprovalDenied(reason: String) extends ApprovalDecision
+final case class ApprovalDenied(reason: String)  extends ApprovalDecision
 
 /** Host-controlled authorization boundary for effectful tool calls. */
 trait ToolApprover:
@@ -153,7 +149,7 @@ final case class ModelUsage(inputTokens: Long, outputTokens: Long):
   require(inputTokens >= 0L && outputTokens >= 0L, "token usage cannot be negative")
   def +(other: ModelUsage): ModelUsage =
     ModelUsage(inputTokens + other.inputTokens, outputTokens + other.outputTokens)
-  def totalTokens: Long = inputTokens + outputTokens
+  def totalTokens: Long                = inputTokens + outputTokens
 
 object ModelUsage:
   val zero: ModelUsage = ModelUsage(0L, 0L)
@@ -169,7 +165,7 @@ final case class ModelError(code: String, message: String, retryable: Boolean)
 sealed trait ModelDecision:
   def usage: ModelUsage
 
-final case class FinalAnswer(text: String, usage: ModelUsage) extends ModelDecision
+final case class FinalAnswer(text: String, usage: ModelUsage)             extends ModelDecision
 final case class RequestTools(calls: Vector[ToolCall], usage: ModelUsage) extends ModelDecision:
   require(calls.nonEmpty, "a tool request must contain at least one call")
 

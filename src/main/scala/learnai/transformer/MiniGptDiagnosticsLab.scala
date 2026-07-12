@@ -8,8 +8,8 @@ import learnai.diagnostics.ParameterInventory
 import learnai.text.TokenId
 
 /** Runs parameter, gradient, and forward-timing diagnostics on one tiny MiniGPT. */
-@main def runMiniGptDiagnostics(): Unit =
-  val config = MiniGptConfig(
+def runMiniGptDiagnostics(): Unit =
+  val config  = MiniGptConfig(
     vocabularySize = 7,
     maximumContextLength = 4,
     channels = 4,
@@ -17,8 +17,8 @@ import learnai.text.TokenId
     hiddenChannels = 8,
     layerCount = 1
   )
-  val model = MiniGpt.random(config, seed = 42L)
-  val inputs = Vector(0, 1, 2, 3).map(TokenId(_))
+  val model   = MiniGpt.random(config, seed = 42L)
+  val inputs  = Vector(0, 1, 2, 3).map(TokenId(_))
   val targets = Vector(1, 2, 3, 4).map(TokenId(_))
 
   val inventory = ParameterInventory.from(model.parameters)
@@ -38,14 +38,11 @@ import learnai.text.TokenId
   println(s"gradient passed:    ${gradientReport.passed}")
   println(f"maximum abs error:  ${gradientReport.maximumAbsoluteError}%.3e")
   println(f"maximum error ratio:${gradientReport.maximumErrorRatio}%10.3e")
-  val worst = gradientReport.worstProbe
-  println(
-    f"worst probe:        ${worst.parameterLabel}[${worst.flatIndex}] " +
-      f"analytical=${worst.analytical}%.6e numerical=${worst.numerical}%.6e " +
-      f"ratio=${worst.errorRatio}%.3f"
-  )
+  val worst          = gradientReport.worstProbe
+  println(f"worst probe:        ${worst.parameterLabel}[${worst.flatIndex}] " + f"analytical=${worst
+      .analytical}%.6e numerical=${worst.numerical}%.6e " + f"ratio=${worst.errorRatio}%.3f")
 
-  val benchmark = Benchmark.measure(
+  val benchmark  = Benchmark.measure(
     "MiniGPT forward",
     BenchmarkConfig(warmupIterations = 10, measurementIterations = 30, operationsPerMeasurement = 3)
   ) {
@@ -58,8 +55,6 @@ import learnai.text.TokenId
   println(f"p95:                ${statistics.percentile95Nanoseconds / 1_000_000.0}%.3f ms/op")
   println(f"variation:          ${statistics.coefficientOfVariation * 100.0}%.2f%%")
   println(s"checksum:           ${benchmark.checksum}")
-  println(
-    s"runtime:            ${benchmark.runtime.javaVmName} ${benchmark.runtime.javaRuntimeVersion}, " +
-      s"${benchmark.runtime.operatingSystem}, ${benchmark.runtime.architecture}, " +
-      s"${benchmark.runtime.availableProcessors} processors"
-  )
+  println(s"runtime:            ${benchmark.runtime.javaVmName} ${benchmark.runtime
+      .javaRuntimeVersion}, " + s"${benchmark.runtime.operatingSystem}, ${benchmark.runtime
+      .architecture}, " + s"${benchmark.runtime.availableProcessors} processors")

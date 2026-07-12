@@ -44,10 +44,10 @@ object TextChunker:
     require(overlapCharacters < maximumCharacters, "chunk overlap must be smaller than chunk size")
     if document.text.isEmpty then Vector.empty
     else
-      val step = maximumCharacters - overlapCharacters
+      val step   = maximumCharacters - overlapCharacters
       val chunks = Vector.newBuilder[TextChunk]
-      var start = 0
-      var index = 0
+      var start  = 0
+      var index  = 0
       while start < document.text.length do
         val end = math.min(start + maximumCharacters, document.text.length)
         chunks += TextChunk(
@@ -62,11 +62,12 @@ object TextChunker:
         index += 1
       chunks.result()
 
-/** A deterministic bag-of-words hashing embedder used to teach retrieval mechanics.
-  *
-  * It is not a semantic neural embedding model. Tokens that hash to the same
-  * bucket collide; signed hashing reduces systematic positive collision bias.
-  */
+/**
+ * A deterministic bag-of-words hashing embedder used to teach retrieval mechanics.
+ *
+ * It is not a semantic neural embedding model. Tokens that hash to the same bucket collide; signed
+ * hashing reduces systematic positive collision bias.
+ */
 final class HashingEmbedder(val dimensions: Int):
   require(dimensions > 0, s"embedding dimensions must be positive: $dimensions")
 
@@ -74,21 +75,16 @@ final class HashingEmbedder(val dimensions: Int):
   def embed(text: String): VectorD =
     val values = Array.fill(dimensions)(0.0)
     tokenize(text).foreach { token =>
-      val hash = token.hashCode
+      val hash   = token.hashCode
       val bucket = (hash & 0x7fffffff) % dimensions
-      val sign = if (hash & 0x80000000) == 0 then 1.0 else -1.0
+      val sign   = if (hash & 0x80000000) == 0 then 1.0 else -1.0
       values(bucket) += sign
     }
-    val raw = VectorD.from(values)
+    val raw    = VectorD.from(values)
     if raw.norm == 0.0 then raw else raw.scale(1.0 / raw.norm)
 
-  private def tokenize(text: String): Vector[String] =
-    text
-      .toLowerCase(Locale.ROOT)
-      .split("[^\\p{L}\\p{N}]+")
-      .iterator
-      .filter(_.nonEmpty)
-      .toVector
+  private def tokenize(text: String): Vector[String] = text.toLowerCase(Locale.ROOT)
+    .split("[^\\p{L}\\p{N}]+").iterator.filter(_.nonEmpty).toVector
 
 final case class SearchResult(chunk: TextChunk, score: Double)
 
@@ -108,10 +104,8 @@ final class VectorIndex private (
       if queryVector.norm == 0.0 then Left("query contains no indexable tokens")
       else
         Right(
-          entries
-            .map { case (chunk, vector) => SearchResult(chunk, queryVector.dot(vector)) }
-            .sortBy(result => (-result.score, result.chunk.id))
-            .take(resultCount)
+          entries.map { case (chunk, vector) => SearchResult(chunk, queryVector.dot(vector)) }
+            .sortBy(result => (-result.score, result.chunk.id)).take(resultCount)
         )
 
 object VectorIndex:
@@ -123,9 +117,8 @@ object VectorIndex:
       overlapCharacters: Int
   ): VectorIndex =
     require(documents.map(_.id).distinct.size == documents.size, "document IDs must be unique")
-    val chunks = documents.flatMap { document =>
-      TextChunker.chunk(document, maximumChunkCharacters, overlapCharacters)
-    }
+    val chunks = documents
+      .flatMap(document => TextChunker.chunk(document, maximumChunkCharacters, overlapCharacters))
     new VectorIndex(embedder, chunks.map(chunk => chunk -> embedder.embed(chunk.text)))
 
 /** Read-only retrieval capability that returns source offsets with every result. */
@@ -140,25 +133,21 @@ final class SearchTool(index: VectorIndex, resultCount: Int) extends Tool:
     )
   )
 
-  override def execute(
-      arguments: JsonObject,
-      context: ToolContext
-  ): Either[ToolError, JsonValue] =
+  override def execute(arguments: JsonObject, context: ToolContext): Either[ToolError, JsonValue] =
     val query = arguments.get("query").collect { case JsonString(value) => value }.get
     index.search(query, resultCount) match
-      case Left(message) => Left(ToolError("search_failed", message, retryable = false))
-      case Right(results) =>
-        Right(
+      case Left(message)  => Left(ToolError("search_failed", message, retryable = false))
+      case Right(results) => Right(
           JsonArray(
             results.map { result =>
               JsonObject(
-                "chunk_id" -> JsonString(result.chunk.id),
-                "document_id" -> JsonString(result.chunk.documentId),
-                "title" -> JsonString(result.chunk.documentTitle),
+                "chunk_id"     -> JsonString(result.chunk.id),
+                "document_id"  -> JsonString(result.chunk.documentId),
+                "title"        -> JsonString(result.chunk.documentTitle),
                 "start_offset" -> JsonNumber(result.chunk.startOffset),
-                "end_offset" -> JsonNumber(result.chunk.endOffset),
-                "score" -> JsonNumber(BigDecimal(result.score)),
-                "text" -> JsonString(result.chunk.text)
+                "end_offset"   -> JsonNumber(result.chunk.endOffset),
+                "score"        -> JsonNumber(BigDecimal(result.score)),
+                "text"         -> JsonString(result.chunk.text)
               )
             }
           )

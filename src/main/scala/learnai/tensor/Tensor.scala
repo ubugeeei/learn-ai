@@ -6,11 +6,12 @@ import scala.collection.mutable.ArrayBuffer
 
 import learnai.math.Numerics
 
-/** A dense row-major tensor node with reverse-mode automatic differentiation.
-  *
-  * This first implementation deliberately has no broadcasting. Binary
-  * element-wise operations require exactly equal shapes.
-  */
+/**
+ * A dense row-major tensor node with reverse-mode automatic differentiation.
+ *
+ * This first implementation deliberately has no broadcasting. Binary element-wise operations
+ * require exactly equal shapes.
+ */
 final class Tensor private (
     val shape: Shape,
     private val currentData: Array[Double],
@@ -19,7 +20,7 @@ final class Tensor private (
     private val previous: Vector[Tensor],
     val isTrainable: Boolean
 ):
-  private val currentGradient = Array.fill(shape.size)(0.0)
+  private val currentGradient          = Array.fill(shape.size)(0.0)
   private var backwardRule: () => Unit = () => ()
 
   def rank: Int = shape.rank
@@ -45,7 +46,7 @@ final class Tensor private (
   def +(other: Tensor): Tensor =
     requireSameShape(other, "addition")
     val outputData = Array.tabulate(size)(index => currentData(index) + other.currentData(index))
-    val output = Tensor.operation(shape, outputData, "+", Vector(this, other))
+    val output     = Tensor.operation(shape, outputData, "+", Vector(this, other))
     output.backwardRule = () =>
       var index = 0
       while index < size do
@@ -60,7 +61,7 @@ final class Tensor private (
   def hadamard(other: Tensor): Tensor =
     requireSameShape(other, "Hadamard product")
     val outputData = Array.tabulate(size)(index => currentData(index) * other.currentData(index))
-    val output = Tensor.operation(shape, outputData, "hadamard", Vector(this, other))
+    val output     = Tensor.operation(shape, outputData, "hadamard", Vector(this, other))
     output.backwardRule = () =>
       var index = 0
       while index < size do
@@ -73,7 +74,7 @@ final class Tensor private (
   def scale(scalar: Double): Tensor =
     Numerics.requireFinite(scalar, "tensor scale")
     val outputData = currentData.map(_ * scalar)
-    val output = Tensor.operation(shape, outputData, s"scale($scalar)", Vector(this))
+    val output     = Tensor.operation(shape, outputData, s"scale($scalar)", Vector(this))
     output.backwardRule = () =>
       var index = 0
       while index < size do
@@ -84,7 +85,7 @@ final class Tensor private (
   def pow(exponent: Double): Tensor =
     Numerics.requireFinite(exponent, "tensor power exponent")
     val outputData = currentData.map(math.pow(_, exponent))
-    val output = Tensor.operation(shape, outputData, s"pow($exponent)", Vector(this))
+    val output     = Tensor.operation(shape, outputData, s"pow($exponent)", Vector(this))
     output.backwardRule = () =>
       var index = 0
       while index < size do
@@ -93,15 +94,10 @@ final class Tensor private (
         index += 1
     output
 
-  def tanh: Tensor =
-    unary("tanh", math.tanh, (_, output) => 1.0 - output * output)
+  def tanh: Tensor = unary("tanh", math.tanh, (_, output) => 1.0 - output * output)
 
   def relu: Tensor =
-    unary(
-      "relu",
-      value => math.max(0.0, value),
-      (input, _) => if input > 0.0 then 1.0 else 0.0
-    )
+    unary("relu", value => math.max(0.0, value), (input, _) => if input > 0.0 then 1.0 else 0.0)
 
   def exp: Tensor = unary("exp", math.exp, (_, output) => output)
 
@@ -111,15 +107,11 @@ final class Tensor private (
     unary("log", math.log, (input, _) => 1.0 / input)
 
   def sum: Tensor =
-    val output = Tensor.operation(
-      Shape.scalar,
-      Array(Numerics.compensatedSum(currentData)),
-      "sum",
-      Vector(this)
-    )
+    val output = Tensor
+      .operation(Shape.scalar, Array(Numerics.compensatedSum(currentData)), "sum", Vector(this))
     output.backwardRule = () =>
       val upstream = output.currentGradient(0)
-      var index = 0
+      var index    = 0
       while index < size do
         accumulateGradient(index, upstream)
         index += 1
@@ -144,17 +136,17 @@ final class Tensor private (
 
   def transpose2D: Tensor =
     require(rank == 2, s"transpose2D requires rank 2, got shape $shape")
-    val rows = shape(0)
-    val columns = shape(1)
+    val rows       = shape(0)
+    val columns    = shape(1)
     val outputData = new Array[Double](size)
-    var row = 0
+    var row        = 0
     while row < rows do
       var column = 0
       while column < columns do
         outputData(column * rows + row) = currentData(row * columns + column)
         column += 1
       row += 1
-    val output = Tensor.operation(Shape(columns, rows), outputData, "transpose2D", Vector(this))
+    val output     = Tensor.operation(Shape(columns, rows), outputData, "transpose2D", Vector(this))
     output.backwardRule = () =>
       var inputRow = 0
       while inputRow < rows do
@@ -166,16 +158,16 @@ final class Tensor private (
         inputRow += 1
     output
 
-  /** Selects rows from a rank-2 table: `[rows, columns] -> [N, columns]`.
-    *
-    * Repeated indices are allowed. During backward their gradient
-    * contributions are accumulated into the same source row. This operation
-    * is the basis of embedding lookup.
-    */
+  /**
+   * Selects rows from a rank-2 table: `[rows, columns] -> [N, columns]`.
+   *
+   * Repeated indices are allowed. During backward their gradient contributions are accumulated into
+   * the same source row. This operation is the basis of embedding lookup.
+   */
   def gatherRows(rowIndices: Vector[Int]): Tensor =
     require(rank == 2, s"gatherRows requires rank 2, got shape $shape")
     val sourceRows = shape(0)
-    val columns = shape(1)
+    val columns    = shape(1)
     rowIndices.zipWithIndex.foreach { case (row, outputRow) =>
       require(
         row >= 0 && row < sourceRows,
@@ -183,44 +175,37 @@ final class Tensor private (
       )
     }
     val outputData = new Array[Double](Math.multiplyExact(rowIndices.size, columns))
-    var outputRow = 0
+    var outputRow  = 0
     while outputRow < rowIndices.size do
       val sourceOffset = rowIndices(outputRow) * columns
       val outputOffset = outputRow * columns
       System.arraycopy(currentData, sourceOffset, outputData, outputOffset, columns)
       outputRow += 1
 
-    val output = Tensor.operation(
-      Shape(rowIndices.size, columns),
-      outputData,
-      "gatherRows",
-      Vector(this)
-    )
+    val output = Tensor
+      .operation(Shape(rowIndices.size, columns), outputData, "gatherRows", Vector(this))
     output.backwardRule = () =>
       var selectedRow = 0
       while selectedRow < rowIndices.size do
         val sourceOffset = rowIndices(selectedRow) * columns
         val outputOffset = selectedRow * columns
-        var column = 0
+        var column       = 0
         while column < columns do
-          accumulateGradient(
-            sourceOffset + column,
-            output.currentGradient(outputOffset + column)
-          )
+          accumulateGradient(sourceOffset + column, output.currentGradient(outputOffset + column))
           column += 1
         selectedRow += 1
     output
 
-  /** Mean cross entropy over rank-2 logits `[examples, classes]`.
-    *
-    * The forward pass uses log-sum-exp stabilization. The backward pass uses
-    * the exact derivative `(softmax - oneHot) / examples`, avoiding a separate
-    * one-hot Tensor and softmax graph.
-    */
+  /**
+   * Mean cross entropy over rank-2 logits `[examples, classes]`.
+   *
+   * The forward pass uses log-sum-exp stabilization. The backward pass uses the exact derivative
+   * `(softmax - oneHot) / examples`, avoiding a separate one-hot Tensor and softmax graph.
+   */
   def crossEntropy(targetIndices: Vector[Int]): Tensor =
     require(rank == 2, s"crossEntropy requires rank 2 logits, got shape $shape")
     val examples = shape(0)
-    val classes = shape(1)
+    val classes  = shape(1)
     require(examples > 0, "crossEntropy requires at least one example")
     require(classes > 0, "crossEntropy requires at least one class")
     require(
@@ -235,12 +220,12 @@ final class Tensor private (
     }
 
     val probabilities = new Array[Double](size)
-    var totalLoss = 0.0
-    var example = 0
+    var totalLoss     = 0.0
+    var example       = 0
     while example < examples do
       val rowOffset = example * classes
-      var maximum = currentData(rowOffset)
-      var column = 1
+      var maximum   = currentData(rowOffset)
+      var column    = 1
       while column < classes do
         maximum = math.max(maximum, currentData(rowOffset + column))
         column += 1
@@ -261,21 +246,16 @@ final class Tensor private (
       totalLoss += maximum + math.log(exponentialSum) - currentData(rowOffset + target)
       example += 1
 
-    val output = Tensor.operation(
-      Shape.scalar,
-      Array(totalLoss / examples.toDouble),
-      "crossEntropy",
-      Vector(this)
-    )
+    val output = Tensor
+      .operation(Shape.scalar, Array(totalLoss / examples.toDouble), "crossEntropy", Vector(this))
     output.backwardRule = () =>
       val upstreamScale = output.currentGradient(0) / examples.toDouble
-      var exampleIndex = 0
+      var exampleIndex  = 0
       while exampleIndex < examples do
-        val rowOffset = exampleIndex * classes
+        val rowOffset  = exampleIndex * classes
         var classIndex = 0
         while classIndex < classes do
-          val targetAdjustment =
-            if classIndex == targetIndices(exampleIndex) then 1.0 else 0.0
+          val targetAdjustment = if classIndex == targetIndices(exampleIndex) then 1.0 else 0.0
           accumulateGradient(
             rowOffset + classIndex,
             (probabilities(rowOffset + classIndex) - targetAdjustment) * upstreamScale
@@ -284,27 +264,22 @@ final class Tensor private (
         exampleIndex += 1
     output
 
-  /** Mean cross entropy over only the unmasked rows of rank-2 logits.
-    *
-    * `targetMask(i)` set to false removes example `i` from the loss: it
-    * contributes nothing to the forward mean and receives exactly zero
-    * gradient. This is how packed datasets exclude padding and
-    * cross-document targets from training while keeping fixed-shape
-    * batches. The mean is taken over the *unmasked* count, so masked rows
-    * do not dilute the loss scale.
-    *
-    * All target indices are validated against the class range, masked or
-    * not, so an indexing bug fails loudly instead of hiding behind a mask.
-    * At least one row must remain unmasked; an all-masked example set has
-    * no defined mean.
-    */
-  def crossEntropyMasked(
-      targetIndices: Vector[Int],
-      targetMask: Vector[Boolean]
-  ): Tensor =
+  /**
+   * Mean cross entropy over only the unmasked rows of rank-2 logits.
+   *
+   * `targetMask(i)` set to false removes example `i` from the loss: it contributes nothing to the
+   * forward mean and receives exactly zero gradient. This is how packed datasets exclude padding
+   * and cross-document targets from training while keeping fixed-shape batches. The mean is taken
+   * over the *unmasked* count, so masked rows do not dilute the loss scale.
+   *
+   * All target indices are validated against the class range, masked or not, so an indexing bug
+   * fails loudly instead of hiding behind a mask. At least one row must remain unmasked; an
+   * all-masked example set has no defined mean.
+   */
+  def crossEntropyMasked(targetIndices: Vector[Int], targetMask: Vector[Boolean]): Tensor =
     require(rank == 2, s"crossEntropyMasked requires rank 2 logits, got shape $shape")
-    val examples = shape(0)
-    val classes = shape(1)
+    val examples      = shape(0)
+    val classes       = shape(1)
     require(
       targetIndices.size == examples,
       s"target count ${targetIndices.size} does not match example count $examples"
@@ -323,13 +298,13 @@ final class Tensor private (
     require(unmaskedCount > 0, "crossEntropyMasked requires at least one unmasked target")
 
     val probabilities = new Array[Double](size)
-    var totalLoss = 0.0
-    var example = 0
+    var totalLoss     = 0.0
+    var example       = 0
     while example < examples do
       if targetMask(example) then
         val rowOffset = example * classes
-        var maximum = currentData(rowOffset)
-        var column = 1
+        var maximum   = currentData(rowOffset)
+        var column    = 1
         while column < classes do
           maximum = math.max(maximum, currentData(rowOffset + column))
           column += 1
@@ -358,14 +333,13 @@ final class Tensor private (
     )
     output.backwardRule = () =>
       val upstreamScale = output.currentGradient(0) / unmaskedCount.toDouble
-      var exampleIndex = 0
+      var exampleIndex  = 0
       while exampleIndex < examples do
         if targetMask(exampleIndex) then
-          val rowOffset = exampleIndex * classes
+          val rowOffset  = exampleIndex * classes
           var classIndex = 0
           while classIndex < classes do
-            val targetAdjustment =
-              if classIndex == targetIndices(exampleIndex) then 1.0 else 0.0
+            val targetAdjustment = if classIndex == targetIndices(exampleIndex) then 1.0 else 0.0
             accumulateGradient(
               rowOffset + classIndex,
               (probabilities(rowOffset + classIndex) - targetAdjustment) * upstreamScale
@@ -377,35 +351,35 @@ final class Tensor private (
   /** Returns a defensive copy of one row from a rank-2 Tensor. */
   def rowValues(row: Int): Vector[Double] =
     require(rank == 2, s"rowValues requires rank 2, got shape $shape")
-    val rows = shape(0)
+    val rows    = shape(0)
     val columns = shape(1)
     require(row >= 0 && row < rows, s"row $row outside [0, $rows)")
     currentData.slice(row * columns, (row + 1) * columns).toVector
 
-  /** Adds a rank-1 vector to every row of a rank-2 Tensor.
-    *
-    * Forward shape: `[rows, columns] + [columns] -> [rows, columns]`.
-    * The row-vector gradient is reduced by summing over all rows.
-    */
+  /**
+   * Adds a rank-1 vector to every row of a rank-2 Tensor.
+   *
+   * Forward shape: `[rows, columns] + [columns] -> [rows, columns]`. The row-vector gradient is
+   * reduced by summing over all rows.
+   */
   def addRowVector(rowVector: Tensor): Tensor =
     require(rank == 2, s"addRowVector requires rank-2 input, got $shape")
     require(rowVector.rank == 1, s"addRowVector requires rank-1 vector, got ${rowVector.shape}")
-    val rows = shape(0)
-    val columns = shape(1)
+    val rows       = shape(0)
+    val columns    = shape(1)
     require(
       rowVector.shape(0) == columns,
       s"row vector shape ${rowVector.shape} does not match columns $columns"
     )
-    val outputData = Array.tabulate(size) { index =>
-      currentData(index) + rowVector.currentData(index % columns)
-    }
-    val output = Tensor.operation(shape, outputData, "addRowVector", Vector(this, rowVector))
+    val outputData = Array
+      .tabulate(size)(index => currentData(index) + rowVector.currentData(index % columns))
+    val output     = Tensor.operation(shape, outputData, "addRowVector", Vector(this, rowVector))
     output.backwardRule = () =>
       var row = 0
       while row < rows do
         var column = 0
         while column < columns do
-          val index = row * columns + column
+          val index    = row * columns + column
           val upstream = output.currentGradient(index)
           accumulateGradient(index, upstream)
           rowVector.accumulateGradient(column, upstream)
@@ -413,16 +387,17 @@ final class Tensor private (
         row += 1
     output
 
-  /** Applies RMS normalization independently to every row and a learned scale.
-    *
-    * Forward shapes: input `[rows, channels]`, scale `[channels]`, output
-    * `[rows, channels]`. No mean subtraction is performed.
-    */
+  /**
+   * Applies RMS normalization independently to every row and a learned scale.
+   *
+   * Forward shapes: input `[rows, channels]`, scale `[channels]`, output `[rows, channels]`. No
+   * mean subtraction is performed.
+   */
   def rmsNormRows(scale: Tensor, epsilon: Double): Tensor =
     require(rank == 2, s"rmsNormRows requires rank-2 input, got $shape")
     require(scale.rank == 1, s"RMS scale must have rank 1, got ${scale.shape}")
     require(epsilon > 0.0 && epsilon.isFinite, s"epsilon must be finite and positive: $epsilon")
-    val rows = shape(0)
+    val rows     = shape(0)
     val channels = shape(1)
     require(
       scale.shape(0) == channels,
@@ -431,11 +406,11 @@ final class Tensor private (
 
     val inverseRms = new Array[Double](rows)
     val outputData = new Array[Double](size)
-    var row = 0
+    var row        = 0
     while row < rows do
-      val rowOffset = row * channels
+      val rowOffset  = row * channels
       var sumSquares = 0.0
-      var channel = 0
+      var channel    = 0
       while channel < channels do
         val value = currentData(rowOffset + channel)
         sumSquares += value * value
@@ -443,8 +418,8 @@ final class Tensor private (
       inverseRms(row) = 1.0 / math.sqrt(sumSquares / channels.toDouble + epsilon)
       channel = 0
       while channel < channels do
-        outputData(rowOffset + channel) =
-          currentData(rowOffset + channel) * inverseRms(row) * scale.currentData(channel)
+        outputData(rowOffset + channel) = currentData(rowOffset + channel) * inverseRms(row) *
+          scale.currentData(channel)
         channel += 1
       row += 1
 
@@ -452,26 +427,24 @@ final class Tensor private (
     output.backwardRule = () =>
       var rowIndex = 0
       while rowIndex < rows do
-        val rowOffset = rowIndex * channels
-        val inverse = inverseRms(rowIndex)
+        val rowOffset             = rowIndex * channels
+        val inverse               = inverseRms(rowIndex)
         var inputGradientDotInput = 0.0
-        var channelIndex = 0
+        var channelIndex          = 0
         while channelIndex < channels do
-          val index = rowOffset + channelIndex
-          val gradientBeforeNorm =
-            output.currentGradient(index) * scale.currentData(channelIndex)
+          val index              = rowOffset + channelIndex
+          val gradientBeforeNorm = output.currentGradient(index) * scale.currentData(channelIndex)
           inputGradientDotInput += gradientBeforeNorm * currentData(index)
           channelIndex += 1
 
         channelIndex = 0
         while channelIndex < channels do
-          val index = rowOffset + channelIndex
-          val upstream = output.currentGradient(index)
-          val input = currentData(index)
+          val index              = rowOffset + channelIndex
+          val upstream           = output.currentGradient(index)
+          val input              = currentData(index)
           val gradientBeforeNorm = upstream * scale.currentData(channelIndex)
-          val inputGradient =
-            gradientBeforeNorm * inverse -
-              input * inputGradientDotInput * math.pow(inverse, 3.0) / channels.toDouble
+          val inputGradient      = gradientBeforeNorm * inverse -
+            input * inputGradientDotInput * math.pow(inverse, 3.0) / channels.toDouble
           accumulateGradient(index, inputGradient)
           scale.accumulateGradient(channelIndex, upstream * input * inverse)
           channelIndex += 1
@@ -481,19 +454,19 @@ final class Tensor private (
   /** Applies a numerically stable softmax independently to every rank-2 row. */
   def softmaxRows: Tensor =
     require(rank == 2, s"softmaxRows requires rank 2, got $shape")
-    val rows = shape(0)
-    val columns = shape(1)
+    val rows       = shape(0)
+    val columns    = shape(1)
     require(columns > 0, "softmaxRows requires at least one column")
     val outputData = new Array[Double](size)
-    var row = 0
+    var row        = 0
     while row < rows do
-      val offset = row * columns
+      val offset  = row * columns
       var maximum = currentData(offset)
-      var column = 1
+      var column  = 1
       while column < columns do
         maximum = math.max(maximum, currentData(offset + column))
         column += 1
-      var total = 0.0
+      var total   = 0.0
       column = 0
       while column < columns do
         val exponential = math.exp(currentData(offset + column) - maximum)
@@ -510,16 +483,16 @@ final class Tensor private (
     output.backwardRule = () =>
       var rowIndex = 0
       while rowIndex < rows do
-        val offset = rowIndex * columns
+        val offset           = rowIndex * columns
         var weightedGradient = 0.0
-        var columnIndex = 0
+        var columnIndex      = 0
         while columnIndex < columns do
           weightedGradient +=
             output.currentGradient(offset + columnIndex) * output.currentData(offset + columnIndex)
           columnIndex += 1
         columnIndex = 0
         while columnIndex < columns do
-          val index = offset + columnIndex
+          val index    = offset + columnIndex
           val gradient = output.currentData(index) *
             (output.currentGradient(index) - weightedGradient)
           accumulateGradient(index, gradient)
@@ -527,25 +500,26 @@ final class Tensor private (
         rowIndex += 1
     output
 
-  /** Replaces the strict upper triangle of a square rank-2 Tensor.
-    *
-    * Backward passes gradients only through the diagonal and lower triangle,
-    * which prevents causal attention from depending on future positions.
-    */
+  /**
+   * Replaces the strict upper triangle of a square rank-2 Tensor.
+   *
+   * Backward passes gradients only through the diagonal and lower triangle, which prevents causal
+   * attention from depending on future positions.
+   */
   def causalMask(maskedValue: Double = -1e9): Tensor =
     require(rank == 2, s"causalMask requires rank 2, got $shape")
     require(shape(0) == shape(1), s"causalMask requires a square matrix, got $shape")
     Numerics.requireFinite(maskedValue, "causal mask value")
-    val length = shape(0)
+    val length     = shape(0)
     val outputData = currentData.clone()
-    var row = 0
+    var row        = 0
     while row < length do
       var column = row + 1
       while column < length do
         outputData(row * length + column) = maskedValue
         column += 1
       row += 1
-    val output = Tensor.operation(shape, outputData, "causalMask", Vector(this))
+    val output     = Tensor.operation(shape, outputData, "causalMask", Vector(this))
     output.backwardRule = () =>
       var rowIndex = 0
       while rowIndex < length do
@@ -560,15 +534,15 @@ final class Tensor private (
   /** Copies a half-open range of columns from a rank-2 Tensor. */
   def sliceColumns(fromInclusive: Int, untilExclusive: Int): Tensor =
     require(rank == 2, s"sliceColumns requires rank 2, got $shape")
-    val rows = shape(0)
-    val columns = shape(1)
+    val rows          = shape(0)
+    val columns       = shape(1)
     require(
       fromInclusive >= 0 && fromInclusive < untilExclusive && untilExclusive <= columns,
       s"invalid column range [$fromInclusive,$untilExclusive) for $columns columns"
     )
     val outputColumns = untilExclusive - fromInclusive
-    val outputData = new Array[Double](Math.multiplyExact(rows, outputColumns))
-    var row = 0
+    val outputData    = new Array[Double](Math.multiplyExact(rows, outputColumns))
+    var row           = 0
     while row < rows do
       System.arraycopy(
         currentData,
@@ -578,7 +552,7 @@ final class Tensor private (
         outputColumns
       )
       row += 1
-    val output = Tensor.operation(
+    val output        = Tensor.operation(
       Shape(rows, outputColumns),
       outputData,
       s"sliceColumns($fromInclusive,$untilExclusive)",
@@ -600,21 +574,18 @@ final class Tensor private (
   /** Rank-2 matrix multiplication: [m,k] x [k,n] -> [m,n]. */
   def matmul(other: Tensor): Tensor =
     require(rank == 2 && other.rank == 2, s"matmul requires rank 2: $shape x ${other.shape}")
-    val rows = shape(0)
-    val inner = shape(1)
+    val rows       = shape(0)
+    val inner      = shape(1)
     val otherInner = other.shape(0)
-    val columns = other.shape(1)
-    require(
-      inner == otherInner,
-      s"matmul shape mismatch: $shape x ${other.shape}"
-    )
+    val columns    = other.shape(1)
+    require(inner == otherInner, s"matmul shape mismatch: $shape x ${other.shape}")
 
     val outputData = new Array[Double](Math.multiplyExact(rows, columns))
-    var row = 0
+    var row        = 0
     while row < rows do
       var column = 0
       while column < columns do
-        var sum = 0.0
+        var sum   = 0.0
         var index = 0
         while index < inner do
           sum += currentData(row * inner + index) * other.currentData(index * columns + column)
@@ -630,7 +601,7 @@ final class Tensor private (
         var outputColumn = 0
         while outputColumn < columns do
           val upstream = output.currentGradient(outputRow * columns + outputColumn)
-          var index = 0
+          var index    = 0
           while index < inner do
             accumulateGradient(
               outputRow * inner + index,
@@ -645,19 +616,17 @@ final class Tensor private (
         outputRow += 1
     output
 
-  def backward(): Unit =
-    backwardInternal(accumulateTrainableGradients = false)
+  def backward(): Unit = backwardInternal(accumulateTrainableGradients = false)
 
-  /** Runs reverse mode while preserving gradients already stored in trainable leaves.
-    *
-    * Intermediate graph-node gradients are always cleared. This operation is
-    * intended for gradient accumulation across separately constructed
-    * microbatch graphs. The caller owns the accumulation boundary and must
-    * clear parameter gradients before the first microbatch and after the
-    * optimizer step.
-    */
-  def backwardAccumulating(): Unit =
-    backwardInternal(accumulateTrainableGradients = true)
+  /**
+   * Runs reverse mode while preserving gradients already stored in trainable leaves.
+   *
+   * Intermediate graph-node gradients are always cleared. This operation is intended for gradient
+   * accumulation across separately constructed microbatch graphs. The caller owns the accumulation
+   * boundary and must clear parameter gradients before the first microbatch and after the optimizer
+   * step.
+   */
+  def backwardAccumulating(): Unit = backwardInternal(accumulateTrainableGradients = true)
 
   private def backwardInternal(accumulateTrainableGradients: Boolean): Unit =
     require(shape == Shape.scalar, s"backward requires a scalar output, got $shape")
@@ -668,8 +637,7 @@ final class Tensor private (
     currentGradient(0) = 1.0
     order.reverseIterator.foreach(_.backwardRule())
 
-  def clearGradients(): Unit =
-    java.util.Arrays.fill(currentGradient, 0.0)
+  def clearGradients(): Unit = java.util.Arrays.fill(currentGradient, 0.0)
 
   def applyGradient(learningRate: Double): Unit =
     require(isTrainable, "only trainable leaf tensors may be updated")
@@ -683,11 +651,12 @@ final class Tensor private (
       )
       index += 1
 
-  /** Applies an optimizer-defined update to every trainable element.
-    *
-    * The callback receives `(flatIndex, data, gradient)` and returns the new
-    * data value. This is the only mutation boundary used by tensor optimizers.
-    */
+  /**
+   * Applies an optimizer-defined update to every trainable element.
+   *
+   * The callback receives `(flatIndex, data, gradient)` and returns the new data value. This is the
+   * only mutation boundary used by tensor optimizers.
+   */
   def updateParameter(function: (Int, Double, Double) => Double): Unit =
     require(isTrainable, "only trainable leaf tensors may be updated")
     var index = 0
@@ -698,14 +667,14 @@ final class Tensor private (
       )
       index += 1
 
-  /** Replaces the stored gradients of a trainable leaf.
-    *
-    * Reserved for the distributed-training simulation (Chapter 27a), which
-    * reduces per-replica gradients *outside* the graph and writes the
-    * agreed result back before an optimizer step. All values are validated
-    * before any element changes, so a rejected assignment leaves the
-    * gradients untouched.
-    */
+  /**
+   * Replaces the stored gradients of a trainable leaf.
+   *
+   * Reserved for the distributed-training simulation (Chapter 27a), which reduces per-replica
+   * gradients *outside* the graph and writes the agreed result back before an optimizer step. All
+   * values are validated before any element changes, so a rejected assignment leaves the gradients
+   * untouched.
+   */
   def assignGradients(values: IndexedSeq[Double]): Unit =
     require(isTrainable, "only trainable leaf tensors may receive gradients")
     require(
@@ -720,12 +689,13 @@ final class Tensor private (
       currentGradient(index) = values(index)
       index += 1
 
-  /** Replaces all values of a trainable leaf from a defensive input sequence.
-    *
-    * This operation is reserved for checkpoint loading. Shape/element count
-    * and finite-value invariants are checked before any element is changed, so
-    * a rejected assignment leaves the parameter untouched.
-    */
+  /**
+   * Replaces all values of a trainable leaf from a defensive input sequence.
+   *
+   * This operation is reserved for checkpoint loading. Shape/element count and finite-value
+   * invariants are checked before any element is changed, so a rejected assignment leaves the
+   * parameter untouched.
+   */
   def assignParameterValues(values: IndexedSeq[Double]): Unit =
     require(isTrainable, "only trainable leaf tensors may be assigned")
     require(
@@ -750,7 +720,7 @@ final class Tensor private (
       derivative: (Double, Double) => Double
   ): Tensor =
     val outputData = currentData.map(forward)
-    val output = Tensor.operation(shape, outputData, name, Vector(this))
+    val output     = Tensor.operation(shape, outputData, name, Vector(this))
     output.backwardRule = () =>
       var index = 0
       while index < size do
@@ -760,10 +730,8 @@ final class Tensor private (
     output
 
   private def accumulateGradient(index: Int, amount: Double): Unit =
-    currentGradient(index) = Numerics.requireFinite(
-      currentGradient(index) + amount,
-      s"gradient for '$label' at flat index $index"
-    )
+    currentGradient(index) = Numerics
+      .requireFinite(currentGradient(index) + amount, s"gradient for '$label' at flat index $index")
 
   private def requireSameShape(other: Tensor, operation: String): Unit =
     require(shape == other.shape, s"$operation requires equal shapes: $shape != ${other.shape}")
@@ -773,13 +741,12 @@ final class Tensor private (
 
   private def topologicalOrder(): Vector[Tensor] =
     val visited = new IdentityHashMap[Tensor, java.lang.Boolean]()
-    val order = ArrayBuffer.empty[Tensor]
+    val order   = ArrayBuffer.empty[Tensor]
 
-    def visit(tensor: Tensor): Unit =
-      if !visited.containsKey(tensor) then
-        visited.put(tensor, java.lang.Boolean.TRUE)
-        tensor.previous.foreach(visit)
-        order += tensor
+    def visit(tensor: Tensor): Unit = if !visited.containsKey(tensor) then
+      visited.put(tensor, java.lang.Boolean.TRUE)
+      tensor.previous.foreach(visit)
+      order += tensor
 
     visit(this)
     order.toVector
@@ -795,28 +762,28 @@ object Tensor:
     require(label.nonEmpty, "a trainable tensor requires a label")
     create(shape, values.iterator.toArray, label, "parameter", Vector.empty, isTrainable = true)
 
-  def fill(shape: Shape, value: Double): Tensor =
-    constant(shape, Array.fill(shape.size)(value))
+  def fill(shape: Shape, value: Double): Tensor = constant(shape, Array.fill(shape.size)(value))
 
   def tabulate(shape: Shape)(function: Int => Double): Tensor =
     constant(shape, Array.tabulate(shape.size)(function))
 
-  /** Concatenates rank-2 Tensors along their column axis.
-    *
-    * Every input must have the same row count. Backward slices the upstream
-    * gradient back into the corresponding input column range.
-    */
+  /**
+   * Concatenates rank-2 Tensors along their column axis.
+   *
+   * Every input must have the same row count. Backward slices the upstream gradient back into the
+   * corresponding input column range.
+   */
   def concatenateColumns(tensors: Vector[Tensor]): Tensor =
     require(tensors.nonEmpty, "concatenateColumns requires at least one tensor")
     require(tensors.forall(_.rank == 2), s"all tensors must have rank 2: ${tensors.map(_.shape)}")
-    val rows = tensors.head.shape(0)
+    val rows         = tensors.head.shape(0)
     require(
       tensors.forall(_.shape(0) == rows),
       s"all tensors must have $rows rows: ${tensors.map(_.shape)}"
     )
     val totalColumns = tensors.iterator.map(_.shape(1)).sum
-    val outputData = new Array[Double](Math.multiplyExact(rows, totalColumns))
-    var row = 0
+    val outputData   = new Array[Double](Math.multiplyExact(rows, totalColumns))
+    var row          = 0
     while row < rows do
       var outputColumn = 0
       tensors.foreach { tensor =>
@@ -832,16 +799,11 @@ object Tensor:
       }
       row += 1
 
-    val output = operation(
-      Shape(rows, totalColumns),
-      outputData,
-      "concatenateColumns",
-      tensors
-    )
+    val output = operation(Shape(rows, totalColumns), outputData, "concatenateColumns", tensors)
     output.backwardRule = () =>
       var inputOffset = 0
       tensors.foreach { tensor =>
-        val columns = tensor.shape(1)
+        val columns  = tensor.shape(1)
         var inputRow = 0
         while inputRow < rows do
           var column = 0
@@ -861,8 +823,7 @@ object Tensor:
       values: Array[Double],
       operation: String,
       previous: Vector[Tensor]
-  ): Tensor =
-    create(shape, values, label = "", operation, previous, isTrainable = false)
+  ): Tensor = create(shape, values, label = "", operation, previous, isTrainable = false)
 
   private def create(
       shape: Shape,

@@ -6,12 +6,13 @@ import scala.collection.mutable.ArrayBuffer
 
 import learnai.math.Numerics
 
-/** A scalar value and one node in a reverse-mode automatic differentiation graph.
-  *
-  * Forward data is captured when an operation is created. Calling `backward`
-  * fills gradients on the reachable graph. Trainable leaf values may be updated
-  * only after backward; callers must build a fresh forward graph afterwards.
-  */
+/**
+ * A scalar value and one node in a reverse-mode automatic differentiation graph.
+ *
+ * Forward data is captured when an operation is created. Calling `backward` fills gradients on the
+ * reachable graph. Trainable leaf values may be updated only after backward; callers must build a
+ * fresh forward graph afterwards.
+ */
 final class Value private (
     private var currentData: Double,
     val label: String,
@@ -19,7 +20,7 @@ final class Value private (
     private val previous: Vector[Value],
     val isTrainable: Boolean
 ):
-  private var currentGradient = 0.0
+  private var currentGradient          = 0.0
   private var backwardRule: () => Unit = () => ()
 
   def data: Double = currentData
@@ -75,8 +76,8 @@ final class Value private (
 
   def tanh: Value =
     val output = Value.operation(math.tanh(data), "tanh", Vector(this))
-    output.backwardRule = () =>
-      accumulateGradient((1.0 - output.data * output.data) * output.gradient)
+    output.backwardRule =
+      () => accumulateGradient((1.0 - output.data * output.data) * output.gradient)
     output
 
   def relu: Value =
@@ -93,36 +94,29 @@ final class Value private (
     currentGradient = 1.0
     order.reverseIterator.foreach(_.backwardRule())
 
-  def clearGradient(): Unit =
-    currentGradient = 0.0
+  def clearGradient(): Unit = currentGradient = 0.0
 
   def applyGradient(learningRate: Double): Unit =
     require(isTrainable, "only trainable leaf values may be updated")
     Numerics.requireFinite(learningRate, "learning rate")
     require(learningRate >= 0.0, s"learning rate must be non-negative: $learningRate")
-    currentData = Numerics.requireFinite(
-      currentData - learningRate * currentGradient,
-      s"updated parameter '$label'"
-    )
+    currentData = Numerics
+      .requireFinite(currentData - learningRate * currentGradient, s"updated parameter '$label'")
 
   override def toString: String =
     s"Value(data=$data, gradient=$gradient, operation=$operation, label=$label)"
 
   private def accumulateGradient(amount: Double): Unit =
-    currentGradient = Numerics.requireFinite(
-      currentGradient + amount,
-      s"gradient for '$label'"
-    )
+    currentGradient = Numerics.requireFinite(currentGradient + amount, s"gradient for '$label'")
 
   private def topologicalOrder(): Vector[Value] =
     val visited = new IdentityHashMap[Value, java.lang.Boolean]()
-    val order = ArrayBuffer.empty[Value]
+    val order   = ArrayBuffer.empty[Value]
 
-    def visit(value: Value): Unit =
-      if !visited.containsKey(value) then
-        visited.put(value, java.lang.Boolean.TRUE)
-        value.previous.foreach(visit)
-        order += value
+    def visit(value: Value): Unit = if !visited.containsKey(value) then
+      visited.put(value, java.lang.Boolean.TRUE)
+      value.previous.foreach(visit)
+      order += value
 
     visit(this)
     order.toVector
@@ -135,8 +129,7 @@ object Value:
     require(label.nonEmpty, "a trainable parameter requires a label")
     create(data, label, operation = "parameter", previous = Vector.empty, isTrainable = true)
 
-  def sum(values: IterableOnce[Value]): Value =
-    values.iterator.foldLeft(constant(0.0))(_ + _)
+  def sum(values: IterableOnce[Value]): Value = values.iterator.foldLeft(constant(0.0))(_ + _)
 
   private def operation(data: Double, operation: String, previous: Vector[Value]): Value =
     create(data, label = "", operation, previous, isTrainable = false)

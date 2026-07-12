@@ -338,6 +338,32 @@ $ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 5. JVM/環境リビジョンと、追加された確率的コンポーネントを確認する。
 6. 実行途中からの再開はまだサポートされていないことを思い出す。ここで保証されるのはゼロからのリプレイだけです。
 
+## 自分のコーパスで完全な実行を作る
+
+`runMiniGptTrainingLab` はアルゴリズムを観察する決定的なフィクスチャです。そこから
+一段進んだ `TrainingWorkflow` は、既存の各部品を実際のファイル境界で接続します。
+
+```console
+$ ./learn-ai train --input data/corpus.txt --output runs/first \
+    --context 32 --channels 32 --heads 4 --hidden 64 --layers 2 \
+    --updates 100 --batch-size 8 --microbatch 2
+```
+
+処理は UTF-8 ファイルの読み込み、byte tokenization、交差しない train/validation
+分割、resumable training、成果物の永続化までを一度に行います。
+
+| 成果物 | 用途 | 検証境界 |
+| --- | --- | --- |
+| `manifest.json` | corpus/config/code/runtime の実験同一性 | canonical JSON と SHA-256 ID |
+| `metrics.jsonl` | update ごとの loss、LR、gradient、tokens | 1 行 1 update の機械可読ログ |
+| `model.laigpt` | 推論用の architecture と重み | version、shape、label、SHA-256 |
+| `training.laibnd` | 厳密再開に必要な完全状態 | optimizer、scheduler位置、RNG、data cursor、SHA-256 |
+
+CLI は未知・重複・値なしの option を拒否します。入力不足、分割後の window 不足、
+head/channel 不整合、書き込み失敗も `training workflow failed` と非ゼロ終了で返します。
+小さいモデルという教材上の制約は残りますが、固定文字列を print するだけのデモでは
+なく、自分のデータから再利用・検査可能な成果物を作る end-to-end path です。
+
 ## 制限事項と次章への接続
 
 この訓練システムには、まだ次のものが欠けています:
@@ -346,10 +372,8 @@ $ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
 - バッチ化された Tensor カーネル
 - ドロップアウトと train/eval モード
 - 混合精度と損失スケーリング
-- オプティマイザ/チェックポイントのシリアライゼーション
-- 中断からの厳密な再開
 - 活性化メモリの計上とチェックポインティング
-- 非同期ロギングと永続的な実行記録
+- 非同期ロギングと大規模な実行レジストリ
 - 早期終了ポリシーと成果物の保持
 - 分散勾配リダクション
 

@@ -9,11 +9,10 @@ enum Activation:
   case Tanh
   case Relu
 
-  def apply(value: Value): Value =
-    this match
-      case Linear => value
-      case Tanh   => value.tanh
-      case Relu   => value.relu
+  def apply(value: Value): Value = this match
+    case Linear => value
+    case Tanh   => value.tanh
+    case Relu   => value.relu
 
 final class Neuron private[nn] (
     val weights: Vector[Value],
@@ -27,18 +26,12 @@ final class Neuron private[nn] (
       inputs.size == inputSize,
       s"neuron input size mismatch: expected $inputSize, got ${inputs.size}"
     )
-    val weightedInputs = weights.zip(inputs).map { case (weight, input) =>
-      weight * input
-    }
+    val weightedInputs = weights.zip(inputs).map { case (weight, input) => weight * input }
     activation(Value.sum(weightedInputs) + bias)
 
   def parameters: Vector[Value] = weights :+ bias
 
-final class Layer private (
-    val inputSize: Int,
-    val outputSize: Int,
-    val neurons: Vector[Neuron]
-):
+final class Layer private (val inputSize: Int, val outputSize: Int, val neurons: Vector[Neuron]):
   def apply(inputs: Vector[Value]): Vector[Value] =
     require(
       inputs.size == inputSize,
@@ -60,19 +53,19 @@ object Layer:
     require(outputSize > 0, s"layer output size must be positive: $outputSize")
     require(labelPrefix.nonEmpty, "layer label prefix cannot be empty")
 
-    val bound = math.sqrt(6.0 / (inputSize.toDouble + outputSize.toDouble))
+    val bound   = math.sqrt(6.0 / (inputSize.toDouble + outputSize.toDouble))
     val neurons = Vector.tabulate(outputSize) { outputIndex =>
       val weights = Vector.tabulate(inputSize) { inputIndex =>
         val initial = random.nextDouble(-bound, bound)
         Value.parameter(initial, s"$labelPrefix.neuron$outputIndex.weight$inputIndex")
       }
-      val bias = Value.parameter(0.0, s"$labelPrefix.neuron$outputIndex.bias")
+      val bias    = Value.parameter(0.0, s"$labelPrefix.neuron$outputIndex.bias")
       new Neuron(weights, bias, activation)
     }
     new Layer(inputSize, outputSize, neurons)
 
 final class MultiLayerPerceptron private (val layers: Vector[Layer]):
-  val inputSize: Int = layers.head.inputSize
+  val inputSize: Int  = layers.head.inputSize
   val outputSize: Int = layers.last.outputSize
 
   def apply(rawInputs: Vector[Double]): Vector[Value] =
@@ -81,7 +74,7 @@ final class MultiLayerPerceptron private (val layers: Vector[Layer]):
       s"network input size mismatch: expected $inputSize, got ${rawInputs.size}"
     )
     val inputs = rawInputs.map(Value.constant(_))
-    layers.foldLeft(inputs) { (current, layer) => layer(current) }
+    layers.foldLeft(inputs)((current, layer) => layer(current))
 
   def parameters: Vector[Value] = layers.flatMap(_.parameters)
 
@@ -97,12 +90,11 @@ object MultiLayerPerceptron:
     require(layerSizes.nonEmpty, "a network requires at least one layer")
     require(layerSizes.forall(_ > 0), s"all layer sizes must be positive: $layerSizes")
 
-    val random = new SplittableRandom(seed)
-    val dimensions = inputSize +: layerSizes
+    val random         = new SplittableRandom(seed)
+    val dimensions     = inputSize +: layerSizes
     val lastLayerIndex = layerSizes.size - 1
-    val layers = layerSizes.indices.map { index =>
-      val activation =
-        if index == lastLayerIndex then outputActivation else hiddenActivation
+    val layers         = layerSizes.indices.map { index =>
+      val activation = if index == lastLayerIndex then outputActivation else hiddenActivation
       Layer.random(
         inputSize = dimensions(index),
         outputSize = dimensions(index + 1),
@@ -114,10 +106,7 @@ object MultiLayerPerceptron:
     new MultiLayerPerceptron(layers)
 
 object Loss:
-  def meanSquaredError(
-      predictions: Vector[Value],
-      targets: Vector[Double]
-  ): Value =
+  def meanSquaredError(predictions: Vector[Value], targets: Vector[Double]): Value =
     require(predictions.nonEmpty, "mean squared error requires predictions")
     require(
       predictions.size == targets.size,

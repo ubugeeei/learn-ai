@@ -4,7 +4,13 @@
 
 A minimal test runner that executes functions, compares values, reports
 failures, and makes the build fail. Source lives under
-`src/test/scala/learnai/testing`.
+The runner itself lives under `src/test/scala/learnai/testing`; each feature
+suite sits beside its implementation. For example, `ScalaTourSuite.scala` is
+next to `ScalaTour.scala` in `src/main/scala/learnai/foundations`.
+
+This does not mix tests into the production artifact. `build.sbt` excludes
+`*Suite.scala` from production compilation and adds it only to the Test
+configuration: colocated on disk, separated in compiled output.
 
 Production Scala projects normally use a test library. We build the first
 runner ourselves to show that a test is an ordinary program with input,

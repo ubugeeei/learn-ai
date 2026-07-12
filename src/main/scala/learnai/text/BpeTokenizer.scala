@@ -13,18 +13,14 @@ final class BpeTokenizer private (
   def encode(text: String): Vector[TokenId] =
     var symbols = Utf8.encodeBytes(text)
     merges.foreach { merge =>
-      symbols = BpeTokenizer.replacePair(
-        symbols,
-        merge.left.value,
-        merge.right.value,
-        merge.result.value
-      )
+      symbols = BpeTokenizer
+        .replacePair(symbols, merge.left.value, merge.right.value, merge.result.value)
     }
     symbols.map(TokenId(_))
 
   def decode(tokenIds: IterableOnce[TokenId]): Either[String, String] =
-    val bytes = Vector.newBuilder[Int]
-    val iterator = tokenIds.iterator
+    val bytes                 = Vector.newBuilder[Int]
+    val iterator              = tokenIds.iterator
     var error: Option[String] = None
     while iterator.hasNext && error.isEmpty do
       val tokenId = iterator.next().value
@@ -39,9 +35,8 @@ object BpeTokenizer:
   val BaseVocabularySize: Int = 256
 
   def fromMerges(merges: Vector[BpeMerge]): BpeTokenizer =
-    val expansions = mutable.ArrayBuffer.from(
-      Vector.tabulate(BaseVocabularySize)(byte => Vector(byte))
-    )
+    val expansions = mutable.ArrayBuffer
+      .from(Vector.tabulate(BaseVocabularySize)(byte => Vector(byte)))
     merges.zipWithIndex.foreach { case (merge, index) =>
       val expectedResult = BaseVocabularySize + index
       require(
@@ -63,10 +58,9 @@ object BpeTokenizer:
       result: Int
   ): Vector[Int] =
     val replaced = Vector.newBuilder[Int]
-    var index = 0
+    var index    = 0
     while index < symbols.size do
-      if index + 1 < symbols.size && symbols(index) == left && symbols(index + 1) == right
-      then
+      if index + 1 < symbols.size && symbols(index) == left && symbols(index + 1) == right then
         replaced += result
         index += 2
       else
@@ -82,9 +76,9 @@ object BpeTrainer:
         s"$targetVocabularySize"
     )
 
-    var sequences = corpus.map(Utf8.encodeBytes)
-    val merges = Vector.newBuilder[BpeMerge]
-    var nextToken = BpeTokenizer.BaseVocabularySize
+    var sequences   = corpus.map(Utf8.encodeBytes)
+    val merges      = Vector.newBuilder[BpeMerge]
+    var nextToken   = BpeTokenizer.BaseVocabularySize
     var canContinue = true
 
     while nextToken < targetVocabularySize && canContinue do
@@ -102,11 +96,10 @@ object BpeTrainer:
         val ((left, right), _) = counts.minBy { case ((left, right), count) =>
           (-count, left, right)
         }
-        val merge = BpeMerge(TokenId(left), TokenId(right), TokenId(nextToken))
+        val merge              = BpeMerge(TokenId(left), TokenId(right), TokenId(nextToken))
         merges += merge
-        sequences = sequences.map { sequence =>
-          BpeTokenizer.replacePair(sequence, left, right, nextToken)
-        }
+        sequences = sequences
+          .map(sequence => BpeTokenizer.replacePair(sequence, left, right, nextToken))
         nextToken += 1
 
     BpeTokenizer.fromMerges(merges.result())

@@ -15,11 +15,13 @@ Usage:
 Start with:
   ./learn-ai model        Train the smallest Transformer and generate text.
   ./learn-ai training     Run the train/validation experiment.
+  ./learn-ai train ...    Train on your own UTF-8 corpus and save artifacts.
 
 Commands:
   help          Show this explanation.
   model         Train tiny MiniGPT on one repeated phrase, then generate text.
   training      Train MiniGPT with batches, validation, scheduling, and metrics.
+  train         Production-shaped file-to-artifacts workflow; use train --help.
   diagnostics   Check MiniGPT gradients, parameter bytes, and local timing.
   cache         Compare ordinary decoding with KV-cached decoding.
   quantization  Compress a matrix to int8 and report numerical/byte error.
@@ -63,9 +65,9 @@ explain() {
 }
 
 run_main() {
-  local main_class="$1"
-  printf 'Underlying command:\n  nix develop -c sbt '\''runMain %s'\''\n\n' "$main_class"
-  nix develop -c sbt "runMain $main_class"
+  local lesson="$1"
+  printf 'Underlying command:\n  nix develop -c sbt '\''runMain learnai.Main %s'\''\n\n' "$lesson"
+  nix develop -c sbt "runMain learnai.Main $lesson"
 }
 
 run_model() {
@@ -74,7 +76,7 @@ run_model() {
     "A one-layer causal Transformer learns next-token prediction from a repeated 'to be or not to be' corpus, then samples a continuation." \
     "Initial/final loss should fall sharply; generated text should reproduce parts of the tiny training pattern." \
     "This does not show broad language ability or generalization. The corpus is deliberately tiny and repetitive."
-  run_main learnai.transformer.trainMiniGpt
+  run_main model
 }
 
 run_training() {
@@ -83,7 +85,13 @@ run_training() {
     "A byte-level corpus is split into disjoint training/validation regions. MiniGPT trains with batches, microbatch accumulation, AdamW, gradient clipping, and warmup/cosine learning rates." \
     "Follow validation loss, learning rate, gradient norm, clipping scale, tokens seen, and the canonical experiment ID." \
     "A falling loss on one synthetic corpus does not establish real-world model quality."
-  run_main learnai.training.runMiniGptTrainingLab
+  run_main training
+}
+
+run_training_workflow() {
+  shift
+  printf 'Underlying command:\n  nix develop -c sbt '\''runMain learnai.Main train %s'\''\n\n' "$*"
+  nix develop -c sbt "runMain learnai.Main train $*"
 }
 
 run_diagnostics() {
@@ -92,7 +100,7 @@ run_diagnostics() {
     "The model is not trained. Analytical gradients are compared with central differences; parameter payload is counted; repeated forward passes are timed." \
     "Gradient probes must pass. Inspect maximum error, median, p95, variation, checksum, JVM, OS, and CPU architecture." \
     "The local timing is not a portable benchmark and does not predict GPU or production throughput."
-  run_main learnai.transformer.runMiniGptDiagnostics
+  run_main diagnostics
 }
 
 run_cache() {
@@ -101,7 +109,7 @@ run_cache() {
     "Reference decoding recomputes the prefix while cached decoding retains attention keys/values and evaluates new tokens incrementally." \
     "Tokens/logits must remain equivalent. Compare token-work counts, cache bytes, rebuilds, and environment-labelled timings." \
     "This CPU microbenchmark does not reproduce a production serving engine or GPU kernel."
-  run_main learnai.transformer.runKvCacheLab
+  run_main cache
 }
 
 run_quantization() {
@@ -110,7 +118,7 @@ run_quantization() {
     "Rows of Double weights are scaled and rounded to signed 8-bit integers, reconstructed, and used in matrix-vector multiplication." \
     "Inspect maximum/mean reconstruction error, output error, and payload byte reduction." \
     "Weight reconstruction error alone does not establish downstream model quality or inference speed."
-  run_main learnai.quantization.runInt8QuantizationLab
+  run_main quantization
 }
 
 run_agent() {
@@ -119,7 +127,7 @@ run_agent() {
     "A scripted fake language model exercises direct answers, an allowed read-only lookup, and a denied write through the typed agent runtime." \
     "Every case should pass. Inspect requested versus physically attempted tools, approval errors, token counts, and terminal status." \
     "No remote LLM is called, so this tests runtime and policy correctness—not real-model tool-selection quality."
-  run_main learnai.agent.runAgentEvaluationLab
+  run_main agent
 }
 
 run_planning() {
@@ -128,16 +136,16 @@ run_planning() {
     "A validated dependency graph schedules bounded worker-agent attempts, retries a failed task, and produces a resumable checkpoint." \
     "Inspect task order, attempts, dependency outputs, final statuses, usage, and checkpoint contents." \
     "The workers are deterministic fakes and checkpoint persistence is not a distributed workflow system."
-  run_main learnai.agent.runPlanningAgentLab
+  run_main planning
 }
 
 run_foundations() {
   explain \
     "Scala foundations" \
-    "Small functions demonstrate immutable values, collections, pattern matching, Either-based errors, and an @main entrypoint." \
+    "Small functions demonstrate immutable values, collections, pattern matching, Either-based errors, and the shared CLI entrypoint." \
     "Read each printed value and connect it to ScalaTour.scala before moving to mathematical code." \
     "This is a language orientation, not complete Scala or JVM training."
-  run_main learnai.foundations.runScalaTour
+  run_main foundations
 }
 
 run_xor() {
@@ -146,7 +154,7 @@ run_xor() {
     "A small multilayer perceptron uses the scalar reverse-mode graph to learn the nonlinear XOR truth table." \
     "Loss should fall and all four predictions should match their classes." \
     "Solving four points does not establish generalization or scalable tensor performance."
-  run_main learnai.nn.trainXor
+  run_main xor
 }
 
 run_bigram() {
@@ -155,7 +163,7 @@ run_bigram() {
     "A trainable token-to-next-token table learns a deterministic toy cycle and samples from its learned rows." \
     "Loss should fall and generated IDs should follow the cycle." \
     "A bigram model sees only the current token; it has no Transformer context or semantic understanding."
-  run_main learnai.lm.trainBigram
+  run_main bigram
 }
 
 run_tests() {
@@ -174,6 +182,7 @@ case "${1:-help}" in
   help|-h|--help) usage ;;
   model) run_model ;;
   training) run_training ;;
+  train) run_training_workflow "$@" ;;
   diagnostics) run_diagnostics ;;
   cache) run_cache ;;
   quantization) run_quantization ;;

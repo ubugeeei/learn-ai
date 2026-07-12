@@ -100,17 +100,32 @@ math -> autodiff -> neural networks -> tokenization -> language modeling
   -> cited retrieval -> task-graph planning and recovery -> agent evaluation
 ```
 
-有用なエントリポイント:
+実行入口は `learnai.Main` の一つだけです。引数なしで実行すると、現在実装済みの
+ラボと一行解説が学習順に表示されます。
 
 ```console
 $ nix develop -c sbt check
-$ nix develop -c sbt 'runMain learnai.nn.trainXor'
-$ nix develop -c sbt 'runMain learnai.lm.trainBigram'
-$ nix develop -c sbt 'runMain learnai.transformer.trainMiniGpt'
-$ nix develop -c sbt 'runMain learnai.transformer.runMiniGptDiagnostics'
-$ nix develop -c sbt 'runMain learnai.training.runMiniGptTrainingLab'
-$ nix develop -c sbt 'runMain learnai.quantization.runInt8QuantizationLab'
+$ nix develop -c sbt 'runMain learnai.Main'
+$ nix develop -c sbt 'runMain learnai.Main foundations'
+$ nix develop -c sbt 'runMain learnai.Main model'
 ```
+
+固定されたデモの次は、自分の UTF-8 テキストから再現可能な訓練成果物を作れます。
+
+```console
+$ ./learn-ai train --input data/corpus.txt --output runs/first \
+    --context 32 --channels 32 --heads 4 --layers 2 --updates 100
+```
+
+出力先には、実験同一性と環境を記録した `manifest.json`、更新ごとの
+`metrics.jsonl`、checksum 付き推論モデル `model.laigpt`、optimizer・scheduler・
+乱数・data cursor を含む完全再開用 `training.laibnd` が作られます。
+
+実装とテストは同じディレクトリに置きます。たとえば Scala 入門は
+`ScalaTour.scala` と `ScalaTourSuite.scala`、attention は `Attention.scala` と
+`AttentionSuite.scala` が隣り合います。`src/main` と `src/test` を往復して対応を
+推測する必要はありません。テストランナー自身とリポジトリ横断テストだけは
+`src/test/scala/learnai/testing` に残します。
 
 テンソル/パイプライン/ZeRO のシミュレーション、サービングスケジューラ、
 大規模なコーパスキュレーション、選好最適化、プロダクション向けエージェント

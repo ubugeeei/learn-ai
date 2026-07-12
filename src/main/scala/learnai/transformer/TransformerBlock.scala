@@ -4,11 +4,12 @@ import java.util.SplittableRandom
 
 import learnai.tensor.Tensor
 
-/** Position-wise two-layer feed-forward network.
-  *
-  * Every time row is transformed independently with shared parameters:
-  * `[time, channels] -> [time, hiddenChannels] -> [time, channels]`.
-  */
+/**
+ * Position-wise two-layer feed-forward network.
+ *
+ * Every time row is transformed independently with shared parameters:
+ * `[time, channels] -> [time, hiddenChannels] -> [time, channels]`.
+ */
 final class FeedForward private (
     val channels: Int,
     val hiddenChannels: Int,
@@ -41,11 +42,12 @@ object FeedForward:
       Linear.random(hiddenChannels, channels, random, s"$label.projection")
     )
 
-/** One pre-normalized decoder-only Transformer block.
-  *
-  * The block preserves `[time, channels]` shape and contains two residual
-  * branches: causal self-attention and a position-wise feed-forward network.
-  */
+/**
+ * One pre-normalized decoder-only Transformer block.
+ *
+ * The block preserves `[time, channels]` shape and contains two residual branches: causal
+ * self-attention and a position-wise feed-forward network.
+ */
 final class TransformerBlock private (
     val channels: Int,
     val attentionNorm: RmsNorm,
@@ -72,11 +74,8 @@ final class TransformerBlock private (
     afterAttention + feedForward(feedForwardNorm(afterAttention))
 
   /** Returns every trainable Tensor exactly once in forward ownership order. */
-  def parameters: Vector[Tensor] =
-    attentionNorm.parameters ++
-      attention.parameters ++
-      feedForwardNorm.parameters ++
-      feedForward.parameters
+  def parameters: Vector[Tensor] = attentionNorm.parameters ++ attention.parameters ++
+    feedForwardNorm.parameters ++ feedForward.parameters
 
 object TransformerBlock:
   /** Creates one reproducible pre-norm block. */
