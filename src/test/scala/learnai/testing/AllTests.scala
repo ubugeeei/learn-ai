@@ -7,6 +7,8 @@ import learnai.foundations.JvmSystemsSuite
 import learnai.math.NumericsSuite
 import learnai.math.VectorDSuite
 import learnai.math.MatrixDSuite
+import learnai.math.LinearAlgebraSuite
+import learnai.math.StatisticsSuite
 import learnai.math.ProbabilitySuite
 import learnai.math.CalculusSuite
 import learnai.learning.GradientDescentSuite
@@ -64,6 +66,8 @@ object AllTests:
     NumericsSuite,
     VectorDSuite,
     MatrixDSuite,
+    LinearAlgebraSuite,
+    StatisticsSuite,
     ProbabilitySuite,
     CalculusSuite,
     GradientDescentSuite,

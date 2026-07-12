@@ -48,15 +48,16 @@ object JvmSystems:
   def runBounded[A](timeout: FiniteDuration)(body: => A): BoundedResult[A] =
     require(timeout.length > 0L, s"timeout must be positive: $timeout")
     val executor = Executors.newSingleThreadExecutor()
-    val future = executor.submit(new Callable[A]:
-      override def call(): A = body
+    val future   = executor.submit(
+      new Callable[A]:
+        override def call(): A = body
     )
     try BoundedResult.Completed(future.get(timeout.length, timeout.unit))
     catch
       case _: TimeoutException =>
         future.cancel(true)
         BoundedResult.TimedOut
-      case NonFatal(error) => BoundedResult.Failed(Option(error.getCause).getOrElse(error).toString)
+      case NonFatal(error)     => BoundedResult.Failed(Option(error.getCause).getOrElse(error).toString)
     finally
       executor.shutdownNow()
       val _ = executor.awaitTermination(1, TimeUnit.SECONDS)
@@ -64,13 +65,13 @@ object JvmSystems:
   /** Writes UTF-8 through a sibling temporary file and atomically replaces the destination. */
   def writeUtf8Atomically(path: Path, content: String): Either[String, Long] =
     try
-      val absolute = path.toAbsolutePath
-      val parent = Option(absolute.getParent).getOrElse(Path.of(".").toAbsolutePath)
+      val absolute  = path.toAbsolutePath
+      val parent    = Option(absolute.getParent).getOrElse(Path.of(".").toAbsolutePath)
       Files.createDirectories(parent)
       val temporary = Files.createTempFile(parent, s".${absolute.getFileName}.", ".tmp")
       try
         val bytes = content.getBytes(StandardCharsets.UTF_8)
-        val _ = Files.write(temporary, bytes)
+        val _     = Files.write(temporary, bytes)
         try
           val _ = Files.move(
             temporary,

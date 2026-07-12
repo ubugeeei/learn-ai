@@ -29,7 +29,7 @@ object JvmSystemsSuite extends TestSuite:
       val result = JvmSystems.runBounded(1.second)(throw new IllegalStateException("broken"))
       result match
         case BoundedResult.Failed(message) => Assert.isTrue(message.contains("broken"), message)
-        case other => throw new AssertionError(s"expected failure, got $other")
+        case other                         => throw new AssertionError(s"expected failure, got $other")
     },
     test("bounded execution interrupts work after its deadline") {
       val result = JvmSystems.runBounded(1.millis)(Thread.sleep(1000L))
@@ -37,9 +37,9 @@ object JvmSystemsSuite extends TestSuite:
     },
     test("atomic UTF-8 write replaces content and reports exact bytes") {
       val directory = Files.createTempDirectory("learnai-jvm-")
-      val path = directory.resolve("result.txt")
+      val path      = directory.resolve("result.txt")
       Assert.right(JvmSystems.writeUtf8Atomically(path, "old"))
-      val bytes = Assert.right(JvmSystems.writeUtf8Atomically(path, "新しい"))
+      val bytes     = Assert.right(JvmSystems.writeUtf8Atomically(path, "新しい"))
       Assert.equal(bytes, "新しい".getBytes(StandardCharsets.UTF_8).length.toLong)
       Assert.equal(Files.readString(path, StandardCharsets.UTF_8), "新しい")
     }

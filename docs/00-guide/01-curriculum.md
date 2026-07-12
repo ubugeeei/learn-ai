@@ -34,8 +34,8 @@ bridge from visible mechanisms to operational judgment.
 | 06 | ✅ | Matrices and shapes | `MatrixD` and matrix multiplication |
 | 07 | ✅ | Probability and information | Distributions, entropy, cross entropy |
 | 08 | ✅ | Derivatives and chain rule | Numerical differentiation reference |
-| 08a | ⬜ | Linear algebra depth | rank, conditioning, eigensystems, SVD, low-rank approximation |
-| 08b | ⬜ | Statistical inference | estimators, uncertainty, tests, calibration |
+| 08a | ✅ | Linear algebra depth | rank, conditioning, eigensystems, SVD, low-rank approximation |
+| 08b | ✅ | Statistical inference | estimators, uncertainty, tests, calibration |
 
 **Part deliverable:** translate linear algebra and probability equations into
 shape-safe code.

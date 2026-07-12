@@ -19,7 +19,7 @@ object ComplexitySuite extends TestSuite:
       Assert.isTrue(result.comparisons <= 11, s"comparison count was ${result.comparisons}")
     },
     test("row-major and column-first traversal visit equal cells in different orders") {
-      val rowFirst = Complexity.traversalOffsets(2, 3, rowFirst = true)
+      val rowFirst    = Complexity.traversalOffsets(2, 3, rowFirst = true)
       val columnFirst = Complexity.traversalOffsets(2, 3, rowFirst = false)
       Assert.equal(rowFirst, Vector(0, 1, 2, 3, 4, 5))
       Assert.equal(columnFirst, Vector(0, 3, 1, 4, 2, 5))

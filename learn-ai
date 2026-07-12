@@ -30,6 +30,8 @@ Commands:
   foundations   Run the introductory Scala values/functions/error-handling lab.
   complexity    Compare deterministic work, layout, allocation, and payload costs.
   jvm           Inspect JVM capacity, bounded work, and atomic file publication.
+  linear-algebra Inspect rank, eigen residuals, conditioning, and low-rank structure.
+  statistics    Estimate uncertainty and probability calibration.
   xor           Train a small MLP to solve XOR.
   bigram        Train the simpler pre-Transformer language model.
   test          Compile the repository and run every automated test.
@@ -168,6 +170,24 @@ run_jvm() {
   run_main jvm
 }
 
+run_linear_algebra() {
+  explain \
+    "Deeper linear algebra" \
+    "Pivoted elimination measures rank, power iteration estimates a dominant eigenpair, and a 2x2 reference exposes singular values and conditioning." \
+    "Inspect the eigen residual and distinguish rank, singular strength, and sensitivity." \
+    "The SVD path is intentionally 2x2 and is not a production numerical linear-algebra library."
+  run_main linear-algebra
+}
+
+run_statistics() {
+  explain \
+    "Statistical inference and calibration" \
+    "Sample estimates retain standard error and interval evidence; binary forecasts are grouped into reliability bins and summarized by weighted calibration error." \
+    "Check sample count, interval width, every populated bin, and the aggregate ECE." \
+    "A normal approximation and binned ECE do not establish representativeness, independence, or causal validity."
+  run_main statistics
+}
+
 run_xor() {
   explain \
     "Scalar autodiff and XOR MLP" \
@@ -211,6 +231,8 @@ case "${1:-help}" in
   foundations) run_foundations ;;
   complexity) run_complexity ;;
   jvm) run_jvm ;;
+  linear-algebra) run_linear_algebra ;;
+  statistics) run_statistics ;;
   xor) run_xor ;;
   bigram) run_bigram ;;
   test) run_tests ;;

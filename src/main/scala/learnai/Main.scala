@@ -9,6 +9,8 @@ import learnai.learning.runGradientDescentLab
 import learnai.lm.trainBigram
 import learnai.math.runFloatingPointLab
 import learnai.math.runGradientLab
+import learnai.math.runLinearAlgebraLab
+import learnai.math.runStatisticsLab
 import learnai.nn.trainXor
 import learnai.quantization.runInt8QuantizationLab
 import learnai.training.runMiniGptTrainingLab
@@ -41,6 +43,16 @@ object Main:
       () => runFloatingPointLab()
     ),
     Lesson("calculus", "finite differences and analytical gradients", () => runGradientLab()),
+    Lesson(
+      "linear-algebra",
+      "inspect rank, eigen residuals, singular values, and conditioning",
+      () => runLinearAlgebraLab()
+    ),
+    Lesson(
+      "statistics",
+      "estimate uncertainty and probability calibration",
+      () => runStatisticsLab()
+    ),
     Lesson(
       "gradient-descent",
       "fit a scalar parameter by optimization",
